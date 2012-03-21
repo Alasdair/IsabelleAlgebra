@@ -647,6 +647,12 @@ qed
 
 context complete_lattice
 begin
+  definition is_pp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "is_pp x f \<equiv> f x \<le> x"
+
+  definition is_lpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "is_lpp x f \<equiv> is_pp x f \<and> (\<forall>y. is_pp y f \<longrightarrow> x \<le> y)"
+
   definition is_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
     "is_fp x f \<equiv> f x = x"
 
@@ -656,17 +662,26 @@ begin
   definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
     "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> y \<le> x)"
 
+  definition least_prefixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
+    "least_prefixpoint f \<equiv> THE x. is_lpp x f"
+
   definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
     "least_fixpoint f \<equiv> THE x. is_lfp x f"
 
   definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
     "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
 
+  lemma lpp_equality [elim?]: "is_lpp x f \<Longrightarrow> \<mu>\<^sub>\<le> f = x"
+    by (simp add: least_prefixpoint_def, rule the_equality, auto, metis antisym is_lpp_def)
+
   lemma lfp_equality [elim?]: "is_lfp x f \<Longrightarrow> \<mu> f = x"
     by (simp add: least_fixpoint_def, rule the_equality, auto, metis antisym is_lfp_def)
 
   lemma gfp_equality [elim?]: "is_gfp x f \<Longrightarrow> \<nu> f = x"
     by (simp add: greatest_fixpoint_def, rule the_equality, auto, metis antisym is_gfp_def)
+
+  lemma fp_is_pp: "is_fp x f \<Longrightarrow> is_pp x f"
+    by (metis eq_refl is_fp_def is_pp_def)
 end
 
 (* Wenzel's proof of the Knaster-Tarski theorem *)
@@ -701,8 +716,38 @@ proof
   qed
 qed
 
-corollary is_lfp_lfp: "f \<in> mono \<Longrightarrow> is_lfp (\<mu> f) f"
+corollary knaster_tarski_var: "f \<in> mono \<Longrightarrow> \<exists>!x. is_lfp x f"
   using knaster_tarski by (metis lfp_equality)
+
+corollary is_lfp_lfp [intro?]: "f \<in> mono \<Longrightarrow> is_lfp (\<mu> f) f"
+  using knaster_tarski by (metis lfp_equality)
+
+corollary lpp_exists:
+  assumes fmon: "f \<in> mono"
+  obtains a :: "'a::complete_lattice" where "is_lpp a f"
+proof
+  have mono: "\<And>x y. x \<le> y \<Longrightarrow> f x \<le> f y" using fmon by (metis mem_def monoD)
+  let ?H = "{u. f u \<le> u}"
+  let ?a = "\<Pi> ?H"
+  show "is_lpp ?a f"
+  proof (simp add: is_lpp_def is_pp_def, safe)
+    show "f ?a \<le> ?a"
+    proof
+      fix x assume x: "x \<in> ?H"
+      hence "?a \<le> x" ..
+      hence "f ?a \<le> f x" by (rule mono)
+      also from x have "... \<le> x" ..
+      finally show "f ?a \<le> x" .
+    qed
+  next
+    fix y
+    show "f y \<le> y \<Longrightarrow> \<Pi> {u. f u \<le> u} \<le> y"
+      by (metis Collect_def glb_least mem_def order_refl)
+  qed
+qed
+
+lemma is_lpp_lpp [intro?]: "f \<in> mono \<Longrightarrow> is_lpp (\<mu>\<^sub>\<le> f) f"
+  using lpp_exists by (metis lpp_equality)
 
 theorem knaster_tarski_greatest:
   assumes fmon: "f \<in> mono"
@@ -734,7 +779,32 @@ proof
   qed
 qed
 
-corollary is_gfp_gfp: "f \<in> mono \<Longrightarrow> is_gfp (\<nu> f) f"
+corollary is_gfp_gfp [intro?]: "f \<in> mono \<Longrightarrow> is_gfp (\<nu> f) f"
   using knaster_tarski_greatest by (metis gfp_equality)
+
+lemma lpp_is_fp: "\<lbrakk>f \<in> mono; is_lpp x f\<rbrakk> \<Longrightarrow> is_fp x f"
+proof (simp add: is_lpp_def is_fp_def is_pp_def, safe)
+  assume fmon: "f \<in> mono" and pp: "f x \<le> x" and least: "\<forall>y. f y \<le> y \<longrightarrow> x \<le> y"
+  thus "f x = x" by (metis mem_def monoD order_antisym_conv)
+qed
+
+lemma lpp_uniqness: "\<lbrakk>is_lpp x f; is_lpp y f\<rbrakk> \<Longrightarrow> x = y"
+  by (metis lpp_equality)
+
+lemma lpp_less_pp: "\<lbrakk>is_lpp x f; is_pp y f\<rbrakk> \<Longrightarrow> x \<le> y" by (simp add: is_lpp_def is_pp_def)
+
+lemma fixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
+  by (metis is_lpp_lpp lpp_is_fp is_fp_def)
+
+lemma fixpoint_induction:
+  assumes fmon: "f \<in> mono"
+  and pp: "f x \<le> x" shows "\<mu>\<^sub>\<le> f \<le> x"
+proof (unfold least_prefixpoint_def, rule the1I2)
+  show "\<exists>!x. is_lpp x f" using lpp_exists by (metis fmon lpp_equality)
+next
+  fix y
+  have "is_pp x f" using pp by (simp add: is_pp_def)
+  thus "is_lpp y f \<Longrightarrow> y \<le> x" by (metis lpp_less_pp)
+qed
 
 end

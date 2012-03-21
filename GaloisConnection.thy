@@ -658,11 +658,20 @@ begin
 
   definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
     "least_fixpoint f \<equiv> THE x. is_lfp x f"
+
+  definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
+    "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
+
+  lemma lfp_equality [elim?]: "is_lfp x f \<Longrightarrow> \<mu> f = x"
+    by (simp add: least_fixpoint_def, rule the_equality, auto, metis antisym is_lfp_def)
+
+  lemma gfp_equality [elim?]: "is_gfp x f \<Longrightarrow> \<nu> f = x"
+    by (simp add: greatest_fixpoint_def, rule the_equality, auto, metis antisym is_gfp_def)
 end
 
 (* Wenzel's proof of the Knaster-Tarski theorem *)
 
-theorem knaster_tarski_least:
+theorem knaster_tarski:
   assumes fmon: "f \<in> mono"
   obtains a :: "'a::complete_lattice" where "is_lfp a f"
 proof
@@ -691,6 +700,9 @@ proof
       by (metis Collect_def glb_least mem_def order_refl)
   qed
 qed
+
+corollary is_lfp_lfp: "f \<in> mono \<Longrightarrow> is_lfp (\<mu> f) f"
+  using knaster_tarski by (metis lfp_equality)
 
 theorem knaster_tarski_greatest:
   assumes fmon: "f \<in> mono"
@@ -721,5 +733,8 @@ proof
       by (metis Collect_def complete_lattice_class.lub_least mem_def order_refl)
   qed
 qed
+
+corollary is_gfp_gfp: "f \<in> mono \<Longrightarrow> is_gfp (\<nu> f) f"
+  using knaster_tarski_greatest by (metis gfp_equality)
 
 end

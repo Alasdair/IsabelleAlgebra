@@ -616,8 +616,8 @@ theorem lower_exists: "(\<exists>f. cl_galois_connection f g) = (mono g \<and> u
 theorem sup_eq:
   assumes conn: "cl_galois_connection f g"
   and xrange: "X \<subseteq> range g"
-  and lex: "\<exists>x. is_sub_lub x X (range g)"v
-  and cpr: "sub_lub (range g) X \<le> g (f (\<Sigma> X))"
+  and lex: "\<exists>x. is_sub_lub x X (range g)"
+  and cpr: "sub_lub (range g) X \<le> g (f (\<Sigma> X))" (* Should be able to prove this *)
   shows "sub_lub (range g) X = g (f (\<Sigma> X))"
 proof -
   have "g (f (sub_lub UNIV X)) \<le> g (f (sub_lub (range g) X))"
@@ -643,6 +643,83 @@ proof -
     thus ?thesis using poset_galois perfect1 conn by metis
   qed
   ultimately show ?thesis using cpr by (metis order_eq_iff sub_lub_univ)
+qed
+
+context complete_lattice
+begin
+  definition is_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "is_fp x f \<equiv> f x = x"
+
+  definition is_lfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "is_lfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> x \<le> y)"
+
+  definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> y \<le> x)"
+
+  definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
+    "least_fixpoint f \<equiv> THE x. is_lfp x f"
+end
+
+(* Wenzel's proof of the Knaster-Tarski theorem *)
+
+theorem knaster_tarski_least:
+  assumes fmon: "f \<in> mono"
+  obtains a :: "'a::complete_lattice" where "is_lfp a f"
+proof
+  have mono: "\<And>x y. x \<le> y \<Longrightarrow> f x \<le> f y" using fmon by (metis mem_def monoD)
+  let ?H = "{u. f u \<le> u}"
+  let ?a = "\<Pi> ?H"
+  show "is_lfp ?a f"
+  proof (simp add: is_lfp_def is_fp_def, safe)
+    have ge: "f ?a \<le> ?a"
+    proof
+      fix x assume x: "x \<in> ?H"
+      hence "?a \<le> x" ..
+      hence "f ?a \<le> f x" by (rule mono)
+      also from x have "... \<le> x" ..
+      finally show "f ?a \<le> x" .
+    qed
+    also have "?a \<le> f ?a"
+    proof
+      from ge have "f (f ?a) \<le> f ?a" by (rule mono)
+      thus "f ?a \<in> ?H" ..
+    qed
+    finally show "f ?a = ?a" .
+  next
+    fix y
+    show "f y = y \<Longrightarrow> \<Pi> {u. f u \<le> u} \<le> y"
+      by (metis Collect_def glb_least mem_def order_refl)
+  qed
+qed
+
+theorem knaster_tarski_greatest:
+  assumes fmon: "f \<in> mono"
+  obtains a :: "'a::complete_lattice" where "is_gfp a f"
+proof
+  have mono: "\<And>x y. x \<le> y \<Longrightarrow> f x \<le> f y" using fmon by (metis mem_def monoD)
+  let ?H = "{u. u \<le> f u}"
+  let ?a = "\<Sigma> ?H"
+  show "is_gfp ?a f"
+  proof (simp add: is_gfp_def is_fp_def, safe)
+    have le: "?a \<le> f ?a"
+    proof
+      fix x assume x: "x \<in> ?H"
+      hence "x \<le> ?a" ..
+      hence "f x \<le> f ?a" by (rule mono)
+      moreover from x have "x \<le> f x" ..
+      ultimately show "x \<le> f ?a" by (metis order_trans)
+    qed
+    also have "f ?a \<le> ?a"
+    proof
+      from le have "f ?a \<le> f (f ?a)" by (rule mono)
+      thus "f ?a \<in> ?H" ..
+    qed
+    finally show "f ?a = ?a" ..
+  next
+    fix y
+    show "f y = y \<Longrightarrow> y \<le> \<Sigma> {u. u \<le> f u}"
+      by (metis Collect_def complete_lattice_class.lub_least mem_def order_refl)
+  qed
 qed
 
 end

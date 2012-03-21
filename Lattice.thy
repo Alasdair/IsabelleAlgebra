@@ -29,16 +29,17 @@ definition lub :: "'a set \<Rightarrow> 'a" ("\<Sigma>") where
 lemma the_lub_leq: "\<lbrakk>\<exists>z. is_lub z X; \<And>z. is_lub z X \<longrightarrow> z \<le> x\<rbrakk> \<Longrightarrow> \<Sigma> X \<le> x"
   by (metis is_lub_unique lub_def the_equality)
 
-lemma lub_is_lub: "is_lub w A \<Longrightarrow> \<Sigma> A = w"
-  by (metis is_lub_unique lub_def the_equality)
+lemma singleton_lub: "\<Sigma> {y} = y"
+  by (simp only: lub_def, rule the_equality, simp_all add: is_lub_def is_ub_def, metis eq_iff)
 
-(*
-lemma lub_is_lub_var: "\<exists>w\<in>A. (\<Sigma> A = w \<longrightarrow> is_lub w A)"
-  apply (simp add: lub_def)
-proof (rule exE)
-  apply (rule the_equality)
-  by (metis (full_types) eq_iff is_lub_def is_ub_def)
-*)
+lemma surjective_lub: "surj \<Sigma>"
+proof (simp only: surj_def, clarify)
+  fix y
+  show "\<exists>x. y = \<Sigma> x" by (metis singleton_lub)
+qed
+
+lemma lub_is_lub [elim?]: "is_lub w A \<Longrightarrow> \<Sigma> A = w"
+  by (metis is_lub_unique lub_def the_equality)
 
 definition is_lb :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
   "is_lb x A \<longleftrightarrow> (\<forall>y\<in>A. x \<le> y)"
@@ -58,18 +59,8 @@ definition glb :: "'a set \<Rightarrow> 'a" ("\<Pi>") where
 lemma the_glb_leq: "\<lbrakk>\<exists>z. is_glb z X; \<And>z. is_glb z X \<longrightarrow> x \<le> z\<rbrakk> \<Longrightarrow> x \<le> \<Pi> X"
   by (metis glb_def is_glb_unique the_equality)
 
-lemma glb_is_glb: "is_glb w A \<Longrightarrow> \<Pi> A = w"
+lemma glb_is_glb [elim?]: "is_glb w A \<Longrightarrow> \<Pi> A = w"
 by (metis is_glb_unique glb_def the_equality)
-
-(*
-lemma glb_is_glb_var: "\<exists>w. \<Pi> A = w \<longrightarrow> is_glb w A"
-by (metis (full_types) eq_iff is_glb_def is_lb_def)
-*)
-
-(*
-lemma glb_is_glb_var2: "\<exists>w. \<Pi> A = w \<longrightarrow> (\<exists>w. is_glb w A)"
-by (metis (full_types) glb_is_glb_var)
-*)
 
 lemma is_glb_from_is_lub: "\<lbrakk>x \<in> A; is_lub x {b. \<forall>a\<in>A. b \<le> a}\<rbrakk> \<Longrightarrow> is_glb x A"
   by (simp add: is_lub_def is_ub_def is_glb_def is_lb_def)
@@ -97,18 +88,50 @@ begin
   lemma top_ax: "\<exists>t. \<forall>x. x \<le> t" by (metis empty_iff glb_ex is_glb_def)
   lemma bot_ax: "\<exists>b. \<forall>x. b \<le> x" by (metis emptyE is_lub_def lub_ex)
 
-  definition Top :: "'a" where "Top \<equiv> SOME x. \<forall> y. y \<le> x"
-  definition Bot :: "'a" where "Bot \<equiv> SOME x. \<forall> y. x \<le> y"
+  definition Top :: "'a" ("\<top>") where "Top \<equiv> SOME x. \<forall> y. y \<le> x"
+  definition Bot :: "'a" ("\<bottom>") where "Bot \<equiv> SOME x. \<forall> y. x \<le> y"
 
-  lemma prop_top: "\<forall>x. x \<le> Top"
+  lemma prop_top: "\<forall>x. x \<le> \<top>"
   apply (simp only: Top_def)
   apply (rule someI_ex)
   by (simp add: top_ax)
 
-  lemma prop_bot: "\<forall>x. Bot \<le> x"
+  lemma prop_bot: "\<forall>x. \<bottom> \<le> x"
   apply (simp only: Bot_def)
   apply (rule someI_ex)
   by (simp add: bot_ax)
+
+  lemma is_lub_lub [intro?]: "is_lub (\<Sigma> X) X"
+  proof (unfold lub_def)
+    from lub_ex obtain \<sigma> where "is_lub \<sigma> X" ..
+    thus "is_lub (THE \<sigma>. is_lub \<sigma> X) X" by (metis lub_def lub_is_lub)
+  qed
+
+  lemma is_glb_glb [intro?]: "is_glb (\<Pi> X) X"
+  proof (unfold glb_def)
+    from glb_ex obtain \<pi> where "is_glb \<pi> X" ..
+    thus "is_glb (THE \<pi>. is_glb \<pi> X) X" by (metis glb_def glb_is_glb)
+  qed
+
+  lemma glb_greatest [intro?]: "(\<And>y. y \<in> X \<Longrightarrow> x \<le> y) \<Longrightarrow> x \<le> \<Pi> X"
+    by (metis is_glb_def is_glb_glb)
+
+  lemma glb_least [intro?]: "x \<in> X \<Longrightarrow> \<Pi> X \<le> x"
+    by (metis is_glb_def is_glb_glb is_lb_def)
+
+  lemma lub_greatest [intro?]: "(\<And>y. y \<in> X \<Longrightarrow> y \<le> x) \<Longrightarrow> \<Sigma> X \<le> x"
+    by (metis is_lub_eqiv is_lub_lub)
+
+  lemma lub_least [intro?]: "x \<in> X \<Longrightarrow> x \<le> \<Sigma> X"
+    by (metis is_lub_def is_lub_lub is_ub_def)
+
+  lemma empty_lub: "\<Sigma> {} = \<bottom>" by (metis emptyE is_lub_eqiv lub_is_lub prop_bot)
+
+  lemma univ_lub: "\<Sigma> UNIV = \<top>" by (metis eq_iff is_lub_eqiv iso_tuple_UNIV_I lub_is_lub prop_top)
+
+  lemma empty_glb: "\<Pi> {} = \<top>" by (metis empty_iff glb_is_glb is_glb_def is_lb_def prop_top)
+
+  lemma univ_glb: "\<Pi> UNIV = \<bottom>" by (metis eq_iff glb_is_glb is_glb_eqiv iso_tuple_UNIV_I prop_bot)
 end
 
 definition order_monomorphism :: "('a::order \<Rightarrow> 'b::order) set" where
@@ -119,23 +142,5 @@ definition order_isomorphism :: "('a::order \<Rightarrow> 'b::order) set" where
 
 lemma order_monomorphism_inj: "order_monomorphism f \<Longrightarrow> inj f"
   by (simp add: order_monomorphism_def inj_on_def order_eq_iff)
-
-lemma singleton_lub: "\<Sigma> {y} = y"
-apply (simp only: lub_def)
-apply (rule the_equality)
-apply (simp_all add: is_lub_def is_ub_def)
-by (metis order_eq_iff)
-
-lemma empty_lub: "\<Sigma> {} = Bot" by (metis emptyE is_lub_eqiv lub_is_lub prop_bot)
-
-lemma empty_lub_var: "\<Sigma> {} = (THE x. \<forall>y. x \<le> y)"
-  by (simp add: lub_def is_lub_def is_ub_def All_def)
-
-lemma surjective_lub: "surj \<Sigma>"
-apply (simp only: surj_def)
-proof
-  fix y
-  show "\<exists>x. y = \<Sigma> x" by (metis singleton_lub)
-qed
 
 end

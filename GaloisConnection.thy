@@ -810,7 +810,7 @@ lemma lfp_less_fp: "\<lbrakk>is_lfp x f; is_fp y f\<rbrakk> \<Longrightarrow> x 
 lemma prefixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
   by (metis is_lpp_lpp lpp_is_fp is_fp_def)
 
-lemma fixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu> f) = \<mu> f"
+lemma fixpoint_computation [simp]: "f \<in> mono \<Longrightarrow> f (\<mu> f) = \<mu> f"
   by (metis is_lpp_lpp lfp_equality lpp_is_lfp prefixpoint_computation)
 
 lemma prefixpoint_induction:
@@ -824,7 +824,7 @@ next
   thus "is_lpp y f \<Longrightarrow> y \<le> x" by (metis lpp_less_pp)
 qed
 
-lemma fixpoint_induction:
+lemma fixpoint_induction [intro?]:
   assumes fmon: "f \<in> mono"
   and fp: "f x \<le> x" shows "\<mu> f \<le> x"
   by (metis fmon fp is_lpp_lpp lfp_equality lpp_is_lfp prefixpoint_induction)
@@ -852,9 +852,9 @@ lemma fixpoint_mono:
   and fg: "f \<sqsubseteq> g" shows "\<mu> f \<le> \<mu> g"
 proof -
   show "\<mu> f \<le> \<mu> g" using fmon
-  proof (rule fixpoint_induction)
+  proof
     have "f (\<mu> g) \<le> g (\<mu> g)" using fg unfolding pleq_def ..
-    thus "f (\<mu> g) \<le> \<mu> g" by (metis gmon fixpoint_computation)
+    thus "f (\<mu> g) \<le> \<mu> g" using gmon by simp
   qed
 qed
 
@@ -863,17 +863,15 @@ lemma fixpoint_rolling: assumes conn: "galois_connection f g"
   shows "f (\<mu> (g \<circ> f)) = \<mu> (f \<circ> g)"
 proof (rule order_antisym)
   show "\<mu> (f \<circ> g) \<le> f (\<mu> (g \<circ> f))"
-  proof (rule fixpoint_induction)
+  proof
     show "f \<circ> g \<in> mono" by (metis conn galois_mono2)
-  next
     show "(f \<circ> g) (f (\<mu> (g \<circ> f))) \<le> f (\<mu> (g \<circ> f))"
       by (metis conn o_apply order_refl semi_inverse1)
   qed
 next
   have "\<mu> (g \<circ> f) \<le> g (\<mu> (f \<circ> g))"
-  proof (rule fixpoint_induction)
+  proof
     show "g \<circ> f \<in> mono" by (metis conn galois_mono1)
-  next
     show "(g \<circ> f) (g (\<mu> (f \<circ> g))) \<le> g (\<mu> (f \<circ> g))"
       by (metis assms o_def order_eq_iff semi_inverse2)
   qed
@@ -891,11 +889,10 @@ proof (rule order_antisym)
 next
   obtain g where conn: "galois_connection f g" using upper_ex ..
   have "\<mu> h \<le> g (\<mu> k)" using hmon
-  proof (rule fixpoint_induction)
+  proof
     have "f (g (\<mu> k)) \<le> \<mu> k" by (metis conn galois_connection.deflation)
     hence "k (f (g (\<mu> k))) \<le> k (\<mu> k)" by (metis kmon mem_def monoD)
-    hence "k (f (g (\<mu> k))) \<le> \<mu> k" by (metis fixpoint_computation kmon)
-    hence "f (h (g (\<mu> k))) \<le> \<mu> k" by (metis comp o_def)
+    hence "f (h (g (\<mu> k))) \<le> \<mu> k" using kmon by (simp, metis comp o_def)
     thus "h (g (\<mu> k)) \<le> g (\<mu> k)" by (metis conn galois_connection.galois_property)
   qed
   thus "f (\<mu> h) \<le> \<mu> k" by (metis galois_connection.galois_property conn)

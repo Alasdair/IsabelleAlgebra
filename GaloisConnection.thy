@@ -92,6 +92,14 @@ proof -
   ultimately show "G \<circ> F \<in> mono" by (simp add: mem_def mono_def)
 qed
 
+lemma galois_mono2: "galois_connection F G \<Longrightarrow> F \<circ> G \<in> mono"
+proof -
+  assume g: "galois_connection F G"
+  hence "G \<in> mono" using galois_connection.upper_mono by auto
+  moreover have "F \<in> mono" using g galois_connection.lower_mono by auto
+  ultimately show "F \<circ> G \<in> mono" by (simp add: mem_def mono_def)
+qed
+
 lemma point_id1: "galois_connection F G \<Longrightarrow> id \<sqsubseteq> G \<circ> F"
   by (metis galois_connection.inflation id_apply o_apply pleq_def)
 
@@ -788,15 +796,24 @@ proof (simp add: is_lpp_def is_fp_def is_pp_def, safe)
   thus "f x = x" by (metis mem_def monoD order_antisym_conv)
 qed
 
+lemma lpp_is_lfp: "\<lbrakk>f \<in> mono; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
+  apply (simp add: is_lpp_def is_lfp_def is_pp_def is_fp_def, safe)
+  by (metis mem_def monoD order_eq_iff)
+
 lemma lpp_uniqness: "\<lbrakk>is_lpp x f; is_lpp y f\<rbrakk> \<Longrightarrow> x = y"
   by (metis lpp_equality)
 
 lemma lpp_less_pp: "\<lbrakk>is_lpp x f; is_pp y f\<rbrakk> \<Longrightarrow> x \<le> y" by (simp add: is_lpp_def is_pp_def)
 
-lemma fixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
+lemma lfp_less_fp: "\<lbrakk>is_lfp x f; is_fp y f\<rbrakk> \<Longrightarrow> x \<le> y" by (simp add: is_lfp_def is_fp_def)
+
+lemma prefixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
   by (metis is_lpp_lpp lpp_is_fp is_fp_def)
 
-lemma fixpoint_induction:
+lemma fixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu> f) = \<mu> f"
+  by (metis is_lpp_lpp lfp_equality lpp_is_lfp prefixpoint_computation)
+
+lemma prefixpoint_induction:
   assumes fmon: "f \<in> mono"
   and pp: "f x \<le> x" shows "\<mu>\<^sub>\<le> f \<le> x"
 proof (unfold least_prefixpoint_def, rule the1I2)
@@ -805,6 +822,100 @@ next
   fix y
   have "is_pp x f" using pp by (simp add: is_pp_def)
   thus "is_lpp y f \<Longrightarrow> y \<le> x" by (metis lpp_less_pp)
+qed
+
+lemma fixpoint_induction:
+  assumes fmon: "f \<in> mono"
+  and fp: "f x \<le> x" shows "\<mu> f \<le> x"
+  by (metis fmon fp is_lpp_lpp lfp_equality lpp_is_lfp prefixpoint_induction)
+
+lemma prefixpoint_comp: "\<lbrakk>k \<in> mono; g\<circ>k \<sqsubseteq> k\<circ>h; is_pp x h\<rbrakk> \<Longrightarrow> is_pp (k x) g"
+proof (unfold is_pp_def)
+  assume "h x \<le> x" and kmon: "k \<in> mono" and comp: "g\<circ>k \<sqsubseteq> k\<circ>h"
+  hence "k (h x) \<le> k x" by (metis mem_def monoD)
+  moreover have "g (k x) \<le> (k (h x))" using comp by (simp add: pleq_def)
+  ultimately show "g (k x) \<le> k x" by (metis xt1(6))
+qed
+
+lemma fixpoint_compose:
+  assumes kmon: "k \<in> mono" and comp: "g\<circ>k = k\<circ>h" and fp: "is_fp x h"
+  shows "is_fp (k x) g"
+proof (unfold is_fp_def)
+  have "h x = x" using fp by (unfold is_fp_def)
+  hence "k (h x) = k x" using kmon by (metis mem_def monoD)
+  moreover have "g (k x) = (k (h x))" using comp by (metis o_def)
+  ultimately show "g (k x) = k x" by metis
+qed
+
+lemma fixpoint_mono:
+  assumes fmon: "f \<in> mono" and gmon: "g \<in> mono"
+  and fg: "f \<sqsubseteq> g" shows "\<mu> f \<le> \<mu> g"
+proof -
+  show "\<mu> f \<le> \<mu> g" apply (simp add: least_fixpoint_def)
+  proof (rule the1I2)
+    show "\<exists>!x. is_lfp x g"
+      by (metis gmon is_lfp_lfp lfp_equality)
+  next
+    fix x assume glfp: "is_lfp x g"
+    show "(THE y. is_lfp y f) \<le> x"
+    proof (rule the1I2)
+      show "\<exists>!x. is_lfp x f"
+        by (metis fmon is_lfp_lfp lfp_equality)
+    next
+      fix y assume flfp: "is_lfp y f"
+      show "y \<le> x"
+      proof -
+        have "f y = y" by (metis fixpoint_computation flfp fmon lfp_equality)
+        moreover have "g x = x" by (metis fixpoint_computation glfp gmon lfp_equality)
+        moreover have "f y \<le> g x" using fg unfolding pleq_def
+          by (metis calculation(1) calculation(2) fixpoint_induction flfp fmon lfp_equality)
+        ultimately show "y \<le> x" by metis
+      qed
+    qed
+  qed
+qed
+
+(* We don't really need f and g to be adjoints here *)
+lemma fixpoint_rolling: assumes conn: "galois_connection f g"
+  shows "f (\<mu> (g \<circ> f)) = \<mu> (f \<circ> g)"
+proof (rule order_antisym)
+  show "\<mu> (f \<circ> g) \<le> f (\<mu> (g \<circ> f))"
+  proof (rule fixpoint_induction)
+    show "f \<circ> g \<in> mono" by (metis conn galois_mono2)
+  next
+    show "(f \<circ> g) (f (\<mu> (g \<circ> f))) \<le> f (\<mu> (g \<circ> f))"
+      by (metis conn o_apply order_refl semi_inverse1)
+  qed
+next
+  have "\<mu> (g \<circ> f) \<le> g (\<mu> (f \<circ> g))"
+  proof (rule fixpoint_induction)
+    show "g \<circ> f \<in> mono" by (metis conn galois_mono1)
+  next
+    show "(g \<circ> f) (g (\<mu> (f \<circ> g))) \<le> g (\<mu> (f \<circ> g))"
+      by (metis assms o_def order_eq_iff semi_inverse2)
+  qed
+  thus "f (\<mu> (g \<circ> f)) \<le> \<mu> (f \<circ> g)" by (metis assms galois_ump1)
+qed
+
+theorem fixpoint_fusion:
+  assumes upper_ex: "\<exists>g. galois_connection f g"
+  and hmon: "h \<in> mono" and kmon: "k \<in> mono"
+  and comp: "f\<circ>h = k\<circ>f"
+  shows "f (\<mu> h) = \<mu> k"
+proof (rule order_antisym)
+  show "\<mu> k \<le> f (\<mu> h)"
+    by (metis comp fixpoint_computation fixpoint_induction hmon kmon o_apply order_refl)
+next
+  obtain g where conn: "galois_connection f g" using upper_ex ..
+  have "\<mu> h \<le> g (\<mu> k)" using hmon
+  proof (rule fixpoint_induction)
+    have "f (g (\<mu> k)) \<le> \<mu> k" by (metis conn galois_connection.deflation)
+    hence "k (f (g (\<mu> k))) \<le> k (\<mu> k)" by (metis kmon mem_def monoD)
+    hence "k (f (g (\<mu> k))) \<le> \<mu> k" by (metis fixpoint_computation kmon)
+    hence "f (h (g (\<mu> k))) \<le> \<mu> k" by (metis comp o_def)
+    thus "h (g (\<mu> k)) \<le> g (\<mu> k)" by (metis conn galois_connection.galois_property)
+  qed
+  thus "f (\<mu> h) \<le> \<mu> k" by (metis galois_connection.galois_property conn)
 qed
 
 end

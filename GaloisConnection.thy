@@ -851,27 +851,10 @@ lemma fixpoint_mono:
   assumes fmon: "f \<in> mono" and gmon: "g \<in> mono"
   and fg: "f \<sqsubseteq> g" shows "\<mu> f \<le> \<mu> g"
 proof -
-  show "\<mu> f \<le> \<mu> g" apply (simp add: least_fixpoint_def)
-  proof (rule the1I2)
-    show "\<exists>!x. is_lfp x g"
-      by (metis gmon is_lfp_lfp lfp_equality)
-  next
-    fix x assume glfp: "is_lfp x g"
-    show "(THE y. is_lfp y f) \<le> x"
-    proof (rule the1I2)
-      show "\<exists>!x. is_lfp x f"
-        by (metis fmon is_lfp_lfp lfp_equality)
-    next
-      fix y assume flfp: "is_lfp y f"
-      show "y \<le> x"
-      proof -
-        have "f y = y" by (metis fixpoint_computation flfp fmon lfp_equality)
-        moreover have "g x = x" by (metis fixpoint_computation glfp gmon lfp_equality)
-        moreover have "f y \<le> g x" using fg unfolding pleq_def
-          by (metis calculation(1) calculation(2) fixpoint_induction flfp fmon lfp_equality)
-        ultimately show "y \<le> x" by metis
-      qed
-    qed
+  show "\<mu> f \<le> \<mu> g" using fmon
+  proof (rule fixpoint_induction)
+    have "f (\<mu> g) \<le> g (\<mu> g)" using fg unfolding pleq_def ..
+    thus "f (\<mu> g) \<le> \<mu> g" by (metis gmon fixpoint_computation)
   qed
 qed
 

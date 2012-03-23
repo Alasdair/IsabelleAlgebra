@@ -617,7 +617,7 @@ theorem lower_exists: "(\<exists>f. cl_galois_connection f g) = (mono g \<and> u
   using univ_glb_is_ex lower_exists_ex galois_univ_glb_junc by auto
 
 (* +------------------------------------------------------------------------+
-   | Theorems 4.39                                                          |
+   | Theorem 4.39                                                           |
    +------------------------------------------------------------------------+ *)
 
 
@@ -653,13 +653,17 @@ proof -
   ultimately show ?thesis using cpr by (metis order_eq_iff sub_lub_univ)
 qed
 
+(* +------------------------------------------------------------------------+
+   | Fixpoints and Prefix Points                                            |
+   +------------------------------------------------------------------------+ *)
+
 context complete_lattice
 begin
-  definition is_pp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_pp x f \<equiv> f x \<le> x"
-
   definition is_lpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_lpp x f \<equiv> is_pp x f \<and> (\<forall>y. is_pp y f \<longrightarrow> x \<le> y)"
+    "is_lpp x f \<equiv> f x \<le> x \<and> (\<forall>y. f y \<le> y \<longrightarrow> x \<le> y)"
+
+  definition is_gpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "is_gpp x f \<equiv> x \<le> f x \<and> (\<forall>y. y \<le> f y \<longrightarrow> y \<le> x)"
 
   definition is_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
     "is_fp x f \<equiv> f x = x"
@@ -670,27 +674,48 @@ begin
   definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
     "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> y \<le> x)"
 
-  definition least_prefixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
-    "least_prefixpoint f \<equiv> THE x. is_lpp x f"
+  definition least_prefix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
+    "least_prefix_point f \<equiv> THE x. is_lpp x f"
+
+  definition greatest_prefix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^sub>\<le>") where
+    "greatest_prefix_point f \<equiv> THE x. is_gpp x f"
 
   definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
     "least_fixpoint f \<equiv> THE x. is_lfp x f"
 
   definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
     "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
-
-  lemma lpp_equality [elim?]: "is_lpp x f \<Longrightarrow> \<mu>\<^sub>\<le> f = x"
-    by (simp add: least_prefixpoint_def, rule the_equality, auto, metis antisym is_lpp_def)
-
-  lemma lfp_equality [elim?]: "is_lfp x f \<Longrightarrow> \<mu> f = x"
-    by (simp add: least_fixpoint_def, rule the_equality, auto, metis antisym is_lfp_def)
-
-  lemma gfp_equality [elim?]: "is_gfp x f \<Longrightarrow> \<nu> f = x"
-    by (simp add: greatest_fixpoint_def, rule the_equality, auto, metis antisym is_gfp_def)
-
-  lemma fp_is_pp: "is_fp x f \<Longrightarrow> is_pp x f"
-    by (metis eq_refl is_fp_def is_pp_def)
 end
+
+lemma lpp_equality [intro?]: "is_lpp x f \<Longrightarrow> \<mu>\<^sub>\<le> f = x"
+  by (simp add: least_prefix_point_def, rule the_equality, auto, metis antisym is_lpp_def)
+
+lemma gpp_equality [intro?]: "is_gpp x f \<Longrightarrow> \<nu>\<^sub>\<le> f = x"
+  by (simp add: greatest_prefix_point_def, rule the_equality, auto, metis antisym is_gpp_def)
+
+lemma lfp_equality: "is_lfp x f \<Longrightarrow> \<mu> f = x"
+  by (simp add: least_fixpoint_def, rule the_equality, auto, metis antisym is_lfp_def)
+
+lemma lfp_equality_var [intro?]: "\<lbrakk>f x = x; \<And>y. f y = y \<Longrightarrow> x \<le> y\<rbrakk> \<Longrightarrow> x = \<mu> f"
+  by (rule lfp_equality[symmetric], simp add: is_lfp_def is_fp_def)
+
+lemma gfp_equality: "is_gfp x f \<Longrightarrow> \<nu> f = x"
+  by (simp add: greatest_fixpoint_def, rule the_equality, auto, metis antisym is_gfp_def)
+
+lemma gfp_equality_var [intro?]: "\<lbrakk>f x = x; \<And>y. f y = y \<Longrightarrow> y \<le> x\<rbrakk> \<Longrightarrow> x = \<nu> f"
+  by (rule gfp_equality[symmetric], simp add: is_gfp_def is_fp_def)
+
+lemma lpp_is_lfp: "\<lbrakk>f \<in> mono; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
+  apply (simp add: is_lpp_def is_lfp_def is_fp_def, safe)
+  by (metis mem_def monoD order_eq_iff)
+
+lemma gpp_is_gfp: "\<lbrakk>f \<in> mono; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
+  apply (simp add: is_gpp_def is_gfp_def is_fp_def, safe)
+  by (metis mem_def monoD order_antisym)
+
+(* +------------------------------------------------------------------------+
+   | Knaster-Tarski                                                         |
+   +------------------------------------------------------------------------+ *)
 
 (* Wenzel's proof of the Knaster-Tarski theorem *)
 
@@ -730,7 +755,7 @@ corollary knaster_tarski_var: "f \<in> mono \<Longrightarrow> \<exists>!x. is_lf
 corollary is_lfp_lfp [intro?]: "f \<in> mono \<Longrightarrow> is_lfp (\<mu> f) f"
   using knaster_tarski by (metis lfp_equality)
 
-corollary lpp_exists:
+lemma lpp_exists:
   assumes fmon: "f \<in> mono"
   obtains a :: "'a::complete_lattice" where "is_lpp a f"
 proof
@@ -738,7 +763,7 @@ proof
   let ?H = "{u. f u \<le> u}"
   let ?a = "\<Pi> ?H"
   show "is_lpp ?a f"
-  proof (simp add: is_lpp_def is_pp_def, safe)
+  proof (simp add: is_lpp_def, safe)
     show "f ?a \<le> ?a"
     proof
       fix x assume x: "x \<in> ?H"
@@ -754,8 +779,10 @@ proof
   qed
 qed
 
-lemma is_lpp_lpp [intro?]: "f \<in> mono \<Longrightarrow> is_lpp (\<mu>\<^sub>\<le> f) f"
+corollary is_lpp_lpp [intro?]: "f \<in> mono \<Longrightarrow> is_lpp (\<mu>\<^sub>\<le> f) f"
   using lpp_exists by (metis lpp_equality)
+
+(* Knaster-Tarski for greatest fixpoints *)
 
 theorem knaster_tarski_greatest:
   assumes fmon: "f \<in> mono"
@@ -787,49 +814,95 @@ proof
   qed
 qed
 
+corollary knaster_tarski_greatest_var: "f \<in> mono \<Longrightarrow> \<exists>!x. is_gfp x f"
+  using knaster_tarski_greatest by (metis gfp_equality)
+
 corollary is_gfp_gfp [intro?]: "f \<in> mono \<Longrightarrow> is_gfp (\<nu> f) f"
   using knaster_tarski_greatest by (metis gfp_equality)
 
-lemma lpp_is_fp: "\<lbrakk>f \<in> mono; is_lpp x f\<rbrakk> \<Longrightarrow> is_fp x f"
-proof (simp add: is_lpp_def is_fp_def is_pp_def, safe)
-  assume fmon: "f \<in> mono" and pp: "f x \<le> x" and least: "\<forall>y. f y \<le> y \<longrightarrow> x \<le> y"
-  thus "f x = x" by (metis mem_def monoD order_antisym_conv)
+lemma gpp_exists:
+  assumes fmon: "f \<in> mono"
+  obtains a :: "'a::complete_lattice" where "is_gpp a f"
+proof
+  have mono: "\<And>x y. x \<le> y \<Longrightarrow> f x \<le> f y" using fmon by (metis mem_def monoD)
+  let ?H = "{u. u \<le> f u}"
+  let ?a = "\<Sigma> ?H"
+  show "is_gpp ?a f"
+  proof (simp add: is_gpp_def, safe)
+    show "?a \<le> f ?a"
+    proof
+      fix x assume x: "x \<in> ?H"
+      hence "x \<le> ?a" ..
+      hence "f x \<le> f ?a" by (rule mono)
+      moreover from x have "x \<le> f x" ..
+      ultimately show "x \<le> f ?a" by (metis order_trans)
+    qed
+  next
+    fix y
+    assume fy: "y \<le> f y"
+    show "y \<le> \<Sigma> {u. u \<le> f u}"
+    proof
+      show "y \<in> {u. u \<le> f u}" by (metis Collect_def fy mem_def)
+    qed
+  qed
 qed
 
-lemma lpp_is_lfp: "\<lbrakk>f \<in> mono; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
-  apply (simp add: is_lpp_def is_lfp_def is_pp_def is_fp_def, safe)
-  by (metis mem_def monoD order_eq_iff)
+corollary is_gpp_gpp [intro?]: "f \<in> mono \<Longrightarrow> is_gpp (\<nu>\<^sub>\<le> f) f"
+  using gpp_exists by (metis gpp_equality)
 
-lemma lpp_uniqness: "\<lbrakk>is_lpp x f; is_lpp y f\<rbrakk> \<Longrightarrow> x = y"
-  by (metis lpp_equality)
+(* +------------------------------------------------------------------------+
+   | Fixpoint Computation                                                   |
+   +------------------------------------------------------------------------+ *)
 
-lemma lpp_less_pp: "\<lbrakk>is_lpp x f; is_pp y f\<rbrakk> \<Longrightarrow> x \<le> y" by (simp add: is_lpp_def is_pp_def)
-
-lemma lfp_less_fp: "\<lbrakk>is_lfp x f; is_fp y f\<rbrakk> \<Longrightarrow> x \<le> y" by (simp add: is_lfp_def is_fp_def)
-
-lemma prefixpoint_computation: "f \<in> mono \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
-  by (metis is_lpp_lpp lpp_is_fp is_fp_def)
+lemma prefix_point_computation [simp]: "f \<in> mono \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
+  by (metis is_lpp_lpp lpp_is_lfp is_lfp_def is_fp_def)
 
 lemma fixpoint_computation [simp]: "f \<in> mono \<Longrightarrow> f (\<mu> f) = \<mu> f"
-  by (metis is_lpp_lpp lfp_equality lpp_is_lfp prefixpoint_computation)
+  by (metis is_lpp_lpp lfp_equality lpp_is_lfp prefix_point_computation)
 
-lemma prefixpoint_induction:
+lemma greatest_prefix_point_computation [simp]: "f \<in> mono \<Longrightarrow> f (\<nu>\<^sub>\<le> f) = \<nu>\<^sub>\<le> f"
+  by (metis is_gpp_gpp gpp_is_gfp is_gfp_def is_fp_def)
+
+lemma greatest_fixpoint_computation [simp]: "f \<in> mono \<Longrightarrow> f (\<nu> f) = \<nu> f"
+  by (metis is_gpp_gpp gfp_equality gpp_is_gfp greatest_prefix_point_computation)
+
+(* +------------------------------------------------------------------------+
+   | Fixpoint Induction                                                     |
+   +------------------------------------------------------------------------+ *)
+
+lemma prefix_point_induction [intro?]:
   assumes fmon: "f \<in> mono"
   and pp: "f x \<le> x" shows "\<mu>\<^sub>\<le> f \<le> x"
-proof (unfold least_prefixpoint_def, rule the1I2)
+proof (unfold least_prefix_point_def, rule the1I2)
   show "\<exists>!x. is_lpp x f" using lpp_exists by (metis fmon lpp_equality)
 next
   fix y
-  have "is_pp x f" using pp by (simp add: is_pp_def)
-  thus "is_lpp y f \<Longrightarrow> y \<le> x" by (metis lpp_less_pp)
+  show "is_lpp y f \<Longrightarrow> y \<le> x" unfolding is_lpp_def by (metis pp)
 qed
 
 lemma fixpoint_induction [intro?]:
   assumes fmon: "f \<in> mono"
   and fp: "f x \<le> x" shows "\<mu> f \<le> x"
-  by (metis fmon fp is_lpp_lpp lfp_equality lpp_is_lfp prefixpoint_induction)
+  by (metis fmon fp is_lpp_lpp lfp_equality lpp_is_lfp prefix_point_induction)
 
-lemma prefixpoint_comp: "\<lbrakk>k \<in> mono; g\<circ>k \<sqsubseteq> k\<circ>h; is_pp x h\<rbrakk> \<Longrightarrow> is_pp (k x) g"
+lemma greatest_prefix_point_induction [intro?]:
+  assumes fmon: "f \<in> mono"
+  and pp: "x \<le> f x" shows "x \<le> \<nu>\<^sub>\<le> f"
+proof (unfold greatest_prefix_point_def, rule the1I2)
+  show "\<exists>!x. is_gpp x f" using gpp_exists by (metis fmon gpp_equality)
+next
+  fix y
+  show "is_gpp y f \<Longrightarrow> x \<le> y" unfolding is_gpp_def by (metis pp)
+qed
+
+lemma greatest_fixpoint_induction [intro?]:
+  assumes fmon: "f \<in> mono"
+  and fp: "x \<le> f x" shows "x \<le> \<nu> f"
+  by (metis fmon fp is_gpp_gpp gfp_equality gpp_is_gfp greatest_prefix_point_induction)
+
+(*
+
+lemma prefix_point_compose: "\<lbrakk>k \<in> mono; g\<circ>k \<sqsubseteq> k\<circ>h; is_pp x h\<rbrakk> \<Longrightarrow> is_pp (k x) g"
 proof (unfold is_pp_def)
   assume "h x \<le> x" and kmon: "k \<in> mono" and comp: "g\<circ>k \<sqsubseteq> k\<circ>h"
   hence "k (h x) \<le> k x" by (metis mem_def monoD)
@@ -847,6 +920,8 @@ proof (unfold is_fp_def)
   ultimately show "g (k x) = k x" by metis
 qed
 
+*)
+
 lemma fixpoint_mono:
   assumes fmon: "f \<in> mono" and gmon: "g \<in> mono"
   and fg: "f \<sqsubseteq> g" shows "\<mu> f \<le> \<mu> g"
@@ -858,44 +933,67 @@ proof -
   qed
 qed
 
-(* We don't really need f and g to be adjoints here *)
-lemma fixpoint_rolling: assumes conn: "galois_connection f g"
-  shows "f (\<mu> (g \<circ> f)) = \<mu> (f \<circ> g)"
-proof (rule order_antisym)
-  show "\<mu> (f \<circ> g) \<le> f (\<mu> (g \<circ> f))"
+lemma greatest_fixpoint_mono:
+  assumes fmon: "f \<in> mono" and gmon: "g \<in> mono"
+  and fg: "f \<sqsubseteq> g" shows "\<nu> f \<le> \<nu> g"
+proof -
+  show "\<nu> f \<le> \<nu> g" using gmon
   proof
-    show "f \<circ> g \<in> mono" by (metis conn galois_mono2)
-    show "(f \<circ> g) (f (\<mu> (g \<circ> f))) \<le> f (\<mu> (g \<circ> f))"
-      by (metis conn o_apply order_refl semi_inverse1)
+    have "f (\<nu> f) \<le> g (\<nu> f)" using fg unfolding pleq_def ..
+    thus "\<nu> f \<le> g (\<nu> f)" using fmon by simp
   qed
-next
-  have "\<mu> (g \<circ> f) \<le> g (\<mu> (f \<circ> g))"
-  proof
-    show "g \<circ> f \<in> mono" by (metis conn galois_mono1)
-    show "(g \<circ> f) (g (\<mu> (f \<circ> g))) \<le> g (\<mu> (f \<circ> g))"
-      by (metis assms o_def order_eq_iff semi_inverse2)
-  qed
-  thus "f (\<mu> (g \<circ> f)) \<le> \<mu> (f \<circ> g)" by (metis assms galois_ump1)
 qed
 
-theorem fixpoint_fusion:
+lemma fixpoint_rolling: assumes conn: "galois_connection f g"
+  shows "f (\<mu> (g \<circ> f)) = \<mu> (f \<circ> g)"
+proof
+  show "(f \<circ> g) (f (\<mu> (g \<circ> f))) = f (\<mu> (g \<circ> f))" by (metis assms o_def semi_inverse1)
+next
+  fix y assume fgy: "(f \<circ> g) y = y"
+  have "\<mu> (g \<circ> f) \<le> g y" (* Sledgehammer could do this in one step *)
+  proof
+    show "g \<circ> f \<in> mono" by (metis conn galois_mono1)
+    show "(g \<circ> f) (g y) \<le> g y" by (metis fgy o_def order_refl)
+  qed
+  thus "f (\<mu> (g \<circ> f)) \<le> y" by (metis conn galois_connection.galois_property)
+qed
+
+theorem fixpoint_fusion [simp]:
   assumes upper_ex: "\<exists>g. galois_connection f g"
   and hmon: "h \<in> mono" and kmon: "k \<in> mono"
   and comp: "f\<circ>h = k\<circ>f"
   shows "f (\<mu> h) = \<mu> k"
-proof (rule order_antisym)
-  show "\<mu> k \<le> f (\<mu> h)"
-    by (metis comp fixpoint_computation fixpoint_induction hmon kmon o_apply order_refl)
+proof
+  show "k (f (\<mu> h)) = f (\<mu> h)" by (metis comp fixpoint_computation hmon o_def)
 next
+  fix y assume ky: "k y = y"
   obtain g where conn: "galois_connection f g" using upper_ex ..
-  have "\<mu> h \<le> g (\<mu> k)" using hmon
+  have "\<mu> h \<le> g y" using hmon
   proof
-    have "f (g (\<mu> k)) \<le> \<mu> k" by (metis conn galois_connection.deflation)
-    hence "k (f (g (\<mu> k))) \<le> k (\<mu> k)" by (metis kmon mem_def monoD)
-    hence "f (h (g (\<mu> k))) \<le> \<mu> k" using kmon by (simp, metis comp o_def)
-    thus "h (g (\<mu> k)) \<le> g (\<mu> k)" by (metis conn galois_connection.galois_property)
+    have "f (g y) \<le> y" by (metis conn galois_connection.deflation)
+    hence "f (h (g y)) \<le> y" by (metis comp kmon ky mem_def monoD o_def)
+    thus "h (g y) \<le> g y" by (metis conn galois_connection.galois_property)
   qed
-  thus "f (\<mu> h) \<le> \<mu> k" by (metis galois_connection.galois_property conn)
+  thus "f (\<mu> h) \<le> y" by (metis conn galois_connection.galois_property)
+qed
+
+theorem greatest_fixpoint_fusion [simp]:
+  assumes lower_ex: "\<exists>f. galois_connection f g"
+  and hmon: "h \<in> mono" and kmon: "k \<in> mono"
+  and comp: "g\<circ>h = k\<circ>g"
+  shows "g (\<nu> h) = \<nu> k" 
+proof
+  show "k (g (\<nu> h)) = g (\<nu> h)" by (metis comp greatest_fixpoint_computation hmon o_def)
+next
+  fix y assume ky: "k y = y"
+  obtain f where conn: "galois_connection f g" using lower_ex ..
+  have "f y \<le> \<nu> h" using hmon
+  proof
+    have "y \<le> g (f y)" by (metis conn galois_connection.inflation)
+    hence "y \<le> g (h (f y))" by (metis comp kmon ky mem_def monoD o_def)
+    thus "f y \<le> h (f y)" by (metis conn galois_connection.galois_property)
+  qed
+  thus "y \<le> g (\<nu> h)" by (metis conn galois_connection.galois_property)
 qed
 
 end

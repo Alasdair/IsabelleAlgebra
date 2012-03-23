@@ -958,6 +958,24 @@ next
   thus "f (\<mu> (g \<circ> f)) \<le> y" by (metis conn galois_connection.galois_property)
 qed
 
+lemma greatest_fixpoint_rolling: assumes conn: "falois_connection f g"
+  shows "g (\<nu> (f \<circ> g)) = \<nu> (g \<circ> f)"
+proof
+  show "(g \<circ> f) (g (\<nu> (f \<circ> g))) = g (\<nu> (f \<circ> g))" by (metis assms o_deg semi_inverse2)
+next
+  fix y assume gfy: "(g \<circ> f) y = y"
+  have "f y \<le> \<nu> (f \<circ> g)"
+  proof
+    show "f \<circ> g \<in> mono" by (metis conn galois_mono2)
+    show "f y \<le> (f \<circ> g) (f y)" by (metis gfy o_def order_refl)
+  qed
+  thus "y \<le> g (\<nu> (f \<circ> g))" by (metis conn galois_connection.galois_property)
+qed
+
+(* +------------------------------------------------------------------------+
+   | Fixpoint Fusion                                                        |
+   +------------------------------------------------------------------------+ *)
+
 theorem fixpoint_fusion [simp]:
   assumes upper_ex: "\<exists>g. galois_connection f g"
   and hmon: "h \<in> mono" and kmon: "k \<in> mono"
@@ -981,7 +999,7 @@ theorem greatest_fixpoint_fusion [simp]:
   assumes lower_ex: "\<exists>f. galois_connection f g"
   and hmon: "h \<in> mono" and kmon: "k \<in> mono"
   and comp: "g\<circ>h = k\<circ>g"
-  shows "g (\<nu> h) = \<nu> k" 
+  shows "g (\<nu> h) = \<nu> k"
 proof
   show "k (g (\<nu> h)) = g (\<nu> h)" by (metis comp greatest_fixpoint_computation hmon o_def)
 next

@@ -234,10 +234,10 @@ definition (in order) is_min :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" whe
    +------------------------------------------------------------------------+ *)
 
 lemma galois_max: assumes conn: "galois_connection f g" shows "is_max (g y) {x. f x \<le> y}"
-  apply (simp add: is_max_def is_lub_eqiv) by (metis assms galois_ump2 xt1(6))
+  apply (simp add: is_max_def is_lub_equiv) by (metis assms galois_ump2 xt1(6))
 
 lemma galois_min: assumes conn: "galois_connection f g" shows "is_min (f x) {y. x \<le> g y}"
-  apply (simp add: is_min_def is_glb_eqiv) by (metis assms galois_ump1 xt1(6))
+  apply (simp add: is_min_def is_glb_equiv) by (metis assms galois_ump1 xt1(6))
 
 theorem max_galois: "galois_connection f g = (mono f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y}))"
 proof
@@ -263,9 +263,9 @@ next
     proof (intro impI)
       fix x and y
       have lub1: "is_lub (g y) {x. f x \<le> y}" using is_max_def max
-        by (smt Collect_def is_lub_eqiv mem_def)
+        by (smt Collect_def is_lub_equiv mem_def)
       assume "f x \<le> y"
-      thus "x \<le> g y" using lub1 by (metis Collect_def is_lub_eqiv mem_def order_refl)
+      thus "x \<le> g y" using lub1 by (metis Collect_def is_lub_equiv mem_def order_refl)
     qed
   qed
 qed
@@ -297,9 +297,9 @@ next
     proof (intro impI)
       fix x and y
       have glb1: "is_glb (f x) {y. x \<le> g y}" using is_min_def min
-        by (smt Collect_def is_glb_eqiv mem_def)
+        by (smt Collect_def is_glb_equiv mem_def)
       assume "x \<le> g y"
-      thus "f x \<le> y" using glb1 by (metis Collect_def is_glb_eqiv mem_def order_refl)
+      thus "f x \<le> y" using glb1 by (metis Collect_def is_glb_equiv mem_def order_refl)
     qed
   qed
 qed
@@ -320,10 +320,10 @@ definition ex_glb_junctive :: "('a::order \<Rightarrow> 'b::order) set" where
   "ex_glb_junctive g \<equiv> \<forall>X\<subseteq>UNIV. (\<exists>x. is_glb x X) \<longrightarrow> \<Pi> (g ` X) = g (\<Pi> X)"
 
 lemma galois_lub: "galois_connection f g \<Longrightarrow> is_lub (g y) {x. f x \<le> y}"
-  apply (simp add: is_lub_eqiv) by (metis galois_ump2 order_trans)
+  apply (simp add: is_lub_equiv) by (metis galois_ump2 order_trans)
 
 lemma galois_glb: "galois_connection f g \<Longrightarrow> is_glb (f x) {y. x \<le> g y}"
-  apply (simp add: is_glb_eqiv) by (metis galois_ump1 order_trans)
+  apply (simp add: is_glb_equiv) by (metis galois_ump1 order_trans)
 
 (* Lemma 4.24(a) and 4.24(b) *)
 
@@ -334,14 +334,14 @@ proof (simp add: ex_lub_junctive_def, intro allI, intro impI)
   proof -
     assume lub_exists: "\<exists>x. is_lub x X"
     have a: "\<forall>y. (f (\<Sigma> X) \<le> y) = (\<forall>z \<in> f`X. z \<le> y)" using conn lub_exists
-      by (smt galois_connection.galois_property image_iff is_lub_eqiv lub_is_lub rev_image_eqI)
+      by (smt galois_connection.galois_property image_iff is_lub_equiv lub_is_lub rev_image_eqI)
     moreover have "\<forall>y. (\<forall>z \<in> f`X. z \<le> y) = (\<Sigma> (f ` X) \<le> y)"
     proof
       fix y
       have "\<forall>z \<in> f`X. z \<le> y \<Longrightarrow> \<Sigma> (f ` X) \<le> y"
-        by (metis calculation is_lub_eqiv lub_exists lub_is_lub) (* takes ages *)
+        by (metis calculation is_lub_equiv lub_exists lub_is_lub) (* takes ages *)
       moreover have "\<Sigma> (f ` X) \<le> y \<Longrightarrow> \<forall>z \<in> f`X. z \<le> y"
-        by (metis a is_lub_eqiv lub_exists lub_is_lub)
+        by (metis a is_lub_equiv lub_exists lub_is_lub)
       ultimately show "(\<forall>z \<in> f`X. z \<le> y) = (\<Sigma> (f ` X) \<le> y)" by auto
     qed
     ultimately have "\<forall>y. (f (\<Sigma> X) \<le> y) = (\<Sigma> (f ` X) \<le> y)" by metis
@@ -354,14 +354,14 @@ proof (simp add: ex_glb_junctive_def, intro allI, intro impI)
   fix X :: "'b set"
   assume glb_exists: "\<exists>x. is_glb x X"
   have a: "\<forall>y. (y \<le> g (\<Pi> X)) = (\<forall>z \<in> g`X. y \<le> z)" using conn glb_exists
-    by (smt galois_connection.galois_property image_iff is_glb_eqiv glb_is_glb rev_image_eqI)
+    by (smt galois_connection.galois_property image_iff is_glb_equiv glb_is_glb rev_image_eqI)
   moreover have "\<forall>y. (\<forall>z \<in> g`X. y \<le> z) = (y \<le> \<Pi> (g ` X))"
   proof
     fix y
     have "\<forall>z \<in> g`X. y \<le> z \<Longrightarrow> y \<le> \<Pi> (g ` X)"
-      by (metis calculation is_glb_eqiv glb_exists glb_is_glb)
+      by (metis calculation is_glb_equiv glb_exists glb_is_glb)
     moreover have "y \<le> \<Pi> (g ` X) \<Longrightarrow> \<forall>z \<in> g`X. y \<le> z"
-      by (metis a is_glb_eqiv glb_exists glb_is_glb)
+      by (metis a is_glb_equiv glb_exists glb_is_glb)
     ultimately show "(\<forall>z \<in> g`X. y \<le> z) = (y \<le> \<Pi> (g ` X))" by auto
   qed
   ultimately have "\<forall>y. (y \<le> g (\<Pi> X)) = (y \<le> \<Pi> (g ` X))" by metis
@@ -417,10 +417,10 @@ begin
     "sub_lub B A \<equiv> (THE x. is_sub_lub x A B)"
 
   lemma sub_lub_univ_as_lub: "(\<exists>x. is_lub x X) \<Longrightarrow> (\<exists>x. is_sub_lub x X UNIV)"
-    by (simp add: is_sub_lub_def is_lub_eqiv)
+    by (simp add: is_sub_lub_def is_lub_equiv)
 
   lemma sub_lub_univ: "sub_lub UNIV A = \<Sigma> A"
-    by (simp add: sub_lub_def lub_def is_lub_eqiv is_sub_lub_def)
+    by (simp add: sub_lub_def lub_def is_lub_equiv is_sub_lub_def)
 
   lemma is_sub_lub_unique: "is_sub_lub x A B \<longrightarrow> is_sub_lub y A B \<longrightarrow> x = y"
     by (smt antisym is_sub_lub_def order_refl)
@@ -467,7 +467,7 @@ next
   thus "cl_galois_connection f g"
   proof unfold_locales
     have left: "\<forall>x y. (f x \<le> y) \<longrightarrow> (x \<le> g y)"
-      by (metis Collect_def a2 is_lub_eqiv mem_def order_refl)
+      by (metis Collect_def a2 is_lub_equiv mem_def order_refl)
     moreover have "\<forall>x y. (x \<le> g y) \<longrightarrow> (f x \<le> y)"
     proof clarify
       fix x and y
@@ -480,7 +480,7 @@ next
         next
           fix z
           show "is_lub z (f ` {x\<Colon>'a. f x \<le> y}) \<longrightarrow> z \<le> y"
-            by (smt Collect_def imageE is_lub_eqiv mem_def)
+            by (smt Collect_def imageE is_lub_equiv mem_def)
         qed
 
         have "f x \<le> y \<Longrightarrow> x \<le> \<Sigma> {z. f z \<le> y}" by (metis a2 gr lub_is_lub)
@@ -510,7 +510,7 @@ next
   thus "cl_galois_connection f g"
   proof unfold_locales
     have right: "\<forall>x y. (x \<le> g y) \<longrightarrow> (f x \<le> y)"
-      by (metis Collect_def a2 is_glb_eqiv mem_def order_refl)
+      by (metis Collect_def a2 is_glb_equiv mem_def order_refl)
     moreover have "\<forall>x y. (f x \<le> y) \<longrightarrow> (x \<le> g y)"
     proof clarify
       fix x and y
@@ -523,7 +523,7 @@ next
         next
           fix z
           show "is_glb z (g ` {y\<Colon>'b. x \<le> g y}) \<longrightarrow> x \<le> z"
-            by (smt Collect_def imageE is_glb_eqiv mem_def)
+            by (smt Collect_def imageE is_glb_equiv mem_def)
         qed
 
         have "x \<le> g y \<Longrightarrow> \<Pi> {z. x \<le> g z} \<le> y" by (metis a2 gr glb_is_glb)
@@ -900,16 +900,6 @@ lemma greatest_fixpoint_induction [intro?]:
   and fp: "x \<le> f x" shows "x \<le> \<nu> f"
   by (metis fmon fp is_gpp_gpp gfp_equality gpp_is_gfp greatest_prefix_point_induction)
 
-(*
-
-lemma prefix_point_compose: "\<lbrakk>k \<in> mono; g\<circ>k \<sqsubseteq> k\<circ>h; is_pp x h\<rbrakk> \<Longrightarrow> is_pp (k x) g"
-proof (unfold is_pp_def)
-  assume "h x \<le> x" and kmon: "k \<in> mono" and comp: "g\<circ>k \<sqsubseteq> k\<circ>h"
-  hence "k (h x) \<le> k x" by (metis mem_def monoD)
-  moreover have "g (k x) \<le> (k (h x))" using comp by (simp add: pleq_def)
-  ultimately show "g (k x) \<le> k x" by (metis xt1(6))
-qed
-
 lemma fixpoint_compose:
   assumes kmon: "k \<in> mono" and comp: "g\<circ>k = k\<circ>h" and fp: "is_fp x h"
   shows "is_fp (k x) g"
@@ -919,8 +909,6 @@ proof (unfold is_fp_def)
   moreover have "g (k x) = (k (h x))" using comp by (metis o_def)
   ultimately show "g (k x) = k x" by metis
 qed
-
-*)
 
 lemma fixpoint_mono:
   assumes fmon: "f \<in> mono" and gmon: "g \<in> mono"
@@ -958,10 +946,10 @@ next
   thus "f (\<mu> (g \<circ> f)) \<le> y" by (metis conn galois_connection.galois_property)
 qed
 
-lemma greatest_fixpoint_rolling: assumes conn: "falois_connection f g"
+lemma greatest_fixpoint_rolling: assumes conn: "galois_connection f g"
   shows "g (\<nu> (f \<circ> g)) = \<nu> (g \<circ> f)"
 proof
-  show "(g \<circ> f) (g (\<nu> (f \<circ> g))) = g (\<nu> (f \<circ> g))" by (metis assms o_deg semi_inverse2)
+  show "(g \<circ> f) (g (\<nu> (f \<circ> g))) = g (\<nu> (f \<circ> g))" by (metis assms o_def semi_inverse2)
 next
   fix y assume gfy: "(g \<circ> f) y = y"
   have "f y \<le> \<nu> (f \<circ> g)"

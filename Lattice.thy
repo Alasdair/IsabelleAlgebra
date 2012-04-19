@@ -17,7 +17,7 @@ definition is_ub :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
 definition is_lub :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
   "is_lub x A \<longleftrightarrow> is_ub x A \<and> (\<forall>y.(\<forall>z\<in>A. z \<le> y) \<longrightarrow> x \<le> y)"
 
-lemma is_lub_eqiv: "is_lub x A \<longleftrightarrow> (\<forall>z. (x \<le> z \<longleftrightarrow> (\<forall>y\<in>A. y \<le> z)))"
+lemma is_lub_equiv: "is_lub x A \<longleftrightarrow> (\<forall>z. (x \<le> z \<longleftrightarrow> (\<forall>y\<in>A. y \<le> z)))"
   by (metis is_lub_def is_ub_def order_refl order_trans)
 
 lemma is_lub_unique: "is_lub x A \<longrightarrow> is_lub y A \<longrightarrow> x = y"
@@ -47,7 +47,7 @@ definition is_lb :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
 definition is_glb :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
   "is_glb x A \<longleftrightarrow> is_lb x A \<and> (\<forall>y.(\<forall>z\<in>A. y \<le> z) \<longrightarrow> y \<le> x)"
 
-lemma is_glb_eqiv: "is_glb x A \<longleftrightarrow> (\<forall>z. (z \<le> x \<longleftrightarrow> (\<forall>y\<in>A. z \<le> y)))"
+lemma is_glb_equiv: "is_glb x A \<longleftrightarrow> (\<forall>z. (z \<le> x \<longleftrightarrow> (\<forall>y\<in>A. z \<le> y)))"
   by (metis is_glb_def is_lb_def order_refl order_trans)
 
 lemma is_glb_unique: "is_glb x A \<longrightarrow> is_glb y A \<longrightarrow> x = y"
@@ -70,36 +70,23 @@ end
 definition ext_cup_junctive :: "('a::order \<Rightarrow> 'b::order) set" where
   "ext_cup_junctive f \<equiv> \<forall>X \<subseteq> UNIV. (\<exists>x. \<Sigma> X = x) \<longrightarrow> f (\<Sigma> X) = \<Sigma> (f ` X)"
 
-class ord_join_semilattice = order +
+class join_semilattice = order +
   assumes join_ex: "\<forall>x y. \<exists>z. is_lub z {x,y}"
 
-class ord_meet_semilattice = order +
+class meet_semilattice = order +
   assumes meet_ex: "\<forall>x y. \<exists>z. is_glb z {x,y}"
 
-class ord_lattice = ord_join_semilattice + ord_meet_semilattice
+class lattice = join_semilattice + meet_semilattice
 
 class complete_join_semilattice = order +
   assumes  lub_ex: "\<exists>x. is_lub x A"
-
-class complete_lattice = complete_join_semilattice +
-  assumes  glb_ex: "\<exists>x. is_glb x A"
-
 begin
-  lemma top_ax: "\<exists>t. \<forall>x. x \<le> t" by (metis empty_iff glb_ex is_glb_def)
-  lemma bot_ax: "\<exists>b. \<forall>x. b \<le> x" by (metis emptyE is_lub_def lub_ex)
+  lemma bot_ax: "\<exists>!b. \<forall>x. b \<le> x" by (metis empty_iff eq_iff is_lub_def lub_ex)
 
-  definition Top :: "'a" ("\<top>") where "Top \<equiv> SOME x. \<forall> y. y \<le> x"
-  definition Bot :: "'a" ("\<bottom>") where "Bot \<equiv> SOME x. \<forall> y. x \<le> y"
-
-  lemma prop_top: "\<forall>x. x \<le> \<top>"
-  apply (simp only: Top_def)
-  apply (rule someI_ex)
-  by (simp add: top_ax)
+  definition bot :: "'a" ("\<bottom>") where "\<bottom> \<equiv> THE x. \<forall> y. x \<le> y"
 
   lemma prop_bot: "\<forall>x. \<bottom> \<le> x"
-  apply (simp only: Bot_def)
-  apply (rule someI_ex)
-  by (simp add: bot_ax)
+    by (simp only: bot_def, rule the1I2, smt bot_ax, metis)
 
   lemma is_lub_lub [intro?]: "is_lub (\<Sigma> X) X"
   proof (unfold lub_def)
@@ -107,7 +94,26 @@ begin
     thus "is_lub (THE \<sigma>. is_lub \<sigma> X) X" by (metis lub_def lub_is_lub)
   qed
 
-  lemma is_glb_glb [intro?]: "is_glb (\<Pi> X) X"
+  lemma lub_greatest [intro?]: "(\<And>y. y \<in> X \<Longrightarrow> y \<le> x) \<Longrightarrow> \<Sigma> X \<le> x"
+    by (metis is_lub_eqiv is_lub_lub)
+
+  lemma lub_least [intro?]: "x \<in> X \<Longrightarrow> x \<le> \<Sigma> X"
+    by (metis is_lub_def is_lub_lub is_ub_def)
+
+  lemma empty_lub: "\<Sigma> {} = \<bottom>" by (metis emptyE is_lub_eqiv lub_is_lub prop_bot)
+end
+
+class complete_meet_semilattice = order +
+  assumes glb_ex: "\<exists>x. is_glb x A"
+begin
+  lemma top_ax: "\<exists>!t. \<forall>x. x \<le> t" by (metis empty_iff eq_iff glb_ex is_glb_def)
+
+  definition top :: "'a" ("\<top>") where "\<top> \<equiv> THE x. \<forall> y. y \<le> x"
+
+  lemma prop_top: "\<forall>x. x \<le> \<top>"
+    by (simp only: top_def, rule the1I2, metis top_ax, metis)
+
+ lemma is_glb_glb [intro?]: "is_glb (\<Pi> X) X"
   proof (unfold glb_def)
     from glb_ex obtain \<pi> where "is_glb \<pi> X" ..
     thus "is_glb (THE \<pi>. is_glb \<pi> X) X" by (metis glb_def glb_is_glb)
@@ -119,20 +125,24 @@ begin
   lemma glb_least [intro?]: "x \<in> X \<Longrightarrow> \<Pi> X \<le> x"
     by (metis is_glb_def is_glb_glb is_lb_def)
 
-  lemma lub_greatest [intro?]: "(\<And>y. y \<in> X \<Longrightarrow> y \<le> x) \<Longrightarrow> \<Sigma> X \<le> x"
-    by (metis is_lub_eqiv is_lub_lub)
-
-  lemma lub_least [intro?]: "x \<in> X \<Longrightarrow> x \<le> \<Sigma> X"
-    by (metis is_lub_def is_lub_lub is_ub_def)
-
-  lemma empty_lub: "\<Sigma> {} = \<bottom>" by (metis emptyE is_lub_eqiv lub_is_lub prop_bot)
-
-  lemma univ_lub: "\<Sigma> UNIV = \<top>" by (metis eq_iff is_lub_eqiv iso_tuple_UNIV_I lub_is_lub prop_top)
-
   lemma empty_glb: "\<Pi> {} = \<top>" by (metis empty_iff glb_is_glb is_glb_def is_lb_def prop_top)
+end
+
+class complete_lattice = complete_join_semilattice + complete_meet_semilattice
+begin
+  lemma univ_lub: "\<Sigma> UNIV = \<top>" by (metis eq_iff is_lub_eqiv iso_tuple_UNIV_I lub_is_lub prop_top)
 
   lemma univ_glb: "\<Pi> UNIV = \<bottom>" by (metis eq_iff glb_is_glb is_glb_eqiv iso_tuple_UNIV_I prop_bot)
 end
+
+sublocale complete_meet_semilattice \<subseteq> meet_semilattice
+  by (unfold_locales, metis glb_ex)
+
+sublocale complete_join_semilattice \<subseteq> join_semilattice
+  by (unfold_locales, metis lub_ex)
+
+sublocale complete_lattice \<subseteq> lattice
+  by unfold_locales
 
 definition order_monomorphism :: "('a::order \<Rightarrow> 'b::order) set" where
   "order_monomorphism f \<equiv> \<forall>x y. (f x \<le> f y) \<longleftrightarrow> (x \<le> y)"

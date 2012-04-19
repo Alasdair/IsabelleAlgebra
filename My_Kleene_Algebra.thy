@@ -525,11 +525,7 @@ text {* The following law could be immediate if we had proper duality
 for Kleene algebras. *}
 
 lemma star_sim2: "z\<cdot>x \<le> y\<cdot>z \<longrightarrow> z\<cdot>x\<^sup>\<star> \<le> y\<^sup>\<star>\<cdot>z"
-sorry
-
-(*
   by (smt add_comm add_lub distl leq_def mult_assoc mult_onel star_1r star_ext star_inductr star_invol star_iso star_ref subdistr)
-*)
 
 lemma star_sim3: "z\<cdot>x = y\<cdot>z \<longrightarrow> z\<cdot>x\<^sup>\<star> = y\<^sup>\<star>\<cdot>z"
   by (metis eq_iff star_sim1 star_sim2)
@@ -547,7 +543,7 @@ lemma star_inductr_var_eq2: "y\<cdot>x = y \<longrightarrow> y\<cdot>x\<^sup>\<s
   by (metis antisym_conv iso_subdist mult_isol mult_oner star_inductr_var_eq star_unfoldl_eq)
 
 lemma bubble_sort:  "y\<cdot>x \<le> x\<cdot>y \<longrightarrow> (x+y)\<^sup>\<star> \<le> x\<^sup>\<star>\<cdot>y\<^sup>\<star>"
-  by (metis church_rosser_eq_var order_refl star_sim4) 
+  by (metis church_rosser_eq_var order_refl star_sim4)
 
 lemma independence1: "x\<cdot>y = 0 \<longrightarrow> x\<^sup>\<star>\<cdot>y = y"
   by (metis annil mult_oner star_sim3 star_zero)
@@ -556,14 +552,11 @@ lemma independence2: "x\<cdot>y = 0 \<longrightarrow> x\<cdot>y\<^sup>\<star> = 
   by (metis annir mult_onel star_sim3 star_zero)
 
 lemma lazycomm_var: "y\<cdot>x \<le> x\<cdot>(x+y)\<^sup>\<star>+y \<longleftrightarrow> y\<cdot>x\<^sup>\<star> \<le> x\<cdot>(x+y)\<^sup>\<star>+y"
-proof - 
+proof -
   have "y\<cdot>x \<le> x\<cdot>(x+y)\<^sup>\<star>+y \<longrightarrow> y\<cdot>x\<^sup>\<star> \<le> x\<cdot>(x+y)\<^sup>\<star>+y"
-sorry
-(*
     by (smt add_assoc' distr add_comm' add_iso add_idem add_lub distl order_prop leq_def mult_assoc order_refl star_1r add_idem star_inductr)
-*)
-  thus ?thesis 
-    by (metis mult_double_iso order_refl order_trans star_ext) 
+  thus ?thesis
+    by (metis mult_double_iso order_refl order_trans star_ext)
 qed
 
 lemma arden: "\<forall> x z w.(\<forall>y v.(y \<le> x\<cdot>y+v \<longrightarrow> y \<le> x\<^sup>\<star>\<cdot>v)) \<longrightarrow> (z = x\<cdot>z+w \<longrightarrow> z = x\<^sup>\<star>\<cdot>w)"by (metis add_comm eq_iff star_inductl_eq)

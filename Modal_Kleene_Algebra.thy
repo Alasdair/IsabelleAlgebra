@@ -24,7 +24,7 @@ lemma box_diamond_galois_2: "p=d(p) \<and> q=d(q) \<longrightarrow> (\<bar>x\<ra
 lemma diamond_conjugation_var_1: "p = d(p) \<and> q = d(q) \<longrightarrow> (\<bar>x\<rangle>q \<le> a(p) \<longleftrightarrow> \<langle>x\<bar>p \<le> a(q))"
   by (smt a_closure a_export antidomain_semiring_domain_def box_diamond_galois_1 domain_1 fbox_def fdia_fbox leq_def)
 
-lemma diamond_conjugation: "p = d(p) \<and> q = d(q)  \<longrightarrow> (p\<cdot>(\<bar>x\<rangle>q) = 0 \<longleftrightarrow> q\<cdot>(\<langle>x\<bar>p) = 0)" 
+lemma diamond_conjugation: "p = d(p) \<and> q = d(q)  \<longrightarrow> (p\<cdot>(\<bar>x\<rangle>q) = 0 \<longleftrightarrow> q\<cdot>(\<langle>x\<bar>p) = 0)"
   by (metis diamond_conjugation_var_1 fdia_simp_2 bdia_simp_2 domrange d_d_zero dom_el_comm)
 
 lemma box_conjugation:  "p = d(p) \<and> q = d(q) \<longrightarrow> (p \<le> [x\<bar>a(q) \<longleftrightarrow> q \<le> \<bar>x]a(p))"
@@ -40,7 +40,7 @@ lemma box_diamond_cancellation_3:  "q=d(q) \<longrightarrow> \<bar>x\<rangle>([x
   by (metis ar_closure box_diamond_galois_2 domrangefix dual.fbox_fdia order_refl)
 
 lemma box_diamond_cancellation_4:  "q=d(q) \<longrightarrow> \<langle>x\<bar>(\<bar>x]q) \<le> q"
-  by (metis a_closure box_diamond_galois_1 fbox_def order_refl) 
+  by (metis a_closure box_diamond_galois_1 fbox_def order_refl)
 
 end
 

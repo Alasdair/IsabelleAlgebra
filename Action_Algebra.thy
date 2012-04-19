@@ -1,5 +1,5 @@
 theory Action_Algebra
-  imports Dioid My_Kleene_Algebra
+  imports Dioid My_Kleene_Algebra GaloisConnection
 begin
 
 declare [[ smt_solver = remote_z3 ]]
@@ -14,6 +14,11 @@ class action_algebra = dioid_one_zero + star_op + postimp_op + preimp_op +
 
 begin
   definition (in action_algebra) top :: "'a" where "top \<equiv> 0 \<leftarrow> 0"
+
+  lemma conn: "galois_connection (\<lambda>y. x\<cdot>y) (\<lambda>z. x \<rightarrow> z)"
+  proof (unfold_locales, intro allI)
+    fix x y
+    show "(x\<cdot>y \<le> z) \<longleftrightarrow> y \<le> x \<rightarrow> z"
 
   lemma top_annil: "x \<rightarrow> top = top" by (metis act1L act1R antisym min_zero top_def)
   lemma top2: "0 \<rightarrow> x = top" by (metis act1L act1R antisym min_zero top_def)

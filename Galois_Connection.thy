@@ -1,4 +1,4 @@
-theory Galois_Connection
+theory GaloisConnection
   imports Lattice Main
 begin
 

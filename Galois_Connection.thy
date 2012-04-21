@@ -810,7 +810,7 @@ proof
   next
     fix y
     show "f y = y \<Longrightarrow> y \<le> \<Sigma> {u. u \<le> f u}"
-      by (metis Collect_def complete_lattice_class.lub_least mem_def order_refl)
+      by (metis Collect_def complete_join_semilattice_class.lub_least mem_def order_refl)
   qed
 qed
 

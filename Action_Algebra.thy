@@ -1,5 +1,5 @@
 theory Action_Algebra
-  imports Dioid My_Kleene_Algebra GaloisConnection
+  imports Dioid My_Kleene_Algebra Galois_Connection
 begin
 
 declare [[ smt_solver = remote_z3 ]]
@@ -12,13 +12,15 @@ class action_algebra = dioid_one_zero + star_op + postimp_op + preimp_op +
   and act2: "1 + x\<^sup>\<star>\<cdot>x\<^sup>\<star> + x \<le> x\<^sup>\<star>"
   and act3: "(1 + y\<cdot>y + x \<le> y) \<longrightarrow> (x\<^sup>\<star> \<le> y)"
 
+lemma "\<And>x::'a::action_algebra. galois_connection (op \<cdot> x) (op \<rightarrow> x)"
+  by (unfold_locales, metis act1R)
+
+lemma "\<And>y::'a::action_algebra. galois_connection (\<lambda>x. x\<cdot>y) (\<lambda>z. z \<leftarrow> y)"
+  by (unfold_locales, metis act1L)
+
+context action_algebra
 begin
   definition (in action_algebra) top :: "'a" where "top \<equiv> 0 \<leftarrow> 0"
-
-  lemma conn: "galois_connection (\<lambda>y. x\<cdot>y) (\<lambda>z. x \<rightarrow> z)"
-  proof (unfold_locales, intro allI)
-    fix x y
-    show "(x\<cdot>y \<le> z) \<longleftrightarrow> y \<le> x \<rightarrow> z"
 
   lemma top_annil: "x \<rightarrow> top = top" by (metis act1L act1R antisym min_zero top_def)
   lemma top2: "0 \<rightarrow> x = top" by (metis act1L act1R antisym min_zero top_def)
@@ -66,7 +68,8 @@ end
 sublocale action_algebra \<subseteq> kleene_algebra
 proof
   fix x y z :: 'a
-  show "x + x = x" by (metis idem)
+  show "1 \<cdot> x = x" by (metis mult_onel)
+  show "x \<cdot> 1 = x" by (metis mult_oner)
   show "1 + x\<cdot>x\<^sup>\<star> \<le> x\<^sup>\<star>"
     by (smt act2 add_lub order_prop subdistr)
   show "z + x \<cdot> y \<le> y \<longrightarrow> x\<^sup>\<star> \<cdot> z \<le> y"

@@ -1,15 +1,49 @@
 header {* Dioids *}
 
 theory Dioid
-  imports Signatures Lattice
+  imports Signatures
 begin
 
 declare [[ smt_solver = remote_z3]]
 declare [[ smt_timeout = 60 ]]
 declare [[ z3_options = "-memory:500" ]]
 
-context join_semilattice
+
+(**************************************************************************)
+
+section {* Join Semilattices *}
+
+text {* We first define a class that combines addition and the definition of order in semilattices. This class makes some of the definitions below more slick. *}
+
+class plus_ord = plus + ord +
+  assumes leq_def: "x \<le> y \<longleftrightarrow> x+y = y"
+  and strict_leq_def: "x < y \<longleftrightarrow> x \<le>  y \<and>  \<not>  (y \<le>  x)"
+
+text {* Join semilattices are defined equationally and then linked
+with Isabelle's class for orderings. We should merge this to Tjark's
+class that integrates order and plus to simplify the subclass
+proofs. *}
+
+class join_semilattice = plus_ord +
+  assumes add_assoc: "(x+y)+z = x+(y+z)"
+  and add_comm: "x+y = y+x"
+  and add_idem: "x+x = x"
 begin
+
+subclass order
+proof
+  fix x y z :: 'a
+  show "x \<le> x"
+    by (metis add_idem leq_def)
+  show "x \<le> y \<Longrightarrow> y \<le> x \<Longrightarrow> x = y"
+    by (metis add_comm leq_def)
+  show "x \<le> y \<Longrightarrow> y \<le> z \<Longrightarrow> x \<le> z"
+    by (metis add_assoc leq_def)
+  show  "x < y \<longleftrightarrow> x \<le> y \<and> \<not> (y \<le> x)"
+    by (metis strict_leq_def)
+qed
+
+text {* We can now show some basic order-based properties of semilattices *}
 
 lemma add_iso: "x \<le> y \<longrightarrow> x+z \<le> y+z"
   by (metis add_assoc add_comm add_idem leq_def max_def)
@@ -70,26 +104,32 @@ call them near semirings for brevity
 *}
 
 class near_semiring = plus + mult_op +
-  assumes mult_assoc': "(x\<cdot>y)\<cdot>z = x\<cdot>(y\<cdot>z)"
+  assumes mult_assoc: "(x\<cdot>y)\<cdot>z = x\<cdot>(y\<cdot>z)"
   and add_assoc': "(x+y)+z = x+(y+z)"
   and add_comm': "x+y = y+x"
-  and distr': "(x+y)\<cdot>z = x\<cdot>z+y\<cdot>z"
+  and distr: "(x+y)\<cdot>z = x\<cdot>z+y\<cdot>z"
 
 text {* 
 A near dioid is then a (commutative) near semiring in which addition is idempotent. This generalises the notion of (additively) idempotent semiring by dropping on distributivity law.  Near dioids are a starting point of process algebras.
 *}
 
-(* writem in terms of a semilattice *)
-
-class near_dioid = join_semilattice + mult_op +
-  assumes mult_assoc: "(x\<cdot>y)\<cdot>z = x\<cdot>(y\<cdot>z)"
-  and distr: "(x+y)\<cdot>z = x\<cdot>z+y\<cdot>z"
+class near_dioid = near_semiring + plus_ord +
+  assumes idem: "x+x = x"
 begin
 
-subclass near_semiring
-  by (unfold_locales, metis mult_assoc, metis add_assoc, metis add_comm, metis distr)
-
 text {* When addition is idempotent, the additive (commutative) semigroup is a semilattice, hence near dioids are ordered by the semilattice order. *}
+
+
+subclass join_semilattice
+proof
+  fix x y z :: 'a
+  show "(x+y)+z = x+(y+z)"
+    by (metis add_assoc')
+  show "x+y = y+x"
+    by (metis add_comm')
+  show  "x+x = x"
+    by (metis idem)
+qed
 
 text {* It follows that multiplication is right-isotone, but not necessarily left-isotone *}
 
@@ -116,7 +156,7 @@ lemma iso_subdist_var: "(x \<le> y \<longrightarrow> z\<cdot>x \<le> z\<cdot>y) 
 *)
 
 lemma subdist_var: "(\<forall>x.\<forall>y.\<forall>z.(z\<cdot>x \<le> z\<cdot>(x+y))) \<longleftrightarrow> (\<forall>x.\<forall>y.\<forall>z.(z\<cdot>x+z\<cdot>y \<le> z\<cdot>(x+y)))"
-  by (metis add_comm add_lub)
+  by (metis add_comm' add_lub)
 
 end
 
@@ -163,14 +203,17 @@ class near_semiring_one = near_semiring + one +
   assumes mult_onel: "1\<cdot>x = x"
   and mult_oner: "x\<cdot>1 = x"
 
-class near_dioid_one = near_dioid + one +
-  assumes mult_onel: "1 \<cdot> x = x"
-  and mult_oner: "x \<cdot> 1 = x"
+class near_dioid_one = near_semiring_one + plus_ord +
+  assumes idemo: "1+1 = 1"
 
 begin
 
-  lemma idemo: "1+1 = 1"
-    by (metis add_idem)
+subclass near_dioid
+proof
+  fix x y :: 'a
+  show "x+x = x"
+    by (metis distr idemo mult_onel)
+qed
 
 end
 
@@ -182,9 +225,9 @@ begin
 
 subclass near_dioid_one
 proof
-  fix x :: 'a
-  show "1\<cdot>x = x" by (metis mult_onel)
-  show "x\<cdot>1 = x" by (metis mult_oner)
+  fix x y :: 'a
+  show "1+1 =1"
+    by (metis idem)
 qed
 
 end
@@ -268,32 +311,32 @@ attention to semirings and dioids. We can then show the duality for
 left and right zeros and that the dual of every semiring with all
 units and zeros is again a semiring *}
 
-definition (in mult_op) opp_mult (infixl "\<odot>" 80)
-  where "x \<odot> y \<equiv> y \<cdot> x"
+definition (in mult_op) opp_mult (infixl "\<times>" 80)
+  where "x \<times> y \<equiv> y \<cdot> x"
 
 lemma (in semiring_one_zero) dual_semiring_one_zero:
-  "class.semiring_one_zero (op +) (op \<odot>) 1 0" 
+  "class.semiring_one_zero (op +) (op \<times>) 1 0" 
 proof
   fix  x y z :: 'a
-  show  "x\<odot>y\<odot>z = x\<odot>(y\<odot>z)"
-    by (metis mult_assoc' opp_mult_def)
+  show  "x\<times>y\<times>z = x\<times>(y\<times>z)"
+    by (metis mult_assoc opp_mult_def)
   show "(x+y)+z = x+(y+z)"
     by (metis add_assoc')
   show "x+y = y+x"
     by (metis add_comm')
-  show "(x+y)\<odot>z = x\<odot>z+y\<odot>z"
+  show "(x+y)\<times>z = x\<times>z+y\<times>z"
     by (metis distl opp_mult_def)
-  show "1\<odot>x = x"
+  show "1\<times>x = x"
     by (metis mult_oner opp_mult_def)
-  show "x\<odot>1 = x"
+  show "x\<times>1 = x"
     by (metis mult_onel opp_mult_def)
   show "0+x = x"
     by (metis add_zerol)
-  show "0\<odot>x = 0"
+  show "0\<times>x = 0"
     by (metis annil opp_mult_def)
-  show "x\<odot>(y+z) = x\<odot>y+x\<odot>z"
-    by (metis distr' opp_mult_def)
-  show "x\<odot>0 = 0"
+  show "x\<times>(y+z) = x\<times>y+x\<times>z"
+    by (metis distr opp_mult_def)
+  show "x\<times>0 = 0"
     by (metis annir opp_mult_def)
 qed
 

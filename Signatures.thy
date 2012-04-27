@@ -67,8 +67,10 @@ class preimp_op =
 class postimp_op =
   fixes postimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<leftarrow>" 60)
 
+(*
 class odot_op =
   fixes odot :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<odot>" 80)
+*)
 
 class involution_op =
   fixes invol :: "'a \<Rightarrow> 'a" ("_\<^sup>\<circ>" [101] 100)

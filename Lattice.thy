@@ -75,7 +75,9 @@ class join_semilattice = plus + order +
   assumes join_ex: "\<forall>x y. \<exists>z. is_lub z {x,y}"
   and leq_def: "x \<le> y \<longleftrightarrow> x+y = y"
   and plus_def: "x + y = \<Sigma> {x, y}"
+
 begin
+
   lemma add_idem: "x + x = x" by (metis leq_def order_refl)
 
   lemma add_comm: "x + y = y + x" by (metis insert_commute plus_def)
@@ -88,32 +90,60 @@ begin
       by (smt insertCI insertE is_lub_def is_ub_def join_ex lub_is_lub order_trans singletonE)
     with a b show "\<Sigma> {\<Sigma> {x, y}, z} = \<Sigma> {x, \<Sigma> {y, z}}" by (metis antisym)
   qed
+
 end
 
 class meet_semilattice = mult_op + order +
   assumes meet_ex: "\<forall>x y. \<exists>z. is_glb z {x,y}"
-  and leq_def: "x \<le> y \<longleftrightarrow> x\<cdot>y = y"
+  and geq_def: "x \<ge> y \<longleftrightarrow> x\<cdot>y = y"
   and mult_def: "x \<cdot> y = \<Pi> {x,y}"
+
 begin
-  lemma mult_idem: "x \<cdot> x = x" by (metis leq_def order_refl)
+
+  lemma mult_idem: "x \<cdot> x = x" by (metis geq_def order_refl)
 
   lemma mult_comm: "x \<cdot> y = y \<cdot> x" by (metis insert_commute mult_def)
+
+  lemma ms_assoc1: "x\<cdot>y \<ge> z \<longleftrightarrow> x \<ge> z \<and> y \<ge> z"
+  proof
+    assume a: "z \<le> x\<cdot>y"
+    hence "\<Pi> {x,z} = z" by (metis geq_def glb_is_glb insertI1 is_glb_equiv meet_ex mult_def)
+    moreover have "\<Pi> {y,z} = z" by (metis a geq_def glb_is_glb insertI1 is_glb_equiv meet_ex mult_comm mult_def)
+    ultimately show "z \<le> x \<and> z \<le> y" by (metis geq_def mult_def)
+  next
+    assume "z \<le> x \<and> z \<le> y"
+    thus "z \<le> x \<cdot> y"
+      by (smt emptyE glb_is_glb insertE is_glb_equiv meet_ex mult_def ord_le_eq_trans)
+  qed
 
   lemma mult_assoc: "(x \<cdot> y) \<cdot> z = x \<cdot> (y \<cdot> z)" unfolding mult_def
   proof -
     have a: "\<Pi> {\<Pi> {x, y}, z} \<le> \<Pi> {x, \<Pi> {y, z}}"
       by (smt insertCI insertE is_glb_def is_glb_equiv is_lb_def meet_ex glb_is_glb singletonE)
-    have b: "\<Pi> {x, \<Pi> {y, z}} \<le> \<Pi> {\<Pi> {x, y}, z}"
-      by (metis a glb_is_glb insertCI is_glb_def is_lb_def leq_def meet_ex mult_def)
+    hence b: "\<Pi> {x, \<Pi> {y, z}} \<le> \<Pi> {\<Pi> {x, y}, z}"
+      by (metis ms_assoc1 mult_def order_refl)
     with a b show "\<Pi> {\<Pi> {x, y}, z} = \<Pi> {x, \<Pi> {y, z}}" by (metis antisym)
   qed
+
 end
 
 class lattice = join_semilattice + meet_semilattice
 
+begin
+
+  lemma absorb1: "x + (x \<cdot> y) = x" by (metis add_comm geq_def leq_def mult_assoc mult_idem)
+
+  lemma absorb2: "x \<cdot> (x + y) = x" by (metis add_assoc add_idem geq_def leq_def mult_comm)
+
+  lemma order_change: "x\<cdot>y = y \<longleftrightarrow> y+x = x" by (metis geq_def leq_def)
+
+end
+
 class complete_join_semilattice = join_semilattice +
   assumes  lub_ex: "\<exists>x. is_lub x A"
+
 begin
+
   lemma bot_ax: "\<exists>!b. \<forall>x. b \<le> x" by (metis empty_iff eq_iff is_lub_def lub_ex)
 
   definition bot :: "'a" ("\<bottom>") where "\<bottom> \<equiv> THE x. \<forall> y. x \<le> y"
@@ -133,15 +163,18 @@ begin
   lemma lub_least [intro?]: "x \<in> X \<Longrightarrow> x \<le> \<Sigma> X"
     by (metis is_lub_def is_lub_lub is_ub_def)
 
-  lemma empty_lub: "\<Sigma> {} = \<bottom>" by (metis emptyE is_lub_equiv lub_is_lub prop_bot)
+  lemma empty_lub [simp]: "\<Sigma> {} = \<bottom>" by (metis emptyE is_lub_equiv lub_is_lub prop_bot)
 
   lemma bot_oner [simp]: "x + \<bottom> = x" by (metis add_comm leq_def prop_bot)
   lemma bot_onel [simp]: "\<bottom> + x = x" by (metis leq_def prop_bot)
+
 end
 
 class complete_meet_semilattice = meet_semilattice +
   assumes glb_ex: "\<exists>x. is_glb x A"
+
 begin
+
   lemma top_ax: "\<exists>!t. \<forall>x. x \<le> t" by (metis empty_iff eq_iff glb_ex is_glb_def)
 
   definition top :: "'a" ("\<top>") where "\<top> \<equiv> THE x. \<forall> y. y \<le> x"
@@ -161,14 +194,18 @@ begin
   lemma glb_least [intro?]: "x \<in> X \<Longrightarrow> \<Pi> X \<le> x"
     by (metis is_glb_def is_glb_glb is_lb_def)
 
-  lemma empty_glb: "\<Pi> {} = \<top>" by (metis empty_iff glb_is_glb is_glb_def is_lb_def prop_top)
+  lemma empty_glb [simp]: "\<Pi> {} = \<top>" by (metis empty_iff glb_is_glb is_glb_def is_lb_def prop_top)
+
 end
 
 class complete_lattice = complete_join_semilattice + complete_meet_semilattice
+
 begin
+
   lemma univ_lub: "\<Sigma> UNIV = \<top>" by (metis eq_iff is_lub_equiv iso_tuple_UNIV_I lub_is_lub prop_top)
 
   lemma univ_glb: "\<Pi> UNIV = \<bottom>" by (metis eq_iff glb_is_glb is_glb_equiv iso_tuple_UNIV_I prop_bot)
+
 end
 
 sublocale complete_lattice \<subseteq> lattice

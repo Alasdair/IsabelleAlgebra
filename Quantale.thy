@@ -1,40 +1,76 @@
 theory Quantale
-  imports Signatures Lattice Main
+  imports Signatures Lattice Main Dioid StarContinuousKA
 begin
 
-primrec (in complete_join_semilattice) sum :: "'a list \<Rightarrow> 'a" where
-  "sum [] = \<bottom>"
-| "sum (x # xs) = x + sum xs"
-
-class quantale = complete_lattice + odot_op +
+class quantale = complete_lattice +
+  fixes qmult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<odot>" 80)
   assumes qmult_assoc: "(x \<odot> y) \<odot> z = x \<odot> (y \<odot> z)"
-  and inf_distl: "x \<odot> sum ys = sum (map (\<lambda>y. x \<odot> y) ys)"
-  and inf_distr: "sum ys \<odot> x = sum (map (\<lambda>y. y \<odot> x) ys)"
+  and inf_distl: "x \<odot> \<Sigma> Y = \<Sigma> ((\<lambda>y. x\<odot>y) ` Y)"
+  and inf_distr: "\<Sigma> Y \<odot> x = \<Sigma> ((\<lambda>y. y\<odot>x) ` Y)"
+
 begin
+
   lemma bot_zeror: "x \<odot> \<bottom> = \<bottom>"
   proof -
-    have "x \<odot> sum [] = sum (map (\<lambda>y. x \<odot> y) [])" by (metis inf_distl)
-    thus ?thesis by (simp add: sum_def)
+    have "x \<odot> \<Sigma> {} = \<Sigma> ((\<lambda>y. x\<odot>y) ` {})" using inf_distl .
+    thus ?thesis by simp
   qed
 
   lemma bot_zerol: "\<bottom> \<odot> x = \<bottom>"
   proof -
-    have "sum [] \<odot> x = sum (map (\<lambda>y. y \<odot> x) [])" by (metis inf_distr)
-    thus ?thesis by (simp add: sum_def)
+    have "\<Sigma> {} \<odot> x = \<Sigma> ((\<lambda>y. y\<odot>x) ` {})" using inf_distr .
+    thus ?thesis by simp
   qed
 
   lemma qdistl1: "x \<odot> (y + z) = (x \<odot> y) + (x \<odot> z)"
   proof -
-    have "x \<odot> sum [y,z] = sum (map (\<lambda>y. x \<odot> y) [y,z])" by (metis inf_distl)
-    thus ?thesis by (simp add: sum_def)
+    have "x \<odot> \<Sigma> {y,z} = \<Sigma> ((\<lambda>y. x\<odot>y) ` {y,z})" using inf_distl .
+    thus ?thesis by (simp add: plus_def)
   qed
 
   lemma qdistr1: "(y + z) \<odot> x = (y \<odot> x) + (z \<odot> x)"
   proof -
-    have "sum [y,z] \<odot> x = sum (map (\<lambda>y. y \<odot> x) [y,z])" by (metis inf_distr)
-    thus ?thesis by (simp add: sum_def)
+    have "\<Sigma> {y,z} \<odot> x = \<Sigma> ((\<lambda>y. y\<odot>x) ` {y,z})" using inf_distr .
+    thus ?thesis by (simp add: plus_def)
   qed
+
 end
+
+sublocale quantale \<subseteq> dioid
+  where mult = qmult
+proof
+  fix x y z :: 'a
+  show "x \<odot> y \<odot> z = x \<odot> (y \<odot> z)" using qmult_assoc .
+  show "x + y + z = x + (y + z)" using add_assoc .
+  show "x + y = y + x" using add_comm .
+  show "(x + y) \<odot> z = x \<odot> z + y \<odot> z" using qdistr1 .
+  show "(x \<le> y) = (x + y = y)" using leq_def .
+  show "(x < y) = (x \<le> y \<and> \<not> y \<le> x)" using less_le_not_le .
+  show "x + x = x" using add_idem .
+  show "z \<odot> x \<le> z \<odot> (x + y)" by (metis insertCI lub_least plus_def qdistl1)
+  show "x \<odot> (y + z) = x \<odot> y + x \<odot> z" using qdistl1 .
+qed
+
+class unital_quantale = quantale +
+  fixes unit :: 'a
+  assumes qunitl: "unit \<odot> x = x"
+  and qunitr: "x \<odot> unit = x"
+
+sublocale unital_quantale \<subseteq> dioid_one_zero
+  where zero = bot and mult = qmult and one = unit
+proof
+  fix x :: 'a
+  show "unit \<odot> x = x" using qunitl .
+  show "x \<odot> unit = x" using qunitr .
+  show "\<bottom> + x = x" by simp
+  show "\<bottom> \<odot> x = \<bottom>" using bot_zerol .
+  show "x \<odot> \<bottom> = \<bottom>" using bot_zeror .
+qed
+
+class star_quantale = quantale +
+  fixes qstar :: "'a \<Rightarrow> 'a"
+  assumes ex_qstar: "\<forall>x y z. \<exists>w. is_lub w (powers_c x y z)"
+  and qstar_def:"x\<cdot>(qstar y)\<cdot>z = \<Sigma> (powers_c x y z)"
 
 class commutative_quantale = quantale +
   assumes qmult_comm: "x \<odot> y = y \<odot> x"

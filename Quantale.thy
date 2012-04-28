@@ -67,10 +67,12 @@ proof
   show "x \<odot> \<bottom> = \<bottom>" using bot_zeror .
 qed
 
+(*
 class star_quantale = quantale +
   fixes qstar :: "'a \<Rightarrow> 'a"
   assumes ex_qstar: "\<forall>x y z. \<exists>w. is_lub w (powers_c x y z)"
   and qstar_def:"x\<cdot>(qstar y)\<cdot>z = \<Sigma> (powers_c x y z)"
+*)
 
 class commutative_quantale = quantale +
   assumes qmult_comm: "x \<odot> y = y \<odot> x"

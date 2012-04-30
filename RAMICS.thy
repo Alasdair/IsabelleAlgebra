@@ -1180,7 +1180,6 @@ next
   thus "y \<le> g (\<nu> h)" by (metis conn galois_connection.galois_property)
 qed
 
-
 (* +------------------------------------------------------------------------+
    | Join semilattices with zero and dioids                                 |
    +------------------------------------------------------------------------+ *)
@@ -1188,17 +1187,17 @@ qed
 translations "x+y" == "x\<squnion>y"
 
 class join_semilattice_zero = join_semilattice + zero +
-  assumes add_zerol: "0+x = x"
+  assumes add_zerol: "0\<squnion>x = x"
 
 begin
 
-  lemma add_iso: "x \<le> y \<longrightarrow> x+z \<le> y+z"
+  lemma add_iso: "x \<le> y \<longrightarrow> x\<squnion>z \<le> y\<squnion>z"
     by (smt add_assoc add_comm add_idem leq_def)
 
-  lemma add_ub: "x \<le> x+y"
+  lemma add_ub: "x \<le> x\<squnion>y"
     by (metis add_assoc add_idem leq_def)
 
-  lemma add_lub: "x+y \<le> z \<longleftrightarrow> x \<le> z \<and> y \<le> z"
+  lemma add_lub: "x\<squnion>y \<le> z \<longleftrightarrow> x \<le> z \<and> y \<le> z"
     by (metis add_comm add_iso add_ub leq_def)
 
   lemma min_zero: "0 \<le> x"
@@ -1208,8 +1207,8 @@ end
 
 class dioid = join_semilattice_zero + one + mult_op +
   assumes mult_assoc: "(x\<cdot>y)\<cdot>z = x\<cdot>(y\<cdot>z)"
-  and distr: "(x+y)\<cdot>z = x\<cdot>z+y\<cdot>z"
-  and distl: "x\<cdot>(y+z) = x\<cdot>y+x\<cdot>z"
+  and distr: "(x\<squnion>y)\<cdot>z = x\<cdot>z\<squnion>y\<cdot>z"
+  and distl: "x\<cdot>(y\<squnion>z) = x\<cdot>y\<squnion>x\<cdot>z"
   and mult_onel: "1\<cdot>x = x"
   and mult_oner: "x\<cdot>1 = x"
   and annir: "0\<cdot>x = 0"
@@ -1226,11 +1225,17 @@ begin
   lemma mult_double_iso: "w \<le> x \<and> y \<le> z \<longrightarrow> w\<cdot>y \<le> x\<cdot>z"
     by (metis mult_isol mult_isor order_trans)
 
+  lemma order_prop: "(x \<le> y) \<longleftrightarrow> (\<exists>z.(x\<squnion>z = y))"
+    by (metis leq_def add_ub)
+
 end
 
 (* +------------------------------------------------------------------------+
    | Kleene Algebra                                                         |
    +------------------------------------------------------------------------+ *)
+
+(* This works extremely well until you want to use the plus for nat *)
+translations "x+y" == "x\<squnion>y"
 
 class kleene_algebra = dioid + star_op +
   assumes star_unfoldl: "1+x\<cdot>x\<^sup>\<star> \<le> x\<^sup>\<star>"
@@ -1295,41 +1300,75 @@ lemma star_slide_var: "x\<^sup>\<star>\<cdot>x = x\<cdot>x\<^sup>\<star>"
 
 end
 
-class quantale = complete_lattice +
-  fixes qmult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<odot>" 80)
-  assumes qmult_assoc: "(x \<odot> y) \<odot> z = x \<odot> (y \<odot> z)"
-  and inf_distl: "x \<odot> \<Sigma> Y = \<Sigma> ((\<lambda>y. x\<odot>y) ` Y)"
-  and inf_distr: "\<Sigma> Y \<odot> x = \<Sigma> ((\<lambda>y. y\<odot>x) ` Y)"
+class star_continuous_ka = dioid + star_op +
+  assumes ex_star: "\<forall>x y z. \<exists>w. is_lub w (powers_c x y z)"
+  and star_def:"x\<cdot>y\<^sup>\<star>\<cdot>z = \<Sigma> (powers_c x y z)"
+
+
+class quantale = complete_lattice + mult_op +
+  assumes qmult_assoc: "(x \<cdot> y) \<cdot> z = x \<cdot> (y \<cdot> z)"
+  and inf_distl: "x \<cdot> \<Sigma> Y = \<Sigma> ((\<lambda>y. x\<cdot>y) ` Y)"
+  and inf_distr: "\<Sigma> Y \<cdot> x = \<Sigma> ((\<lambda>y. y\<cdot>x) ` Y)"
 
 begin
 
-  lemma bot_zeror: "x \<odot> \<bottom> = \<bottom>"
+  lemma bot_zeror: "x \<cdot> \<bottom> = \<bottom>"
   proof -
-    have "x \<odot> \<Sigma> {} = \<Sigma> ((\<lambda>y. x\<odot>y) ` {})" using inf_distl .
+    have "x \<cdot> \<Sigma> {} = \<Sigma> ((\<lambda>y. x\<cdot>y) ` {})" using inf_distl .
     thus ?thesis by simp
   qed
 
-  lemma bot_zerol: "\<bottom> \<odot> x = \<bottom>"
+  lemma bot_zerol: "\<bottom> \<cdot> x = \<bottom>"
   proof -
-    have "\<Sigma> {} \<odot> x = \<Sigma> ((\<lambda>y. y\<odot>x) ` {})" using inf_distr .
+    have "\<Sigma> {} \<cdot> x = \<Sigma> ((\<lambda>y. y\<cdot>x) ` {})" using inf_distr .
     thus ?thesis by simp
   qed
 
-  lemma qdistl1: "x \<odot> (y + z) = (x \<odot> y) + (x \<odot> z)"
+  lemma qdistl1: "x \<cdot> (y + z) = (x \<cdot> y) + (x \<cdot> z)"
   proof -
-    have "x \<odot> \<Sigma> {y,z} = \<Sigma> ((\<lambda>y. x\<odot>y) ` {y,z})" using inf_distl .
+    have "x \<cdot> \<Sigma> {y,z} = \<Sigma> ((\<lambda>y. x\<cdot>y) ` {y,z})" using inf_distl .
     thus ?thesis by (simp add: join_def)
   qed
 
-  lemma qdistr1: "(y + z) \<odot> x = (y \<odot> x) + (z \<odot> x)"
+  lemma qdistr1: "(y + z) \<cdot> x = (y \<cdot> x) + (z \<cdot> x)"
   proof -
-    have "\<Sigma> {y,z} \<odot> x = \<Sigma> ((\<lambda>y. y\<odot>x) ` {y,z})" using inf_distr .
+    have "\<Sigma> {y,z} \<cdot> x = \<Sigma> ((\<lambda>y. y\<cdot>x) ` {y,z})" using inf_distr .
     thus ?thesis by (simp add: join_def)
   qed
 
 end
 
-class unital_quantale = quantale +
-  fixes unit :: 'a
-  assumes qunitl: "unit \<odot> x = x"
-  and qunitr: "x \<odot> unit = x"
+class unital_quantale = quantale + one +
+  assumes qunitl: "1 \<cdot> x = x"
+  and qunitr: "x \<cdot> 1 = x"
+
+sublocale unital_quantale \<subseteq> dioid where zero = bot
+proof
+  fix x y z :: 'a
+  show "\<bottom> + x = x" by simp
+  show "(x \<cdot> y) \<cdot> z = x \<cdot> (y \<cdot> z)" using qmult_assoc .
+  show "(x + y) \<cdot> z = x \<cdot> z + y \<cdot> z" using qdistr1 .
+  show "x \<cdot> (y + z) = x \<cdot> y + x \<cdot> z" using qdistl1 .
+  show "1 \<cdot> x = x" using qunitl .
+  show "x \<cdot> 1 = x" using qunitr .
+  show "\<bottom> \<cdot> x = \<bottom>" using bot_zerol .
+  show "x \<cdot> \<bottom> = \<bottom>" using bot_zeror .
+qed
+
+context unital_quantale
+begin
+
+  primrec power :: "'a \<Rightarrow> nat \<Rightarrow> 'a"  ("_\<^bsup>_\<^esup>" [101,50] 100) where
+      "x\<^bsup>0\<^esup>  = 1"
+    | "x\<^bsup>Suc n\<^esup> = x\<cdot>x\<^bsup>n\<^esup>"
+
+  definition powers :: "'a \<Rightarrow> 'a set" where
+    "powers x  = {y. (\<exists>i. y = power x i)}"
+
+end
+
+
+class star_quantale = unital_quantale + star_op +
+  assumes qstar: "x\<^sup>\<star> = \<Sigma> (powers x)"
+
+end

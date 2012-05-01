@@ -1,5 +1,5 @@
 theory RAMICS
-  imports Main
+  imports Main Signatures
 begin
 
 declare [[ smt_solver = remote_z3]]
@@ -1189,9 +1189,8 @@ qed
    | Join semilattices with zero and dioids                                 |
    +------------------------------------------------------------------------+ *)
 
-class join_semilattice_zero = join_semilattice +
-  fixes zero :: 'a
-  assumes add_zerol: "zero\<squnion>x = x"
+class join_semilattice_zero = join_semilattice + zero +
+  assumes add_zerol: "0\<squnion>x = x"
 
 begin
 
@@ -1204,7 +1203,7 @@ begin
   lemma add_lub: "x\<squnion>y \<le> z \<longleftrightarrow> x \<le> z \<and> y \<le> z"
     by (metis add_comm add_iso add_ub leq_def)
 
-  lemma min_zero: "zero \<le> x"
+  lemma min_zero: "0 \<le> x"
     by (metis add_zerol leq_def)
 
   lemma lub_un: "is_lub w A \<Longrightarrow> is_lub (x\<squnion>w) ({x}\<union>A)"
@@ -1212,16 +1211,14 @@ begin
 
 end
 
-class dioid = join_semilattice_zero +
-  fixes mult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<cdot>" 80)
-  and one :: "'a"
+class dioid = join_semilattice_zero + one + mult_op +
   assumes mult_assoc: "(x\<cdot>y)\<cdot>z = x\<cdot>(y\<cdot>z)"
   and distr: "(x\<squnion>y)\<cdot>z = x\<cdot>z\<squnion>y\<cdot>z"
   and distl: "x\<cdot>(y\<squnion>z) = x\<cdot>y\<squnion>x\<cdot>z"
-  and mult_onel: "one\<cdot>x = x"
-  and mult_oner: "x\<cdot>one = x"
-  and annir: "zero\<cdot>x = zero"
-  and annil: "x\<cdot>zero = zero"
+  and mult_onel: "1\<cdot>x = x"
+  and mult_oner: "x\<cdot>1 = x"
+  and annir: "0\<cdot>x = 0"
+  assumes annil: "x\<cdot>0 = 0"
 
 begin
 
@@ -1240,7 +1237,7 @@ begin
   (* Powers *)
 
   primrec power :: "'a \<Rightarrow> nat \<Rightarrow> 'a"  ("_\<^bsup>_\<^esup>" [101,50] 100) where
-    "x\<^bsup>0\<^esup>  = one"
+    "x\<^bsup>0\<^esup>  = 1"
   | "x\<^bsup>Suc n\<^esup> = x\<cdot>x\<^bsup>n\<^esup>"
 
   lemma power_add: "x\<^bsup>m\<^esup>\<cdot>x\<^bsup>n\<^esup> = x\<^bsup>m+n\<^esup>"
@@ -1266,22 +1263,22 @@ begin
   lemma powers_c_elim: "v\<in>(powers_c x y z) \<longleftrightarrow> (\<exists>w. v = x\<cdot>w\<cdot>z \<and> (\<exists>i. w = power y i))"
     by (simp add: powers_c_def)
 
-  lemma powers_to_powers_c: "powers x = powers_c one x one"
+  lemma powers_to_powers_c: "powers x = powers_c 1 x 1"
     by auto (simp add: powers_c_elim mult_onel mult_oner, smt Collect_def mem_def powers_def)+
 
   lemma power_in_powers_c: "\<forall>i. x\<cdot>(power y i)\<cdot>z \<in> powers_c x y z"
     by (metis powers_c_elim)
 
-  lemma powers_sucl: "powers_c x x one = {y. (\<exists>i. y = power x (Suc i))}"
+  lemma powers_sucl: "powers_c x x 1 = {y. (\<exists>i. y = power x (Suc i))}"
     by  auto (metis mult_oner powers_c_elim, metis mult_oner power_in_powers_c)
 
-  lemma powers_sucr: "powers_c one x x = {y. (\<exists>i. y = power x (Suc i))}"
+  lemma powers_sucr: "powers_c 1 x x = {y. (\<exists>i. y = power x (Suc i))}"
     by auto (metis mult_onel power_commutes powers_c_elim, metis mult_onel power_commutes power_in_powers_c)
 
-  lemma powers_suc: "powers_c x x one = powers_c one x x"
+  lemma powers_suc: "powers_c x x 1 = powers_c 1 x x"
     by (metis powers_sucl powers_sucr)
 
-  lemma powers_unfoldl: "{one}\<union>(powers_c x x one) = powers x"
+  lemma powers_unfoldl: "{1}\<union>(powers_c x x 1) = powers x"
   proof -
     have  "{1}\<union>(powers_c x x 1) = {y. y = power x 0 \<or> (\<exists>i. y = power x (Suc i))}"
       by (metis insert_def insert_is_Un power.simps(1) powers_sucl Collect_disj_eq)

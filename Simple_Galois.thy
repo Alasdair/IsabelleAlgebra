@@ -1,4 +1,4 @@
-theory RAMICS
+theory Simple_Galois
   imports Main
 begin
 
@@ -11,8 +11,17 @@ begin
 
 (* Pointfree ordering *)
 
-definition pleq :: "('a \<Rightarrow> 'b::order) \<Rightarrow> ('a \<Rightarrow> 'b::order) \<Rightarrow> bool" (infix "\<sqsubseteq>" 50) where
+definition pleq :: "('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" (infix "\<sqsubseteq>" 50) where
   "pleq f g \<equiv> \<forall>x. f x \<le> g x"
+
+definition isotone :: "('a \<Rightarrow> 'a) set" where
+  "isotone f \<equiv> \<forall>x y. x \<le> y \<longrightarrow> f x \<le> f y"
+
+lemma isotoneD: "\<lbrakk>isotone f; x \<le> y\<rbrakk> \<Longrightarrow> f x \<le> f y"
+  by (metis isotone_def)
+
+definition idempotent :: "('a \<Rightarrow> 'a) set" where
+  "idempotent f \<equiv> f \<circ> f = f"
 
 (* Lub *)
 
@@ -87,21 +96,21 @@ definition join :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<squnion>" 7
 definition meet :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<sqinter>" 70) where
   "x \<sqinter> y = \<Pi> {x,y}"
 
-end
-
 (* Join and meet preserving maps *)
 
-definition ex_join_preserving :: "('a::order \<Rightarrow> 'b::order) set" where
+definition ex_join_preserving :: "('a \<Rightarrow> 'a) set" where
   "ex_join_preserving f \<equiv> \<forall>X\<subseteq>UNIV. (\<exists>x. is_lub x X) \<longrightarrow> \<Sigma> (f ` X) = f (\<Sigma> X)"
 
-definition ex_meet_preserving :: "('a::order \<Rightarrow> 'b::order) set" where
+definition ex_meet_preserving :: "('a \<Rightarrow> 'a) set" where
   "ex_meet_preserving g \<equiv> \<forall>X\<subseteq>UNIV. (\<exists>x. is_glb x X) \<longrightarrow> \<Pi> (g ` X) = g (\<Pi> X)"
 
-definition join_preserving :: "('a::order \<Rightarrow> 'b::order) set" where
+definition join_preserving :: "('a \<Rightarrow> 'a) set" where
   "join_preserving f \<equiv> \<forall>X\<subseteq>UNIV. \<Sigma> (f ` X) = f (\<Sigma> X)"
 
-definition meet_preserving :: "('a::order \<Rightarrow> 'b::order) set" where
+definition meet_preserving :: "('a \<Rightarrow> 'a) set" where
   "meet_preserving g \<equiv> \<forall>X\<subseteq>UNIV. \<Pi> (g ` X) = g (\<Pi> X)"
+
+end
 
 (* Join and meet semilattices *)
 
@@ -366,13 +375,13 @@ lemma gfp_equality: "is_gfp x f \<Longrightarrow> \<nu> f = x"
 lemma gfp_equality_var [intro?]: "\<lbrakk>f x = x; \<And>y. f y = y \<Longrightarrow> y \<le> x\<rbrakk> \<Longrightarrow> x = \<nu> f"
   by (rule gfp_equality[symmetric], simp add: is_gfp_def is_fp_def)
 
-lemma lpp_is_lfp: "\<lbrakk>mono f; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
+lemma lpp_is_lfp: "\<lbrakk>isotone f; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
   apply (simp add: is_lpp_def is_lfp_def is_fp_def is_pre_fp_def)
-  by (metis monoD order_eq_iff)
+  by (metis isotone_def order_eq_iff)
 
-lemma gpp_is_gfp: "\<lbrakk>mono f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
+lemma gpp_is_gfp: "\<lbrakk>isotone f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
   apply (simp add: is_gpp_def is_gfp_def is_fp_def is_post_fp_def)
-  by (metis monoD order_antisym)
+  by (metis isotone_def order_antisym)
 
 (* +------------------------------------------------------------------------+
    | Knaster-Tarski                                                         |
@@ -381,7 +390,7 @@ lemma gpp_is_gfp: "\<lbrakk>mono f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp
 (* Modified version of Wenzel's proof of the Knaster-Tarski theorem *)
 
 theorem knaster_tarski_lpp:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   obtains a :: "'a::complete_lattice" where "is_lpp a f"
 proof
   let ?H = "{u. f u \<le> u}"
@@ -389,8 +398,8 @@ proof
   have "is_pre_fp ?a f"
   proof -
     have "\<forall>x\<in>?H. ?a \<le> x" by (metis glb_least)
-    hence "\<forall>x\<in>?H. f ?a \<le> x"
-      by (metis (full_types) Collect_def assms glb_least mem_def monoD order_trans)
+    hence "\<forall>x\<in>?H. f ?a \<le> f x" by (metis assms glb_least isotoneD)
+    hence "\<forall>x\<in>?H. f ?a \<le> x" by (smt Collect_def double_complement mem_def xt1(6))
     hence "f ?a \<le> \<Pi> ?H" by (smt glb_greatest)
     thus ?thesis by (metis is_pre_fp_def)
   qed
@@ -400,24 +409,24 @@ proof
     by (smt is_lpp_def Collect_def glb_least mem_def)
 qed
 
-corollary is_lpp_lpp [intro?]: "mono f \<Longrightarrow> is_lpp (\<mu>\<^sub>\<le> f) f"
+corollary is_lpp_lpp [intro?]: "isotone f \<Longrightarrow> is_lpp (\<mu>\<^sub>\<le> f) f"
   using knaster_tarski_lpp by (metis lpp_equality)
 
 theorem knaster_tarski:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   obtains a :: "'a::complete_lattice" where "is_lfp a f"
   by (metis assms is_lpp_lpp lpp_is_lfp)
 
-corollary knaster_tarski_var: "mono f \<Longrightarrow> \<exists>!x. is_lfp x f"
+corollary knaster_tarski_var: "isotone f \<Longrightarrow> \<exists>!x. is_lfp x f"
   using knaster_tarski by (metis lfp_equality)
 
-corollary is_lfp_lfp [intro?]: "mono f \<Longrightarrow> is_lfp (\<mu> f) f"
+corollary is_lfp_lfp [intro?]: "isotone f \<Longrightarrow> is_lfp (\<mu> f) f"
   using knaster_tarski by (metis lfp_equality)
 
 (* Knaster-Tarski for greatest fixpoints *)
 
 theorem knaster_tarski_gpp:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   obtains a :: "'a::complete_lattice" where "is_gpp a f"
 proof
   let ?H = "{u. u \<le> f u}"
@@ -426,7 +435,7 @@ proof
   proof -
     have "\<forall>x\<in>?H. x \<le> ?a" by (metis lub_least)
     hence "\<forall>x\<in>?H. x \<le> f ?a"
-      by (metis (full_types) Collect_def assms lub_least mem_def monoD order_trans)
+      by (metis (full_types) Collect_def assms lub_least mem_def isotoneD order_trans)
     hence "\<Sigma> ?H \<le> f ?a" by (smt lub_greatest)
     thus ?thesis by (metis is_post_fp_def)
   qed
@@ -436,18 +445,18 @@ proof
     by (smt is_gpp_def Collect_def lub_least mem_def)
 qed
 
-corollary is_gpp_gpp [intro?]: "mono f \<Longrightarrow> is_gpp (\<nu>\<^sub>\<le> f) f"
+corollary is_gpp_gpp [intro?]: "isotone f \<Longrightarrow> is_gpp (\<nu>\<^sub>\<le> f) f"
   using knaster_tarski_gpp by (metis gpp_equality)
 
 theorem knaster_tarski_greatest:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   obtains a :: "'a::complete_lattice" where "is_gfp a f"
   by (metis assms is_gpp_gpp gpp_is_gfp)
 
-corollary knaster_tarski_greatest_var: "mono f \<Longrightarrow> \<exists>!x. is_gfp x f"
+corollary knaster_tarski_greatest_var: "isotone f \<Longrightarrow> \<exists>!x. is_gfp x f"
   using knaster_tarski_greatest by (metis gfp_equality)
 
-corollary is_gfp_gfp [intro?]: "mono f \<Longrightarrow> is_gfp (\<nu> f) f"
+corollary is_gfp_gfp [intro?]: "isotone f \<Longrightarrow> is_gfp (\<nu> f) f"
   using knaster_tarski_greatest by (metis gfp_equality)
 
 (* We now show some more properties of fixpoints *)
@@ -456,16 +465,16 @@ corollary is_gfp_gfp [intro?]: "mono f \<Longrightarrow> is_gfp (\<nu> f) f"
    | Fixpoint Computation                                                   |
    +------------------------------------------------------------------------+ *)
 
-lemma prefix_point_computation [simp]: "mono f \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
+lemma prefix_point_computation [simp]: "isotone f \<Longrightarrow> f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
   by (metis is_lpp_lpp lpp_is_lfp is_lfp_def is_fp_def)
 
-lemma fixpoint_computation [simp]: "mono f \<Longrightarrow> f (\<mu> f) = \<mu> f"
+lemma fixpoint_computation [simp]: "isotone f \<Longrightarrow> f (\<mu> f) = \<mu> f"
   by (metis is_lpp_lpp lfp_equality lpp_is_lfp prefix_point_computation)
 
-lemma greatest_prefix_point_computation [simp]: "mono f \<Longrightarrow> f (\<nu>\<^sub>\<le> f) = \<nu>\<^sub>\<le> f"
+lemma greatest_prefix_point_computation [simp]: "isotone f \<Longrightarrow> f (\<nu>\<^sub>\<le> f) = \<nu>\<^sub>\<le> f"
   by (metis is_gpp_gpp gpp_is_gfp is_gfp_def is_fp_def)
 
-lemma greatest_fixpoint_computation [simp]: "mono f \<Longrightarrow> f (\<nu> f) = \<nu> f"
+lemma greatest_fixpoint_computation [simp]: "isotone f \<Longrightarrow> f (\<nu> f) = \<nu> f"
   by (metis is_gpp_gpp gfp_equality gpp_is_gfp greatest_prefix_point_computation)
 
 (* +------------------------------------------------------------------------+
@@ -473,7 +482,7 @@ lemma greatest_fixpoint_computation [simp]: "mono f \<Longrightarrow> f (\<nu> f
    +------------------------------------------------------------------------+ *)
 
 lemma prefix_point_induction [intro?]:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   and pp: "f x \<le> x" shows "\<mu>\<^sub>\<le> f \<le> x"
 proof (unfold least_prefix_point_def, rule the1I2)
   show "\<exists>!x. is_lpp x f" using knaster_tarski_lpp by (metis fmon lpp_equality)
@@ -483,12 +492,12 @@ next
 qed
 
 lemma fixpoint_induction [intro?]:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   and fp: "f x \<le> x" shows "\<mu> f \<le> x"
   by (metis fmon fp is_lpp_lpp lfp_equality lpp_is_lfp prefix_point_induction)
 
 lemma greatest_postfix_point_induction [intro?]:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   and pp: "x \<le> f x" shows "x \<le> \<nu>\<^sub>\<le> f"
 proof (unfold greatest_postfix_point_def, rule the1I2)
   show "\<exists>!x. is_gpp x f" using knaster_tarski_gpp by (metis fmon gpp_equality)
@@ -498,7 +507,7 @@ next
 qed
 
 lemma greatest_fixpoint_induction [intro?]:
-  assumes fmon: "mono f"
+  assumes fmon: "isotone f"
   and fp: "x \<le> f x" shows "x \<le> \<nu> f"
   by (metis fmon fp is_gpp_gpp gfp_equality gpp_is_gfp greatest_postfix_point_induction)
 
@@ -513,7 +522,7 @@ proof (unfold is_fp_def)
 qed
 
 lemma fixpoint_mono:
-  assumes fmon: "mono f" and gmon: "mono g"
+  assumes fmon: "isotone f" and gmon: "isotone g"
   and fg: "f \<sqsubseteq> g" shows "\<mu> f \<le> \<mu> g"
 proof -
   show "\<mu> f \<le> \<mu> g" using fmon
@@ -524,7 +533,7 @@ proof -
 qed
 
 lemma greatest_fixpoint_mono:
-  assumes fmon: "mono f" and gmon: "mono g"
+  assumes fmon: "isotone f" and gmon: "isotone g"
   and fg: "f \<sqsubseteq> g" shows "\<nu> f \<le> \<nu> g"
 proof -
   show "\<nu> f \<le> \<nu> g" using gmon
@@ -538,84 +547,65 @@ qed
    | Galois Connections                                                     |
    +------------------------------------------------------------------------+ *)
 
-definition idempotent :: "('a \<Rightarrow> 'a) set" where
-  "idempotent f \<equiv> f \<circ> f = f"
+context order
+begin
 
-locale galois_connection =
-  fixes lower :: "'a::order \<Rightarrow> 'b::order" ("\<pi>\<^sup>*")
-  and upper :: "'b::order \<Rightarrow> 'a::order" ("\<pi>\<^sub>*")
-  assumes galois_property: "\<forall>x y. (\<pi>\<^sup>* x \<le> y) = (x \<le> \<pi>\<^sub>* y)"
+definition galois_connection :: "('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "galois_connection f g \<equiv> \<forall>x y. (f x \<le> y) \<longleftrightarrow> (x \<le> g y)"
 
-lemma galois_prop: "galois_connection f g \<Longrightarrow> (f x \<le> y) = (x \<le> g y)"
-  by (metis galois_connection.galois_property)
+definition dual_galois_connection :: "('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "dual_galois_connection f g \<equiv> \<forall>x y. (f x \<ge> y) \<longleftrightarrow> (x \<ge> g y)"
 
-definition lower_adjoint :: "('a::order \<Rightarrow> 'b::order) \<Rightarrow> bool" where
+definition lower_adjoint :: "('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "lower_adjoint f \<equiv> \<exists>g. galois_connection f g"
 
-definition upper_adjoint :: "('b::order \<Rightarrow> 'a::order) \<Rightarrow> bool" where
+definition upper_adjoint :: "('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "upper_adjoint g \<equiv> \<exists>f. galois_connection f g"
 
-locale dual_galois_connection =
-  fixes dual_lower :: "'a::order \<Rightarrow> 'b::order" ("\<pi>\<^sup>*")
-  and dual_upper :: "'b::order \<Rightarrow> 'a::order" ("\<pi>\<^sub>*")
-  assumes dual_galois_property: "\<forall>x y. (\<pi>\<^sup>* x \<ge> y) = (x \<ge> \<pi>\<^sub>* y)"
+lemma deflation: "galois_connection f g \<Longrightarrow> f (g y) \<le> y" by (metis galois_connection_def le_less)
 
-sublocale dual_galois_connection \<subseteq> galois_connection
-  where upper = dual_lower and lower = dual_upper
-  by unfold_locales (metis dual_galois_property)
+lemma inflation: "galois_connection f g \<Longrightarrow> x \<le> g (f x)" by (metis galois_connection_def le_less)
 
-sublocale galois_connection \<subseteq> dual_galois_connection
-  where dual_upper = lower and dual_lower = upper
-  by unfold_locales (metis galois_property)
+lemma lower_iso: "galois_connection f g \<Longrightarrow> isotone f"
+  by (metis galois_connection_def inflation isotone_def order_trans)
 
-(* Basic properties of galois connections *)
+lemma upper_iso: "galois_connection f g \<Longrightarrow> isotone g"
+  by (metis deflation galois_connection_def isotone_def order_trans)
 
-context galois_connection
-begin
-  lemma deflation: "\<pi>\<^sup>* (\<pi>\<^sub>* y) \<le> y" by (simp only: galois_property)
-  lemma inflation: "x \<le> \<pi>\<^sub>* (\<pi>\<^sup>* x)" by (metis galois_property order_eq_refl)
+lemma lower_comp: "galois_connection f g \<Longrightarrow> f \<circ> g \<circ> f = f"
+proof
+  fix x assume "galois_connection f g"
+  thus "(f \<circ> g \<circ> f) x = f x"
+    by (metis (full_types) antisym deflation inflation isotone_def lower_iso o_apply)
+qed
 
-  lemma lower_mono: "mono \<pi>\<^sup>*"
-    by (metis galois_property inflation order_trans mono_def)
+lemma upper_comp: "galois_connection f g \<Longrightarrow> g \<circ> f \<circ> g = g"
+proof
+  fix x assume "galois_connection f g"
+  thus "(g \<circ> f \<circ> g) x = g x"
+    by (metis (full_types) antisym deflation inflation isotone_def o_apply upper_iso)
+qed
 
-  lemma upper_mono: "mono \<pi>\<^sub>*"
-    by (metis galois_property deflation order_trans mono_def)
+lemma upper_idempotency1: "galois_connection f g \<Longrightarrow> idempotent (f \<circ> g)"
+  by (metis idempotent_def o_assoc upper_comp)
 
-  lemma lower_comp: "\<pi>\<^sup>* \<circ> \<pi>\<^sub>* \<circ> \<pi>\<^sup>* = \<pi>\<^sup>*"
-  proof
-    fix x
-    show "(\<pi>\<^sup>* \<circ> \<pi>\<^sub>* \<circ> \<pi>\<^sup>*) x = \<pi>\<^sup>* x"
-      by (metis lower_mono mono_def deflation inflation o_apply order_antisym)
-  qed
+lemma upper_idempotency2: "galois_connection f g \<Longrightarrow> idempotent (g \<circ> f)"
+  by (metis idempotent_def o_assoc lower_comp)
 
-  lemma upper_comp: "\<pi>\<^sub>* \<circ> \<pi>\<^sup>* \<circ> \<pi>\<^sub>* = \<pi>\<^sub>*"
-  proof
-    fix x
-    show "(\<pi>\<^sub>* \<circ> \<pi>\<^sup>* \<circ> \<pi>\<^sub>*) x = \<pi>\<^sub>* x"
-      by (metis upper_mono mono_def deflation inflation o_apply order_antisym)
-  qed
+lemma galois_dual: "galois_connection f g \<Longrightarrow> dual_galois_connection g f"
+  by (metis dual_galois_connection_def galois_connection_def)
 
-  lemma upper_idempotency1: "idempotent (\<pi>\<^sup>*\<circ>\<pi>\<^sub>*)" by (metis lower_comp idempotent_def o_assoc)
-  lemma upper_idempotency2: "idempotent (\<pi>\<^sub>*\<circ>\<pi>\<^sup>*)" by (metis lower_comp idempotent_def o_assoc)
+lemma dual_galois_dual: "dual_galois_connection f g \<Longrightarrow> galois_connection g f"
+  by (metis dual_galois_connection_def galois_connection_def)
 
-  lemma upper_dual: "(\<pi>\<^sub>* x \<ge> y) = (x \<ge> \<pi>\<^sup>* y)"
-    by (metis galois_property)
-end
-
-lemma galois_dual: "galois_connection F G \<Longrightarrow> dual_galois_connection G F"
-  by unfold_locales (metis galois_connection.galois_property)
-
-lemma dual_galois_dual: "dual_galois_connection F G \<Longrightarrow> galois_connection G F"
-  by unfold_locales (metis dual_galois_connection.dual_galois_property)
-
-lemma galois_dualise: "\<lbrakk>galois_connection F G \<Longrightarrow> P F G; dual_galois_connection G F\<rbrakk> \<Longrightarrow> P F G"
+lemma galois_dualize: "\<lbrakk>galois_connection F G \<Longrightarrow> P F G; dual_galois_connection G F\<rbrakk> \<Longrightarrow> P F G"
 proof -
   assume dual: "dual_galois_connection G F" and p: "galois_connection F G \<Longrightarrow> P F G"
   have conn: "galois_connection F G" using dual by (rule dual_galois_dual)
   thus "P F G" by (rule p)
 qed
 
-lemma dual_galois_dualise: "\<lbrakk>dual_galois_connection F G \<Longrightarrow> P F G; galois_connection G F\<rbrakk> \<Longrightarrow> P F G"
+lemma dual_galois_dualize: "\<lbrakk>dual_galois_connection F G \<Longrightarrow> P F G; galois_connection G F\<rbrakk> \<Longrightarrow> P F G"
 proof -
   assume g: "galois_connection G F" and p: "dual_galois_connection F G \<Longrightarrow> P F G"
   have dual_conn: "dual_galois_connection F G" using g by (rule galois_dual)
@@ -624,101 +614,85 @@ qed
 
 lemma galois_comp: assumes g1: "galois_connection F G" and g2 :"galois_connection H K"
   shows "galois_connection (F \<circ> H) (K \<circ> G)"
-  by unfold_locales (metis g1 g2 galois_connection.galois_property o_def)
+  by (smt g1 g2 galois_connection_def o_apply)
 
-lemma galois_id: "galois_connection id id" by unfold_locales (metis id_def)
+lemma galois_id: "galois_connection id id" by (metis galois_connection_def id_def)
 
-lemma galois_mono1: "galois_connection F G \<Longrightarrow> mono (G \<circ> F)"
+lemma galois_isotone1: "galois_connection f g \<Longrightarrow> isotone (g \<circ> f)"
 proof -
-  assume g: "galois_connection F G"
-  hence "mono G" using galois_connection.upper_mono by auto
-  moreover have "mono F" using g galois_connection.lower_mono by auto
-  ultimately show "mono (G \<circ> F)" by (simp add: mono_def)
+  assume g: "galois_connection f g"
+  hence "isotone g" by (metis upper_iso)
+  moreover have "isotone f" by (metis g lower_iso)
+  ultimately show "isotone (g \<circ> f)" by (simp add: isotone_def)
 qed
 
-lemma galois_mono2: "galois_connection F G \<Longrightarrow> mono (F \<circ> G)"
+lemma galois_isotone2: "galois_connection f g \<Longrightarrow> isotone (f \<circ> g)"
 proof -
-  assume g: "galois_connection F G"
-  hence "mono G" using galois_connection.upper_mono by auto
-  moreover have "mono F" using g galois_connection.lower_mono by auto
-  ultimately show "mono (F \<circ> G)" by (simp add: mono_def)
+  assume g: "galois_connection f g"
+  hence "isotone g" by (metis upper_iso)
+  moreover have "isotone f" by (metis g lower_iso)
+  ultimately show "isotone (f \<circ> g)" by (simp add: isotone_def)
 qed
 
-lemma point_id1: "galois_connection F G \<Longrightarrow> id \<sqsubseteq> G \<circ> F"
-  by (metis galois_connection.inflation id_apply o_apply pleq_def)
+lemma point_id1: "galois_connection f g \<Longrightarrow> id \<sqsubseteq> g \<circ> f"
+  by (metis inflation id_apply o_apply pleq_def)
 
-lemma point_id2: "galois_connection F G \<Longrightarrow> F \<circ> G \<sqsubseteq> id"
-  by (metis galois_connection.deflation id_apply o_apply pleq_def)
+lemma point_id2: "galois_connection f g \<Longrightarrow> f \<circ> g \<sqsubseteq> id"
+  by (metis deflation id_apply o_apply pleq_def)
 
-lemma point_cancel: assumes g: "galois_connection F G" shows "F \<circ> G \<sqsubseteq> G \<circ> F"
+lemma point_cancel: assumes g: "galois_connection f g" shows "f \<circ> g \<sqsubseteq> g \<circ> f"
 proof -
-  have "F \<circ> G \<sqsubseteq> id" using g point_id2 by blast
+  have "f \<circ> g \<sqsubseteq> id" using g point_id2 by blast
   moreover
-  have "id \<sqsubseteq> G \<circ> F" using g point_id1 by blast
+  have "id \<sqsubseteq> g \<circ> f" using g point_id1 by blast
   ultimately
-  show "F \<circ> G \<sqsubseteq> G \<circ> F"
+  show "f \<circ> g \<sqsubseteq> g \<circ> f"
     apply (simp only: pleq_def) by (metis order_trans)
 qed
 
-lemma cancel: assumes g: "galois_connection F G" shows "F (G x) \<le> G (F x)"
+lemma cancel: assumes g: "galois_connection f g" shows "f (g x) \<le> g (f x)"
 proof -
-  have "F \<circ> G \<sqsubseteq> G \<circ> F" by (metis g point_cancel)
-  thus "F (G x) \<le> G (F x)" by (simp only: pleq_def o_def)
+  have "f \<circ> g \<sqsubseteq> g \<circ> f" by (metis g point_cancel)
+  thus "f (g x) \<le> g (f x)" by (simp only: pleq_def o_def)
 qed
 
-lemma cancel_cor1: assumes g: "galois_connection F G"
-  shows "(G x = G y) \<longleftrightarrow> (F (G x) = F (G y))"
-  by (metis assms galois_connection.upper_comp o_apply)
+lemma cancel_cor1: assumes g: "galois_connection f g"
+  shows "(g x = g y) \<longleftrightarrow> (f (g x) = f (g y))"
+  by (metis assms upper_comp o_apply)
 
-lemma cancel_cor2: assumes g: "galois_connection F G"
-  shows "(F x = F y) \<longleftrightarrow> (G (F x) = G (F y))"
-  by (metis assms galois_connection.lower_comp o_apply)
+lemma cancel_cor2: assumes g: "galois_connection f g"
+  shows "(f x = f y) \<longleftrightarrow> (g (f x) = g (f y))"
+  by (metis assms lower_comp o_apply)
 
-lemma semi_inverse1: "galois_connection F G \<Longrightarrow> F x = F (G (F x))"
-  by (metis galois_connection.lower_comp o_apply)
+lemma semi_inverse1: "galois_connection f g \<Longrightarrow> f x = f (g (f x))"
+  by (metis o_def lower_comp)
 
-lemma semi_inverse2: "galois_connection F G \<Longrightarrow> G x = G (F (G x))"
-  by (metis galois_connection.upper_comp o_apply)
-
-lemma point_comp: "galois_connection F G \<Longrightarrow> (F \<circ> h \<sqsubseteq> k) = (h \<sqsubseteq> G \<circ> k)"
-  by (metis galois_connection.galois_property o_def pleq_def)
-
-lemma point_comp_2: "\<lbrakk>galois_connection F G; mono h; mono k\<rbrakk> \<Longrightarrow> (h \<circ> G \<sqsubseteq> k) = (h \<sqsubseteq> k \<circ> F)"
-  apply (simp only: pleq_def o_def)
-  by (metis (full_types) mono_def galois_connection.deflation galois_connection.inflation order_trans)
-
-lemma upper_uniqueness: assumes g1: "galois_connection F G" and g2: "galois_connection H K"
-  shows "(F \<sqsubseteq> H) = (K \<sqsubseteq> G)"
-proof -
-  have "(F \<sqsubseteq> H) = (id \<sqsubseteq> G \<circ> H)" by (metis g1 point_comp o_id)
-  also have "... = (K \<sqsubseteq> G)" by (metis g1 g2 galois_connection.upper_mono galois_id id_o point_comp_2)
-  thus ?thesis by (metis calculation)
-qed
+lemma semi_inverse2: "galois_connection f g \<Longrightarrow> g x = g (f (g x))"
+  by (metis o_def upper_comp)
 
 lemma universal_mapping_property1:
-  assumes a: "mono g" and b: "\<forall>x. x \<le> g (f x)"
+  assumes a: "isotone g" and b: "\<forall>x. x \<le> g (f x)"
   and c: "\<forall>x y. (x \<le> g y) \<longrightarrow> (f x \<le> y)"
   shows "galois_connection f g"
-proof (unfold_locales, intro allI)
+proof (simp add: galois_connection_def, intro allI)
   fix x and y
-  show "(f x \<le> y) = (x \<le> g y)" by (metis mono_def a b c order_trans)
+  show "(f x \<le> y) = (x \<le> g y)" by (metis isotone_def a b c order_trans)
 qed
 
 lemma universal_mapping_property2:
-  assumes a: "mono f" and b: "\<forall>x. f (g x) \<le> x"
+  assumes a: "isotone f" and b: "\<forall>x. f (g x) \<le> x"
   and c: "\<forall>x y. (f x \<le> y) \<longrightarrow> (x \<le> g y)"
   shows "galois_connection f g"
-proof (unfold_locales, intro allI)
+proof (simp add: galois_connection_def, intro allI)
   fix x and y
-  have "(x \<le> g y) \<longrightarrow> (f x \<le> y)" using a b c by (metis monoD order_trans)
-  thus "(f x \<le> y) = (x \<le> g y)" using c by auto
+  show "(f x \<le> y) = (x \<le> g y)" by (metis a b c isotone_def order_trans)
 qed
 
-lemma galois_ump2: "galois_connection f g = (mono f \<and> (\<forall>y. f (g y) \<le> y) \<and> (\<forall>x y. f x \<le> y \<longrightarrow> x \<le> g y))"
-  by (metis galois_connection.deflation galois_connection.lower_mono galois_connection.upper_dual universal_mapping_property2)
+lemma galois_ump2: "galois_connection f g = (isotone f \<and> (\<forall>y. f (g y) \<le> y) \<and> (\<forall>x y. f x \<le> y \<longrightarrow> x \<le> g y))"
+  by (metis deflation dual_galois_connection_def galois_dual lower_iso universal_mapping_property2)
 
-lemma galois_ump1: "galois_connection f g = (mono g \<and> (\<forall>x. x \<le> g (f x)) \<and> (\<forall>x y. x \<le> g y \<longrightarrow> f x \<le> y))"
-  by (metis galois_connection.inflation galois_connection.upper_dual galois_connection.upper_mono universal_mapping_property1)
+lemma galois_ump1: "galois_connection f g = (isotone g \<and> (\<forall>x. x \<le> g (f x)) \<and> (\<forall>x y. x \<le> g y \<longrightarrow> f x \<le> y))"
+  by (metis galois_connection_def inflation universal_mapping_property1 upper_iso)
 
 (* +------------------------------------------------------------------------+
    | Theorem 4.10(a)                                                        |
@@ -726,127 +700,127 @@ lemma galois_ump1: "galois_connection f g = (mono g \<and> (\<forall>x. x \<le> 
 
 lemma ore_galois:
   assumes a: "\<forall>x. x \<le> g (f x)" and b: "\<forall>x. f (g x) \<le> x"
-  and c: "mono f" and d: "mono g"
+  and c: "isotone f" and d: "isotone g"
   shows "galois_connection f g"
-proof (unfold_locales, intro allI)
+proof (simp add: galois_connection_def, intro allI)
   fix x and y
-  show "(f x \<le> y) = (x \<le> g y)" using a b c d by (metis mono_def order_trans)
+  show "(f x \<le> y) = (x \<le> g y)" by (metis a b c d isotone_def order_trans)
 qed
 
 (* +------------------------------------------------------------------------+
    | Theorems 4.32(a) and 4.32(b)                                           |
    +------------------------------------------------------------------------+ *)
 
-lemma perfect1: "galois_connection F G \<Longrightarrow> G (F x) = x \<longleftrightarrow> x \<in> range G"
+lemma perfect1: "galois_connection f g \<Longrightarrow> g (f x) = x \<longleftrightarrow> x \<in> range g"
 proof -
-  assume conn: "galois_connection F G"
-  have "G (F x) = x \<Longrightarrow> x \<in> range G" by (metis range_eqI)
-  moreover have "x \<in> range G \<Longrightarrow> G (F x) = x"
+  assume conn: "galois_connection f g"
+  have "g (f x) = x \<Longrightarrow> x \<in> range g" by (metis range_eqI)
+  moreover have "x \<in> range g \<Longrightarrow> g (f x) = x"
   proof -
-    assume "x \<in> range G"
-    hence "\<exists>y. x = G y" by (metis image_iff)
-    hence "\<exists>y. (x = G y) \<and> (x = G (F (G y)))" using conn semi_inverse2 by metis
+    assume "x \<in> range g"
+    hence "\<exists>y. x = g y" by (metis image_iff)
+    hence "\<exists>y. (x = g y) \<and> (x = g (f (g y)))" using conn semi_inverse2 by metis
     thus ?thesis by metis
   qed
   ultimately show ?thesis by metis
 qed
 
-lemma perfect2: "galois_connection F G \<Longrightarrow> F (G x) = x \<longleftrightarrow> x \<in> range F"
+lemma perfect2: "galois_connection f g \<Longrightarrow> f (g x) = x \<longleftrightarrow> x \<in> range f"
 proof -
-  assume conn: "galois_connection F G"
-  have "F (G x) = x \<Longrightarrow> x \<in> range F" by (metis range_eqI)
-  moreover have "x \<in> range F \<Longrightarrow> F (G x) = x"
+  assume conn: "galois_connection f g"
+  have "f (g x) = x \<Longrightarrow> x \<in> range f" by (metis range_eqI)
+  moreover have "x \<in> range f \<Longrightarrow> f (g x) = x"
   proof -
-    assume "x \<in> range F"
-    hence "\<exists>y. x = F y" by (metis image_iff)
-    hence "\<exists>y. (x = F y) \<and> (x = F (G (F y)))" using conn semi_inverse1 by metis
+    assume "x \<in> range f"
+    hence "\<exists>y. x = f y" by (metis image_iff)
+    hence "\<exists>y. (x = f y) \<and> (x = f (g (f y)))" using conn semi_inverse1 by metis
     thus ?thesis by metis
   qed
   ultimately show ?thesis by metis
 qed
-
-definition (in order) is_max :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-  "is_max x X \<equiv> x \<in> X \<and> is_lub x X"
-
-definition (in order) is_min :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-  "is_min x X \<equiv> x \<in> X \<and> is_glb x X"
 
 (* +------------------------------------------------------------------------+
    | Theorems 4.20(a) and 4.20(b)                                           |
    +------------------------------------------------------------------------+ *)
 
+definition is_max :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
+  "is_max x X \<equiv> x \<in> X \<and> is_lub x X"
+
+definition is_min :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
+  "is_min x X \<equiv> x \<in> X \<and> is_glb x X"
+
 lemma galois_max: assumes conn: "galois_connection f g" shows "is_max (g y) {x. f x \<le> y}"
-  apply (simp add: is_max_def is_lub_equiv) by (metis assms galois_ump2 xt1(6))
+  by (simp add: is_max_def is_lub_equiv, metis assms galois_ump2 order_trans)
 
 lemma galois_min: assumes conn: "galois_connection f g" shows "is_min (f x) {y. x \<le> g y}"
-  apply (simp add: is_min_def is_glb_equiv) by (metis assms galois_ump1 xt1(6))
+  by (simp add: is_min_def is_glb_equiv, metis assms galois_ump1 order_trans)
 
-theorem max_galois: "galois_connection f g = (mono f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y}))"
+theorem max_galois: "galois_connection f g = (isotone f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y}))"
 proof
   assume conn: "galois_connection f g"
-  show "mono f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y})"
+  show "isotone f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y})"
   proof
-    show "mono f" using conn by (metis galois_connection.lower_mono mem_def)
+    show "isotone f" by (metis conn lower_iso)
   next
-    show "\<forall>y. is_max (g y) {x. f x \<le> y}" using conn by (metis galois_max)
+    show "\<forall>y. is_max (g y) {x. f x \<le> y}" by (metis conn galois_max)
   qed
 next
-  assume "mono f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y})"
-  hence fmon: "mono f" and max: "\<forall>y. is_max (g y) {x. f x \<le> y}" by auto+
+  assume "isotone f \<and> (\<forall>y. is_max (g y) {x. f x \<le> y})"
+  hence fmon: "isotone f" and max: "\<forall>y. is_max (g y) {x. f x \<le> y}" by auto+
   show "galois_connection f g"
   proof (rule universal_mapping_property2)
-    show "mono f" by (metis fmon)
+    show "isotone f" by (metis fmon)
   next
-    have max2: "\<forall>y. g y \<in> {x. f x \<le> y}" using is_max_def max by smt
+    have max2: "\<forall>y. g y \<in> {x. f x \<le> y}" by (smt is_max_def max)
     hence "(g y \<in> {x. f x \<le> y}) = (f (g y) \<le> y)" by (simp only: mem_Collect_eq)
     thus p: "\<forall>y. f (g y) \<le> y" using max2 by auto
   next
-    show "\<forall>x y. f x \<le> y \<longrightarrow> x \<le> g y" apply (intro allI)
-    proof (intro impI)
+    show "\<forall>x y. f x \<le> y \<longrightarrow> x \<le> g y"
+    proof clarify
       fix x and y
-      have lub1: "is_lub (g y) {x. f x \<le> y}" using is_max_def max
-        by (smt Collect_def is_lub_equiv mem_def)
+      have lub1: "is_lub (g y) {x. f x \<le> y}"
+        by (smt is_max_def max Collect_def is_lub_equiv mem_def)
       assume "f x \<le> y"
-      thus "x \<le> g y" using lub1 by (metis Collect_def is_lub_equiv mem_def order_refl)
+      thus "x \<le> g y" by (metis lub1 Collect_def is_lub_equiv mem_def order_refl)
     qed
   qed
 qed
 
-corollary max_galois_rule: "\<lbrakk>mono f; \<forall>y. is_max (g y) {x. f x \<le> y}\<rbrakk> \<Longrightarrow> galois_connection f g"
+corollary max_galois_rule: "\<lbrakk>isotone f; \<forall>y. is_max (g y) {x. f x \<le> y}\<rbrakk> \<Longrightarrow> galois_connection f g"
   by (metis max_galois)
 
-theorem min_galois: "galois_connection f g = (mono g \<and> (\<forall>x. is_min (f x) {y. x \<le> g y}))"
+theorem min_galois: "galois_connection f g = (isotone g \<and> (\<forall>x. is_min (f x) {y. x \<le> g y}))"
 proof
   assume conn: "galois_connection f g"
-  show "mono g \<and> (\<forall>x. is_min (f x) {y. x \<le> g y})"
+  show "isotone g \<and> (\<forall>x. is_min (f x) {y. x \<le> g y})"
   proof
-    show "mono g" using conn by (metis galois_connection.upper_mono mem_def)
+    show "isotone g" by (metis conn upper_iso)
   next
-    show "\<forall>x. is_min (f x) {y. x \<le> g y}" using conn by (metis galois_min)
+    show "\<forall>x. is_min (f x) {y. x \<le> g y}" by (metis conn galois_min)
   qed
 next
-  assume "mono g \<and> (\<forall>x. is_min (f x) {y. x \<le> g y})"
-  hence gmon: "mono g" and min: "\<forall>x. is_min (f x) {y. x \<le> g y}" by auto+
+  assume "isotone g \<and> (\<forall>x. is_min (f x) {y. x \<le> g y})"
+  hence gmon: "isotone g" and min: "\<forall>x. is_min (f x) {y. x \<le> g y}" by auto+
   show "galois_connection f g"
   proof (rule universal_mapping_property1)
-    show "mono g" by (metis gmon)
+    show "isotone g" by (metis gmon)
   next
-    have "\<forall>x. f x \<in> {y. x \<le> g y}" using is_min_def min by smt
+    have "\<forall>x. f x \<in> {y. x \<le> g y}" by (smt is_min_def min)
     moreover have "(f x \<in> {y. x \<le> g y}) = (x \<le> g (f x))" by (simp only: mem_Collect_eq)
     ultimately show "\<forall>x. x \<le> g (f x)" by auto
   next
-    show "\<forall>x y. x \<le> g y \<longrightarrow> f x \<le> y" apply (intro allI)
-    proof (intro impI)
+    show "\<forall>x y. x \<le> g y \<longrightarrow> f x \<le> y"
+    proof clarify
       fix x and y
       have glb1: "is_glb (f x) {y. x \<le> g y}" using is_min_def min
         by (smt Collect_def is_glb_equiv mem_def)
       assume "x \<le> g y"
-      thus "f x \<le> y" using glb1 by (metis Collect_def is_glb_equiv mem_def order_refl)
+      thus "f x \<le> y" by (metis glb1 Collect_def is_glb_equiv mem_def order_refl)
     qed
   qed
 qed
 
-corollary min_galois_rule: "\<lbrakk>mono g; \<forall>x. is_min (f x) {y. x \<le> g y}\<rbrakk> \<Longrightarrow> galois_connection f g"
+corollary min_galois_rule: "\<lbrakk>isotone g; \<forall>x. is_min (f x) {y. x \<le> g y}\<rbrakk> \<Longrightarrow> galois_connection f g"
   by (metis min_galois)
 
 (* hide_fact galois_min galois_max *)
@@ -869,6 +843,13 @@ lemma galois_glb_var: "galois_connection f g \<Longrightarrow> f x = \<Pi> {y. x
    | Lemma 4.24(a) and 4.24(b)                                              |
    +------------------------------------------------------------------------+ *)
 
+lemma lower_lub: "\<lbrakk>is_lub x X; lower_adjoint f\<rbrakk> \<Longrightarrow> is_lub (f x) (f ` X)"
+  by (smt galois_ump1 galois_ump2 image_iff is_lub_equiv lower_adjoint_def)
+
+lemma upper_glb: "\<lbrakk>is_glb x X; upper_adjoint g\<rbrakk> \<Longrightarrow> is_glb (g x) (g ` X)" sorry
+
+(* TODO: Make these proofs simpler *)
+
 lemma lower_preserves_joins: assumes lower: "lower_adjoint f" shows "ex_join_preserving f"
 proof (simp add: ex_join_preserving_def, intro allI impI)
   obtain g where conn: "galois_connection f g" by (metis lower lower_adjoint_def)
@@ -876,19 +857,19 @@ proof (simp add: ex_join_preserving_def, intro allI impI)
   show "(\<exists>x\<Colon>'a. is_lub x X) \<Longrightarrow> (\<Sigma> (f ` X) = f (\<Sigma> X))"
   proof -
     assume lub_exists: "\<exists>x. is_lub x X"
-    have a: "\<forall>y. (f (\<Sigma> X) \<le> y) = (\<forall>z \<in> f`X. z \<le> y)" using conn lub_exists
-      by (smt galois_connection.galois_property image_iff is_lub_equiv lub_is_lub rev_image_eqI)
+    have a: "\<forall>y. (f (\<Sigma> X) \<le> y) = (\<forall>z \<in> f`X. z \<le> y)"
+      by (smt conn lub_exists galois_connection_def image_iff is_lub_equiv lub_is_lub rev_image_eqI)
     moreover have "\<forall>y. (\<forall>z \<in> f`X. z \<le> y) = (\<Sigma> (f ` X) \<le> y)"
     proof
       fix y
       have "\<forall>z \<in> f`X. z \<le> y \<Longrightarrow> \<Sigma> (f ` X) \<le> y"
         by (smt calculation is_lub_equiv lub_exists lub_is_lub)
       moreover have "\<Sigma> (f ` X) \<le> y \<Longrightarrow> \<forall>z \<in> f`X. z \<le> y"
-        by (smt a is_lub_equiv lub_exists lub_is_lub)
+        by (metis a assms lower_lub lub_exists lub_is_lub)
       ultimately show "(\<forall>z \<in> f`X. z \<le> y) = (\<Sigma> (f ` X) \<le> y)" by auto
     qed
     ultimately have "\<forall>y. (f (\<Sigma> X) \<le> y) = (\<Sigma> (f ` X) \<le> y)" by metis
-    thus "\<Sigma> (f ` X) = f (\<Sigma> X)" by (metis order_refl xt1(5))
+    thus "\<Sigma> (f ` X) = f (\<Sigma> X)" by (metis eq_iff)
   qed
 qed
 
@@ -898,7 +879,7 @@ proof (simp add: ex_meet_preserving_def, intro allI impI)
   fix X :: "'a set"
   assume glb_exists: "\<exists>x. is_glb x X"
   have a: "\<forall>y. (y \<le> g (\<Pi> X)) = (\<forall>z \<in> g`X. y \<le> z)" using conn glb_exists
-    by (smt galois_connection.galois_property image_iff is_glb_equiv glb_is_glb rev_image_eqI)
+    by (smt galois_connection_def image_iff is_glb_equiv glb_is_glb rev_image_eqI)
   moreover have "\<forall>y. (\<forall>z \<in> g`X. y \<le> z) = (y \<le> \<Pi> (g ` X))"
   proof
     fix y
@@ -909,71 +890,28 @@ proof (simp add: ex_meet_preserving_def, intro allI impI)
     ultimately show "(\<forall>z \<in> g`X. y \<le> z) = (y \<le> \<Pi> (g ` X))" by auto
   qed
   ultimately have "\<forall>y. (y \<le> g (\<Pi> X)) = (y \<le> \<Pi> (g ` X))" by metis
-  thus "\<Pi> (g ` X) = g (\<Pi> X)" by (metis order_refl xt1(5))
+  thus "\<Pi> (g ` X) = g (\<Pi> X)" by (metis eq_iff)
 qed
 
-(* +------------------------------------------------------------------------+
-   | Connections between complete lattices                                  |
-   +------------------------------------------------------------------------+ *)
+end
 
-locale cl_galois_connection =
-  fixes cl_lower :: "'a::complete_lattice \<Rightarrow> 'b::complete_lattice" ("\<pi>\<^sup>*")
-  and cl_upper :: "'b::complete_lattice \<Rightarrow> 'a::complete_lattice" ("\<pi>\<^sub>*")
-  assumes cl_galois_property: "\<forall>x y. (\<pi>\<^sup>* x \<le> y) = (x \<le> \<pi>\<^sub>* y)"
-
-locale dual_cl_galois_connection =
-  fixes dual_cl_lower :: "'b::complete_lattice \<Rightarrow> 'a::complete_lattice" ("\<pi>\<^sup>*")
-  and dual_cl_upper :: "'a::complete_lattice \<Rightarrow> 'b::complete_lattice" ("\<pi>\<^sub>*")
-  assumes dual_cl_galois_property: "\<forall>x y. (\<pi>\<^sup>* x \<ge> y) = (x \<ge> \<pi>\<^sub>* y)"
-
-sublocale dual_cl_galois_connection \<subseteq> cl_galois_connection
-  where cl_upper = dual_cl_lower and cl_lower = dual_cl_upper
-  by unfold_locales (metis dual_cl_galois_property)
-
-lemma cl_galois_dual: "cl_galois_connection F G \<Longrightarrow> dual_cl_galois_connection G F"
-  by unfold_locales (metis cl_galois_connection.cl_galois_property)
-
-lemma dual_cl_galois_dual: "dual_cl_galois_connection F G \<Longrightarrow> cl_galois_connection G F"
-  by unfold_locales (metis dual_cl_galois_connection.dual_cl_galois_property)
-
-lemma cl_galois_dualise: "\<lbrakk>cl_galois_connection F G \<Longrightarrow> P F G; dual_cl_galois_connection G F\<rbrakk> \<Longrightarrow> P F G"
-  by (metis dual_cl_galois_dual)
-
-lemma dual_cl_galois_dualise: "\<lbrakk>dual_cl_galois_connection F G \<Longrightarrow> P F G; cl_galois_connection G F\<rbrakk> \<Longrightarrow> P F G"
-  by (metis cl_galois_dual)
-
-lemma (in cl_galois_connection) poset_conn: "galois_connection \<pi>\<^sup>* \<pi>\<^sub>*"
-proof (unfold_locales, intro allI)
-  fix x and y
-  show "(\<pi>\<^sup>* x \<le> y) = (x \<le> \<pi>\<^sub>* y)" by (metis cl_galois_property)
-qed
-
-lemma poset_galois: "cl_galois_connection F G \<Longrightarrow> galois_connection F G"
-  by (metis cl_galois_connection.poset_conn)
-
-definition cl_lower_adjoint :: "('a::complete_lattice \<Rightarrow> 'b::complete_lattice) \<Rightarrow> bool" where
-  "cl_lower_adjoint f \<equiv> \<exists>g. cl_galois_connection f g"
-
-definition cl_upper_adjoint :: "('b::complete_lattice \<Rightarrow> 'a::complete_lattice) \<Rightarrow> bool" where
-  "cl_upper_adjoint g \<equiv> \<exists>f. cl_galois_connection f g"
+context complete_lattice
+begin
 
 (* +------------------------------------------------------------------------+
    | Theorems 4.25(a) and 4.25(b)                                           |
    +------------------------------------------------------------------------+ *)
 
-lemma suprema_galois_aarts: "galois_connection f g = (ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y}))"
-  nitpick oops
-
-theorem suprema_galois: "cl_galois_connection f g = (mono f \<and> ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y}))"
+theorem suprema_galois: "galois_connection f g = (isotone f \<and> ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y}))"
 proof
-  assume "cl_galois_connection f g"
-  thus "mono f \<and> ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y})"
-    using galois_lub lower_preserves_joins poset_galois by (metis lower_adjoint_def max_galois)
+  assume "galois_connection f g"
+  thus "isotone f \<and> ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y})"
+    using galois_lub lower_preserves_joins by (metis lower_adjoint_def max_galois)
 next
-  assume assms: "mono f \<and> ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y})"
-  hence fmon: "mono f" and elj: "ex_join_preserving f" and a2: "\<forall>y. is_lub (g y) {x. f x \<le> y}" by metis+
-  thus "cl_galois_connection f g"
-  proof unfold_locales
+  assume assms: "isotone f \<and> ex_join_preserving f \<and> (\<forall>y. is_lub (g y) {x. f x \<le> y})"
+  hence fmon: "isotone f" and elj: "ex_join_preserving f" and a2: "\<forall>y. is_lub (g y) {x. f x \<le> y}" by metis+
+  thus "galois_connection f g"
+  proof (simp add: galois_connection_def)
     have left: "\<forall>x y. (f x \<le> y) \<longrightarrow> (x \<le> g y)"
       by (metis Collect_def a2 is_lub_equiv mem_def order_refl)
     moreover have "\<forall>x y. (x \<le> g y) \<longrightarrow> (f x \<le> y)"
@@ -992,7 +930,7 @@ next
         qed
 
         have "f x \<le> y \<Longrightarrow> x \<le> \<Sigma> {z. f z \<le> y}" by (metis a2 gr lub_is_lub)
-        moreover have "x \<le> \<Sigma> {z. f z \<le> y} \<Longrightarrow> f x \<le> f (\<Sigma> {z. f z \<le> y})" by (metis fmon monoD)
+        moreover have "x \<le> \<Sigma> {z. f z \<le> y} \<Longrightarrow> f x \<le> f (\<Sigma> {z. f z \<le> y})" by (metis fmon isotoneD)
         moreover have "(f x \<le> f (\<Sigma> {z. f z \<le> y})) = (f x \<le> \<Sigma> (f ` {z. f z \<le> y}))"
           by (metis a2 elj ex_join_preserving_def top_greatest)
         moreover have "... \<Longrightarrow> f x \<le> y" using lem by (metis order_trans)
@@ -1004,19 +942,19 @@ next
 qed
 
 corollary suprema_galois_rule:
-  "\<lbrakk>mono f; ex_join_preserving f; \<forall>y. is_lub (g y) {x. f x \<le> y}\<rbrakk> \<Longrightarrow> cl_galois_connection f g"
+  "\<lbrakk>isotone f; ex_join_preserving f; \<forall>y. is_lub (g y) {x. f x \<le> y}\<rbrakk> \<Longrightarrow> galois_connection f g"
   using suprema_galois by auto
 
-theorem infima_galois: "cl_galois_connection f g = (mono g \<and> ex_meet_preserving g \<and> (\<forall>x. is_glb (f x) {y. x \<le> g y}))"
+theorem infima_galois: "galois_connection f g = (isotone g \<and> ex_meet_preserving g \<and> (\<forall>x. is_glb (f x) {y. x \<le> g y}))"
 proof
-  assume "cl_galois_connection f g"
-  thus "mono g \<and> ex_meet_preserving g \<and> (\<forall>x. is_glb (f x) {y. x \<le> g y})"
-    using galois_glb upper_preserves_meets poset_galois by (metis min_galois upper_adjoint_def)
+  assume "galois_connection f g"
+  thus "isotone g \<and> ex_meet_preserving g \<and> (\<forall>x. is_glb (f x) {y. x \<le> g y})"
+    using galois_glb upper_preserves_meets by (metis min_galois upper_adjoint_def)
 next
-  assume assms: "mono g \<and> ex_meet_preserving g \<and> (\<forall>x. is_glb (f x) {y. x \<le> g y})"
-  hence gmon: "mono g" and elj: "ex_meet_preserving g" and a2: "\<forall>x. is_glb (f x) {y. x \<le> g y}"  by metis+
-  thus "cl_galois_connection f g"
-  proof unfold_locales
+  assume assms: "isotone g \<and> ex_meet_preserving g \<and> (\<forall>x. is_glb (f x) {y. x \<le> g y})"
+  hence gmon: "isotone g" and elj: "ex_meet_preserving g" and a2: "\<forall>x. is_glb (f x) {y. x \<le> g y}"  by metis+
+  thus "galois_connection f g"
+  proof (simp add: galois_connection_def)
     have right: "\<forall>x y. (x \<le> g y) \<longrightarrow> (f x \<le> y)"
       by (metis Collect_def a2 is_glb_equiv mem_def order_refl)
     moreover have "\<forall>x y. (f x \<le> y) \<longrightarrow> (x \<le> g y)"
@@ -1027,15 +965,15 @@ next
       proof -
         have lem: "x \<le> \<Pi> (g ` {y. x \<le> g y})"
         proof (rule the_glb_leq)
-          show "\<exists>z. is_glb z (g ` {y\<Colon>'b. x \<le> g y})" by (metis glb_ex)
+          show "\<exists>z. is_glb z (g ` {y. x \<le> g y})" by (metis glb_ex)
         next
           fix z
-          show "is_glb z (g ` {y\<Colon>'b. x \<le> g y}) \<longrightarrow> x \<le> z"
+          show "is_glb z (g ` {y. x \<le> g y}) \<longrightarrow> x \<le> z"
             by (smt Collect_def imageE is_glb_equiv mem_def)
         qed
 
         have "x \<le> g y \<Longrightarrow> \<Pi> {z. x \<le> g z} \<le> y" by (metis a2 gr glb_is_glb)
-        moreover have "\<Pi> {z. x \<le> g z} \<le> y \<Longrightarrow> g (\<Pi> {z. x \<le> g z}) \<le> g y" by (metis gmon monoD)
+        moreover have "\<Pi> {z. x \<le> g z} \<le> y \<Longrightarrow> g (\<Pi> {z. x \<le> g z}) \<le> g y" by (metis gmon isotoneD)
         moreover have "(g (\<Pi> {z. x \<le> g z}) \<le> g y) = (\<Pi> (g ` {z. x \<le> g z}) \<le> g y)"
           by (metis a2 elj ex_meet_preserving_def top_greatest)
         moreover have "... \<Longrightarrow> x \<le> g y" using lem by (metis order_trans)
@@ -1047,55 +985,50 @@ next
 qed
 
 corollary infima_galois_rule:
-  "\<lbrakk>mono g; ex_meet_preserving g; \<forall>x. is_glb (f x) {y. x \<le> g y}\<rbrakk> \<Longrightarrow> cl_galois_connection f g"
+  "\<lbrakk>isotone g; ex_meet_preserving g; \<forall>x. is_glb (f x) {y. x \<le> g y}\<rbrakk> \<Longrightarrow> galois_connection f g"
   using infima_galois by auto
 
 (* +------------------------------------------------------------------------+
    | Theorems 4.26 and 4.27                                                 |
    +------------------------------------------------------------------------+ *)
 
-theorem cl_lower_join_preserving: "cl_lower_adjoint f = (mono f \<and> ex_join_preserving f)"
+theorem cl_lower_join_preserving: "lower_adjoint f = (isotone f \<and> ex_join_preserving f)"
 proof
-  assume lower: "cl_lower_adjoint f"
-  show "mono f \<and> ex_join_preserving f"
+  assume lower: "lower_adjoint f"
+  show "isotone f \<and> ex_join_preserving f"
   proof (intro conjI)
-    show "mono f" by (metis lower cl_lower_adjoint_def suprema_galois)
+    show "isotone f" by (metis lower lower_adjoint_def suprema_galois)
   next
-    show "ex_join_preserving f" by (metis cl_lower_adjoint_def lower lower_adjoint_def lower_preserves_joins poset_galois)
+    show "ex_join_preserving f" by (metis lower lower_preserves_joins)
   qed
 next
-  assume "mono f \<and> ex_join_preserving f"
-  hence fmon: "mono f" and elj: "ex_join_preserving f" and a: "\<forall>y. \<exists>z. is_lub z {x. f x \<le> y}" by (metis lub_ex)+
+  assume "isotone f \<and> ex_join_preserving f"
+  hence fmon: "isotone f" and elj: "ex_join_preserving f" and a: "\<forall>y. \<exists>z. is_lub z {x. f x \<le> y}" by (metis lub_ex)+
   have "\<exists>g. \<forall>y. is_lub (g y) {x. f x \<le> y}"
   proof
     show "\<forall>y. is_lub (\<Sigma> {x. f x \<le> y}) {x. f x \<le> y}" by (metis a lub_is_lub)
   qed
-  thus "cl_lower_adjoint f" by (metis cl_lower_adjoint_def elj fmon suprema_galois_rule)
+  thus "lower_adjoint f" by (metis lower_adjoint_def elj fmon suprema_galois_rule)
 qed
 
-theorem cl_upper_join_preserving: "cl_upper_adjoint g = (mono g \<and> ex_meet_preserving g)"
+theorem cl_upper_join_preserving: "upper_adjoint g = (isotone g \<and> ex_meet_preserving g)"
 proof
-  assume upper: "cl_upper_adjoint g"
-  show "mono g \<and> ex_meet_preserving g"
+  assume upper: "upper_adjoint g"
+  show "isotone g \<and> ex_meet_preserving g"
   proof (intro conjI)
-    show "mono g" by (metis upper cl_upper_adjoint_def infima_galois)
+    show "isotone g" by (metis upper upper_adjoint_def infima_galois)
   next
-    show "ex_meet_preserving g" by (metis cl_upper_adjoint_def upper upper_adjoint_def upper_preserves_meets poset_galois)
+    show "ex_meet_preserving g" by (metis upper upper_preserves_meets)
   qed
 next
-  assume "mono g \<and> ex_meet_preserving g"
-  hence gmon: "mono g" and egj: "ex_meet_preserving g" and a: "\<forall>x. \<exists>z. is_glb z {y. x \<le> g y}" by (metis glb_ex)+
+  assume "isotone g \<and> ex_meet_preserving g"
+  hence gmon: "isotone g" and egj: "ex_meet_preserving g" and a: "\<forall>x. \<exists>z. is_glb z {y. x \<le> g y}" by (metis glb_ex)+
   have "\<exists>f. \<forall>x. is_glb (f x) {y. x \<le> g y}"
   proof
     show "\<forall>x. is_glb (\<Pi> {y. x \<le> g y}) {y. x \<le> g y}" by (metis a glb_is_glb)
   qed
-  thus "cl_upper_adjoint g" by (metis cl_upper_adjoint_def egj gmon infima_galois_rule)
+  thus "upper_adjoint g" by (metis upper_adjoint_def egj gmon infima_galois_rule)
 qed
-
-(* +------------------------------------------------------------------------+
-   | Definition 2.28                                                        |
-   +------------------------------------------------------------------------+ *)
-
 
 lemma join_preserving_is_ex: "join_preserving f \<Longrightarrow> ex_join_preserving f"
   by (metis ex_join_preserving_def join_preserving_def)
@@ -1103,21 +1036,23 @@ lemma join_preserving_is_ex: "join_preserving f \<Longrightarrow> ex_join_preser
 lemma meet_preserving_is_ex: "meet_preserving f \<Longrightarrow> ex_meet_preserving f"
   by (metis ex_meet_preserving_def meet_preserving_def)
 
-lemma galois_join_preserving: "cl_galois_connection f g \<Longrightarrow> join_preserving f"
+lemma galois_join_preserving: "galois_connection f g \<Longrightarrow> join_preserving f"
   by (metis ex_join_preserving_def lub_ex subset_UNIV suprema_galois join_preserving_def)
 
-lemma galois_meet_preserving: "cl_galois_connection f g \<Longrightarrow> meet_preserving g"
+lemma galois_meet_preserving: "galois_connection f g \<Longrightarrow> meet_preserving g"
   by (metis ex_meet_preserving_def glb_ex subset_UNIV infima_galois meet_preserving_def)
 
 (* +------------------------------------------------------------------------+
    | Theorems 4.36 and 4.37                                                 |
    +------------------------------------------------------------------------+ *)
 
-theorem upper_exists: "cl_lower_adjoint f = (mono f \<and> join_preserving f)"
-  by (metis cl_lower_adjoint_def cl_lower_join_preserving galois_join_preserving join_preserving_is_ex)
+theorem upper_exists: "lower_adjoint f = (isotone f \<and> join_preserving f)"
+  by (metis lower_adjoint_def cl_lower_join_preserving galois_join_preserving join_preserving_is_ex)
 
-theorem lower_exists: "cl_upper_adjoint g = (mono g \<and> meet_preserving g)"
-  by (metis cl_upper_adjoint_def cl_upper_join_preserving galois_meet_preserving meet_preserving_is_ex)
+theorem lower_exists: "upper_adjoint g = (isotone g \<and> meet_preserving g)"
+  by (metis upper_adjoint_def cl_upper_join_preserving galois_meet_preserving meet_preserving_is_ex)
+
+end
 
 (* +------------------------------------------------------------------------+
    | Fixpoints and Galois connections                                       |
@@ -1131,10 +1066,10 @@ next
   fix y assume fgy: "(f \<circ> g) y = y"
   have "\<mu> (g \<circ> f) \<le> g y" (* Sledgehammer could do this in one step *)
   proof
-    show "mono (g \<circ> f)" by (metis assms galois_mono1)
+    show "isotone (g \<circ> f)" by (metis assms galois_isotone1)
     show "(g \<circ> f) (g y) \<le> g y" by (metis fgy o_def order_refl)
   qed
-  thus "f (\<mu> (g \<circ> f)) \<le> y" by (metis conn galois_connection.galois_property)
+  thus "f (\<mu> (g \<circ> f)) \<le> y" by (metis conn galois_connection_def)
 qed
 
 lemma greatest_fixpoint_rolling: assumes conn: "galois_connection f g"
@@ -1145,10 +1080,10 @@ next
   fix y assume gfy: "(g \<circ> f) y = y"
   have "f y \<le> \<nu> (f \<circ> g)"
   proof
-    show "mono (f \<circ> g)" by (metis assms galois_mono2)
+    show "isotone (f \<circ> g)" by (metis assms galois_isotone2)
     show "f y \<le> (f \<circ> g) (f y)" by (metis gfy o_def order_refl)
   qed
-  thus "y \<le> g (\<nu> (f \<circ> g))" by (metis conn galois_connection.galois_property)
+  thus "y \<le> g (\<nu> (f \<circ> g))" by (metis conn galois_connection_def)
 qed
 
 (* +------------------------------------------------------------------------+
@@ -1159,40 +1094,40 @@ qed
 
 theorem fixpoint_fusion [simp]:
   assumes upper_ex: "lower_adjoint f"
-  and hmon: "mono h" and kmon: "mono k"
-  and comp: "f\<circ>h = k\<circ>f"
+  and hiso: "isotone h" and kiso: "isotone k"
+  and comm: "f\<circ>h = k\<circ>f"
   shows "f (\<mu> h) = \<mu> k"
 proof
-  show "k (f (\<mu> h)) = f (\<mu> h)" by (metis comp fixpoint_computation hmon o_def)
+  show "k (f (\<mu> h)) = f (\<mu> h)" by (metis comm fixpoint_computation hiso o_def)
 next
   fix y assume ky: "k y = y"
   obtain g where conn: "galois_connection f g" by (metis lower_adjoint_def upper_ex)
-  have "\<mu> h \<le> g y" using hmon
+  have "\<mu> h \<le> g y" using hiso
   proof (rule fixpoint_induction)
-    have "f (g y) \<le> y" by (metis conn galois_connection.deflation)
-    hence "f (h (g y)) \<le> y" by (metis comp kmon ky mem_def monoD o_def)
-    thus "h (g y) \<le> g y" by (metis conn galois_connection.galois_property)
+    have "f (g y) \<le> y" by (metis conn deflation)
+    hence "f (h (g y)) \<le> y" by (metis comm kiso ky mem_def isotoneD o_def)
+    thus "h (g y) \<le> g y" by (metis conn galois_connection_def)
   qed
-  thus "f (\<mu> h) \<le> y" by (metis conn galois_connection.galois_property)
+  thus "f (\<mu> h) \<le> y" by (metis conn galois_connection_def)
 qed
 
 theorem greatest_fixpoint_fusion [simp]:
   assumes lower_ex: "upper_adjoint g"
-  and hmon: "mono h" and kmon: "mono k"
-  and comp: "g\<circ>h = k\<circ>g"
+  and hiso: "isotone h" and kiso: "isotone k"
+  and comm: "g\<circ>h = k\<circ>g"
   shows "g (\<nu> h) = \<nu> k"
 proof
-  show "k (g (\<nu> h)) = g (\<nu> h)" by (metis comp greatest_fixpoint_computation hmon o_def)
+  show "k (g (\<nu> h)) = g (\<nu> h)" by (metis comm greatest_fixpoint_computation hiso o_def)
 next
   fix y assume ky: "k y = y"
   obtain f where conn: "galois_connection f g" by (metis lower_ex upper_adjoint_def)
-  have "f y \<le> \<nu> h" using hmon
+  have "f y \<le> \<nu> h" using hiso
   proof (rule greatest_fixpoint_induction)
-    have "y \<le> g (f y)" by (metis conn galois_connection.inflation)
-    hence "y \<le> g (h (f y))" by (metis comp kmon ky mem_def monoD o_def)
-    thus "f y \<le> h (f y)" by (metis conn galois_connection.galois_property)
+    have "y \<le> g (f y)" by (metis conn inflation)
+    hence "y \<le> g (h (f y))" by (metis comm kiso ky mem_def isotoneD o_def)
+    thus "f y \<le> h (f y)" by (metis conn galois_connection_def)
   qed
-  thus "y \<le> g (\<nu> h)" by (metis conn galois_connection.galois_property)
+  thus "y \<le> g (\<nu> h)" by (metis conn galois_connection_def)
 qed
 
 (* +------------------------------------------------------------------------+
@@ -1240,6 +1175,12 @@ begin
 
   lemma mult_isol: "x \<le> y \<longrightarrow> z\<cdot>x \<le> z\<cdot>y"
     by (metis distl leq_def)
+
+  lemma subdistr: "x\<cdot>z \<le> (x\<squnion>y)\<cdot>z"
+    by (metis add_ub mult_isor)
+
+  lemma subdistl: "z\<cdot>x \<le> z\<cdot>(x\<squnion>y)"
+    by (metis add_ub mult_isol)
 
   lemma mult_double_iso: "w \<le> x \<and> y \<le> z \<longrightarrow> w\<cdot>y \<le> x\<cdot>z"
     by (metis mult_isol mult_isor order_trans)
@@ -1419,10 +1360,14 @@ end
 sublocale star_continuous_ka \<subseteq> kleene_algebra
   where star = cstar
   apply (unfold_locales)
-apply (metis cstar_unfoldl eq_refl)
-apply (metis order_refl cstar_unfoldr)
-apply (metis add_lub cstar_inductl mult_isol order_trans)
-by (metis add_lub cstar_inductr distr order_prop)
+  apply (metis cstar_unfoldl eq_refl)
+  apply (metis order_refl cstar_unfoldr)
+  apply (metis add_lub cstar_inductl mult_isol order_trans)
+  by (metis add_lub cstar_inductr distr order_prop)
+
+(* +------------------------------------------------------------------------+
+   | Quantales                                                              |
+   +------------------------------------------------------------------------+ *)
 
 class quantale = complete_lattice +
   fixes qmult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<odot>" 80)
@@ -1456,56 +1401,53 @@ begin
     thus ?thesis by (simp add: join_def)
   qed
 
-  definition qgalois_connection :: "('a \<Rightarrow> 'a) \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "qgalois_connection f g \<equiv> \<forall>x y. (f x \<le> y) = (x \<le> g y)"
+  lemma qmult_isotonel: "isotone (\<lambda>y. x\<odot>y)"
+    by (metis isotone_def leq_def qdistl1)
+
+  lemma qmult_left_join_preserving: "join_preserving (\<lambda>y. x\<odot>y)"
+    by (metis inf_distl join_preserving_def)
+
+  lemma qmult_left_lower: "lower_adjoint (\<lambda>y. x\<odot>y)"
+    by (metis qmult_isotonel qmult_left_join_preserving upper_exists)
+
+  lemma qmult_isotoner: "isotone (\<lambda>y. y\<odot>x)"
+    by (metis isotone_def leq_def qdistr1)
+
+  lemma qmult_right_join_preserving: "join_preserving (\<lambda>y. y\<odot>x)"
+    by (metis inf_distr join_preserving_def)
+
+  lemma qmult_right_lower: "lower_adjoint (\<lambda>y. y\<odot>x)"
+    by (metis qmult_right_join_preserving qmult_isotoner upper_exists)
+
+  definition qpreimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" where
+    "qpreimp x y \<equiv> \<Sigma> {z. x \<odot> z \<le> y}"
+
+  definition qpostimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" where
+    "qpostimp x y \<equiv> \<Sigma> {z. z \<odot> y \<le> x}"
+
+  lemma qpreimp_conn: "galois_connection (\<lambda>y. x\<odot>y) (qpreimp x)"
+  proof (unfold galois_connection_def, clarify)
+    fix z y
+    obtain g where conn: "galois_connection (\<lambda>y. x\<odot>y) g"
+      by (metis lower_adjoint_def qmult_left_lower)
+    show "(x \<odot> z \<le> y) \<longleftrightarrow> (z \<le> qpreimp x y)"
+      by (simp add: qpreimp_def, metis conn galois_connection_def galois_lub_var)
+  qed
+
+  lemma qpostimp_conn: "galois_connection (\<lambda>y. y\<odot>x) (\<lambda>y. qpostimp y x)"
+  proof (unfold galois_connection_def, clarify)
+    fix z y
+    obtain g where conn: "galois_connection (\<lambda>y. y\<odot>x) g"
+      by (metis lower_adjoint_def qmult_right_lower)
+    thus "(z \<odot> x \<le> y) \<longleftrightarrow> (z \<le> qpostimp y x)"
+      by (simp add: qpostimp_def, metis galois_connection_def galois_lub_var)
+  qed
 
 end
 
-lemma qmult_monor: "mono (\<lambda>y. x\<odot>y)" sorry
-
-lemma qmult_left_join_preserving: "join_preserving (\<lambda>y. x\<odot>y)" sorry
-
-lemma "cl_lower_adjoint (\<lambda>y. x\<odot>y)"
-
-(* Maybe add galois connection between quantales *)
-
-lemma qmult_monor: "mono (\<lambda>y. y\<odot>x)" sorry
-
-lemma qmult_right_join_preserving: "join_preserving (\<lambda>y. y\<odot>x)"
-  by (metis inf_distr join_preserving_def)
-
-lemma "cl_lower_adjoint (\<lambda>y. y\<odot>x)"
-  by (metis qmult_right_join_preserving qmult_monor upper_exists)
-
-definition (in quantale) qpreimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" where
-  "qpreimp x y \<equiv> \<Sigma> {z. x \<odot> z \<le> y}"
-
-definition (in quantale) qpostimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" where
-  "qpostimp x y \<equiv> \<Sigma> {z. z \<odot> y \<le> x}"
-
-context quantale
-begin
-
-lemma qpreimp_conn: "galois_connection (\<lambda>y. x\<odot>y) (qpreimp x)"
-proof (unfold_locales, clarify)
-  fix z y
-  obtain g where conn: "galois_connection (\<lambda>y. x\<odot>y) g"
-    by (metis cl_lower_adjoint_def cl_lower_join_preserving join_preserving_is_ex poset_galois qmult_left_join_preserving qmult_monol)
-  show "(x \<odot> z \<le> y) \<longleftrightarrow> (z \<le> qpreimp x y)" apply (simp add: qpreimp_def)
-    by (simp add: qpreimp_def, metis conn galois_connection.galois_property galois_lub_var)
-qed
-
-lemma qpostimp_conn: "galois_connection (\<lambda>y. y\<odot>x) (\<lambda>y. qpostimp y x)"
-proof (unfold_locales, clarify)
-  fix z y
-  obtain g where conn: "galois_connection (\<lambda>y. y\<odot>x) g"
-    by (metis cl_lower_adjoint_def poset_galois qmult_monor qmult_right_join_preserving upper_exists)
-  thus "(z \<odot> x \<le> y) \<longleftrightarrow> (z \<le> qpostimp y x)" apply (simp add: qpostimp_def)
-    by (metis dual_galois_connection.dual_galois_property galois_dual galois_lub_var)
-qed
-
-lemma qpreimp_conn_var: "(x \<odot> z \<le> y) \<longleftrightarrow> (z \<le> qpreimp x y)"
-  by (rule galois_prop, metis qpreimp_conn)
+(* +------------------------------------------------------------------------+
+   | Unital Quantales                                                       |
+   +------------------------------------------------------------------------+ *)
 
 class unital_quantale = quantale +
   fixes qone :: 'a
@@ -1584,6 +1526,10 @@ proof (unfold_locales, clarify)
     by (simp only: powers_c_def, rule function_image)
 qed
 
+(* +------------------------------------------------------------------------+
+   | Involutive Quantales                                                   |
+   +------------------------------------------------------------------------+ *)
+
 class involutive_quantale = quantale +
   fixes invol :: "'a \<Rightarrow> 'a" ("_\<^sup>\<circ>" [101] 100)
   assumes "(x\<odot>y)\<^sup>\<circ> = y\<^sup>\<circ>\<odot>x\<^sup>\<circ>"
@@ -1591,43 +1537,84 @@ class involutive_quantale = quantale +
 
 class involutive_unital_quantale = unital_quantale + involutive_quantale
 
+(* +------------------------------------------------------------------------+
+   | Action Algebra                                                         |
+   +------------------------------------------------------------------------+ *)
+
+class boffa = dioid +
+  fixes bstar :: "'a \<Rightarrow> 'a"
+  assumes boffa1: "one \<squnion> x \<squnion> (bstar x)\<cdot>(bstar x) \<le> bstar x"
+  and boffa2: "one \<squnion> x \<squnion> y\<cdot>y \<le> y \<longrightarrow> bstar x \<le> y"
+
+class boffa_original = dioid +
+  fixes b2star :: "'a \<Rightarrow> 'a"
+  assumes boffa_orig1: "one \<squnion> x \<le> b2star x"
+  and boffa_orig2: "(b2star x)\<cdot>(b2star x) = b2star x"
+  and boffa_orig3: "one \<squnion> x \<le> y \<and> y\<cdot>y = y \<longrightarrow> b2star x \<le> y"
+
+(* We have found a new slightly weaker version of Boffa's
+axioms. These are complete for the equational theory of regular
+expressions, since they are equivalent to Boffa's original axioms. We
+can now base Pratt's action algebras on these axioms. Action algebras
+are therefore complete by this extension. *)
+
+sublocale boffa \<subseteq> boffa_original
+  where b2star = bstar
+proof
+  fix x y
+  show "one \<squnion> x \<le> bstar x"
+    by (metis add_lub boffa1)
+  show "(bstar x)\<cdot>(bstar x) = bstar x"
+    by (metis add_comm add_idem add_lub boffa1 distl leq_def mult_oner)
+  show "one \<squnion> x \<le> y \<and> y\<cdot>y = y \<longrightarrow> bstar x \<le> y"
+    by (metis boffa2 leq_def order_refl)
+qed
+
+sublocale boffa_original \<subseteq> boffa
+  where bstar = b2star
+proof
+  fix x y
+  show "one \<squnion> x \<squnion> (b2star x)\<cdot>(b2star x) \<le> b2star x"
+    by (metis boffa_orig1 boffa_orig2 eq_refl leq_def)
+  show "one \<squnion> x \<squnion> y\<cdot>y \<le> y \<longrightarrow> b2star x \<le> y"
+    by (metis add_lub antisym boffa_orig3 mult_isol mult_oner)
+qed
+
 class action_algebra = dioid +
   fixes astar :: "'a \<Rightarrow> 'a"
   and preimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixr "\<rightarrow>" 60)
   and postimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<leftarrow>" 60)
-  assumes act1L: "(x \<le> z \<leftarrow> y) \<longleftrightarrow> (x\<cdot>y \<le> z)"
-  and act1R: "(x\<cdot>y \<le> z) \<longleftrightarrow> y \<le> x \<rightarrow> z"
-  and act2: "one \<squnion> (astar x)\<cdot>(astar x) \<squnion> x \<le> (astar x)"
-  and act3: "(one \<squnion> y\<cdot>y \<squnion> x \<le> y) \<longrightarrow> (astar x \<le> y)"
+  assumes act_galois1: "galois_connection (\<lambda>x. x\<cdot>y) (\<lambda>x. x\<leftarrow>y)"
+  assumes act_galois2: "galois_connection (\<lambda>y. x\<cdot>y) (\<lambda>y. x\<rightarrow>y)"
+  and act_star1: "one \<squnion> (astar x)\<cdot>(astar x) \<squnion> x \<le> (astar x)"
+  and act_star2: "(one \<squnion> y\<cdot>y \<squnion> x \<le> y) \<longrightarrow> (astar x \<le> y)"
 
 sublocale unital_quantale \<subseteq> action_algebra
   where zero = bot and mult = qmult and one = qone and astar = qstar
   and preimp = qpreimp and postimp = qpostimp
-proof
-  fix x y z
-  show "(x \<odot> y \<le> z) = (y \<le> qpreimp x z)"
+  apply unfold_locales
+  apply (metis qpostimp_conn)
+  apply (metis qpreimp_conn)
+  apply (metis add_lub order_refl star_ext star_ref star_trans_eq)
+  by (metis add_lub leq_def mult_onel star_inductr star_subdist star_unfoldl_eq)
 
-qed
-(*
 context action_algebra
 begin
-  (* definition (in action_algebra) top :: "'a" where "top \<equiv> 0 \<leftarrow> 0" *)
+  lemma act1L: "(x \<le> z \<leftarrow> y) \<longleftrightarrow> (x\<cdot>y \<le> z)" by (metis galois_connection_def act_galois1)
 
-(*
-  lemma top_annil: "x \<rightarrow> top = top"
-by (metis (full_types) action_algebra_class.act1R prop_top xt1(5))
-  lemma top2: "0 \<rightarrow> x = top" by (metis act1L act1R antisym min_zero top_def)
-*)
+  lemma act1R: "(x\<cdot>y \<le> z) \<longleftrightarrow> y \<le> x \<rightarrow> z" by (metis galois_connection_def act_galois2)
 
   lemma galois_unitR: "y \<le> x \<rightarrow> x\<cdot>y" by (metis act1R le_less)
+
   lemma galois_counitR: "x \<cdot> (x \<rightarrow> y) \<le> y" by (metis act1R le_less)
 
-  lemma eq_ax1: "x \<rightarrow> y \<le> x \<rightarrow> (y + y')" by (metis act1R add_ub galois_counitR order_trans)
+  lemma eq_ax1: "x \<rightarrow> y \<le> x \<rightarrow> (y \<squnion> y')" by (metis act1R add_ub galois_counitR order_trans)
 
   lemma galois_unitL: "x \<le> x\<cdot>y \<leftarrow> y" by (metis act1L le_less)
+
   lemma galois_counitL: "(y \<leftarrow> x) \<cdot> x \<le> y" by (metis act1L le_less)
 
-  lemma eq_ax1': "x \<leftarrow> y \<le> (x + x') \<leftarrow> y" by (metis act1L add_ub galois_counitL order_trans)
+  lemma eq_ax1': "x \<leftarrow> y \<le> (x \<squnion> x') \<leftarrow> y" by (metis act1L add_ub galois_counitL order_trans)
 
   lemma postimp_trans: "(x \<rightarrow> y) \<cdot> (y \<rightarrow> z) \<le> x \<rightarrow> z"
     by (smt act1L act1R galois_counitR mult_assoc order_trans)
@@ -1635,94 +1622,118 @@ by (metis (full_types) action_algebra_class.act1R prop_top xt1(5))
   lemma preimp_trans: "(x \<leftarrow> y) \<cdot> (y \<leftarrow> z) \<le> x \<leftarrow> z"
     by (smt act1L act1R galois_counitL mult_assoc order_trans)
 
-  lemma postimp_refl: "1 \<le> x \<rightarrow> x" by (metis act1R mult_oner order_refl)
-  lemma preimp_refl: "1 \<le> x \<leftarrow> x" by (metis galois_unitL mult_onel)
+  lemma postimp_refl: "one \<le> x \<rightarrow> x" by (metis act1R mult_oner order_refl)
+  lemma preimp_refl: "one \<le> x \<leftarrow> x" by (metis galois_unitL mult_onel)
 
-  lemma postimp_pure_induction: "(x \<rightarrow> x)\<^sup>\<star> \<le> (x \<rightarrow> x)"
-    by (metis act3 add_lub eq_refl postimp_refl postimp_trans)
+  lemma postimp_pure_induction: "astar (x \<rightarrow> x) \<le> (x \<rightarrow> x)"
+    by (metis act_star2 add_lub eq_refl postimp_refl postimp_trans)
 
-  lemma postimp_pure_induction_uncurried: "x\<cdot>(x \<rightarrow> x)\<^sup>\<star> \<le> x"
+  lemma postimp_pure_induction_uncurried: "x\<cdot>astar (x \<rightarrow> x) \<le> x"
     by (metis act1R postimp_pure_induction)
 
-  lemma preimp_pure_induction: "(x \<leftarrow> x)\<^sup>\<star> \<le> (x \<leftarrow> x)"
-    by (metis act3 add_lub eq_refl preimp_refl preimp_trans)
+  lemma preimp_pure_induction: "astar (x \<leftarrow> x) \<le> (x \<leftarrow> x)"
+    by (metis act_star2 add_lub eq_refl preimp_refl preimp_trans)
 
-  lemma star_refl: "1 \<le> x\<^sup>\<star>" by (metis act2 add_lub)
-  lemma star3: "x \<le> x\<^sup>\<star>" by (metis act2 add_lub)
+  lemma star_refl: "one \<le> astar x" by (metis act_star1 add_lub)
+  lemma star3: "x \<le> astar x" by (metis act_star1 add_lub)
 
-  lemma star_mon: "(x \<le> y) \<longrightarrow> (x\<^sup>\<star> \<le> y\<^sup>\<star>)" by (metis act2 act3 add_lub order_trans star3)
+  lemma star_mon: "(x \<le> y) \<longrightarrow> (astar x \<le> astar y)" by (metis act_star1 act_star2 add_lub order_trans star3)
 
-  lemma star_left_preserves: "(x\<cdot>y \<le> y) \<longrightarrow> (x\<^sup>\<star>\<cdot>y \<le> y)"
+  lemma star_left_preserves: "(x\<cdot>y \<le> y) \<longrightarrow> ((astar x)\<cdot>y \<le> y)"
     by (metis act1L order_trans preimp_pure_induction star_mon)
 
-  lemma star_right_preserves: "(y\<cdot>x \<le> y) \<longrightarrow> (y\<cdot>x\<^sup>\<star> \<le> y)"
+  lemma star_right_preserves: "(y\<cdot>x \<le> y) \<longrightarrow> (y\<cdot>astar x \<le> y)"
     by (metis act1R order_trans postimp_pure_induction star_mon)
 end
-*) try
 
 sublocale action_algebra \<subseteq> kleene_algebra
+  where star = astar
 proof
   fix x y z :: 'a
-  show "1 \<cdot> x = x" by (metis mult_onel)
-  show "x \<cdot> 1 = x" by (metis mult_oner)
-  show "1 + x\<cdot>x\<^sup>\<star> \<le> x\<^sup>\<star>"
-    by (smt act2 add_lub order_prop subdistr)
-  show "z + x \<cdot> y \<le> y \<longrightarrow> x\<^sup>\<star> \<cdot> z \<le> y"
-    by (metis add_lub leq_def star_left_preserves subdistl)
-  show "z + y \<cdot> x \<le> y \<longrightarrow> z \<cdot> x\<^sup>\<star> \<le> y"
+  show "one \<squnion> x\<cdot>astar x \<le> astar x"
+    by (metis act_star1 add_assoc add_comm distl distr leq_def mult_oner star3 star_refl)
+  show "one \<squnion> astar x \<cdot> x \<le> astar x"
+    by (metis act_star1 add_assoc add_comm distl distr leq_def mult_oner star3 star_refl)
+  show "z \<squnion> x \<cdot> y \<le> y \<longrightarrow> astar x \<cdot> z \<le> y"
+    by (metis add_lub mult_isol order_trans star_left_preserves)
+  show "z \<squnion> y \<cdot> x \<le> y \<longrightarrow> z \<cdot> astar x \<le> y"
     by (metis add_lub mult_isor order_trans star_right_preserves)
 qed
 
-class equational_action_algebra = dioid_one_zero + star_op + postimp_op + preimp_op +
-  assumes eq1: "x \<rightarrow> y \<le> x \<rightarrow> (y + y')"
-  and eq2L: "x\<cdot>(x \<rightarrow> y) \<le> y"
-  and eq2R: "y \<le> x \<rightarrow> x\<cdot>y"
-  and eq3: "y \<leftarrow> x \<le> (y + y') \<leftarrow> x"
-  and eq4L: "(y \<leftarrow> x)\<cdot>x \<le> y"
-  and eq4R: "y \<le> y\<cdot>x \<leftarrow> x"
-  and eq5: "1 + x\<^sup>\<star>\<cdot>x\<^sup>\<star> + x \<le> x\<^sup>\<star>"
-  and eq6: "x\<^sup>\<star> \<le> (x + y)\<^sup>\<star>"
-  and eq7: "(x \<rightarrow> x)\<^sup>\<star> \<le> x \<rightarrow> x"
+class equational_action_algebra = dioid +
+  fixes eqstar :: "'a \<Rightarrow> 'a"
+  and eqpreimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
+  and eqpostimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a"
+  assumes eq1: "eqpreimp x y \<le> eqpreimp x (y \<squnion> y')"
+  and eq2L: "x\<cdot>(eqpreimp x y) \<le> y"
+  and eq2R: "y \<le> eqpreimp x (x\<cdot>y)"
+  and eq3: "eqpostimp y x \<le> eqpostimp (y \<squnion> y') x"
+  and eq4L: "(eqpostimp y x)\<cdot>x \<le> y"
+  and eq4R: "y \<le> eqpostimp (y\<cdot>x) x"
+  and eq5: "one \<squnion> (eqstar x)\<cdot>(eqstar x) \<squnion> x \<le> eqstar x"
+  and eq6: "eqstar x \<le> eqstar (x \<squnion> y)"
+  and eq7: "eqstar (eqpreimp x x) \<le> (eqpreimp x x)"
 
 sublocale action_algebra \<subseteq> equational_action_algebra
-proof
-  fix x y y' :: 'a
-  show "x \<rightarrow> y \<le> x \<rightarrow> (y + y')"
-    by (metis act1R add_ub galois_counitR order_trans)
-  show "x \<cdot> (x \<rightarrow> y) \<le> y"
-    by (metis galois_counitR)
-  show "y \<le> x \<rightarrow> x \<cdot> y"
-    by (metis galois_unitR)
-  show "y \<leftarrow> x \<le> y + y' \<leftarrow> x"
-    by (metis act1L add_ub galois_counitL order_trans)
-  show "(y \<leftarrow> x) \<cdot> x \<le> y"
-    by (metis galois_counitL)
-  show "y \<le> y \<cdot> x \<leftarrow> x"
-    by (metis galois_unitL)
-  show "1 + x\<^sup>\<star> \<cdot> x\<^sup>\<star> + x \<le> x\<^sup>\<star>"
-    by (metis act2)
-  show "x\<^sup>\<star> \<le> (x + y)\<^sup>\<star>"
-    by (metis star_subdist)
-  show "(x \<rightarrow> x)\<^sup>\<star> \<le> x \<rightarrow> x"
-    by (metis postimp_pure_induction)
-qed
+  where eqstar = astar and eqpreimp = preimp and eqpostimp = postimp
+  apply unfold_locales
+  apply (metis act1R add_ub galois_counitR order_trans)
+  apply (metis galois_counitR)
+  apply (metis galois_unitR)
+  apply (metis act1L add_ub galois_counitL order_trans)
+  apply (metis galois_counitL)
+  apply (metis galois_unitL)
+  apply (metis act_star1)
+  apply (metis star_subdist)
+  by (metis postimp_pure_induction)
 
 sublocale equational_action_algebra \<subseteq> action_algebra
-proof
-  fix x y z :: 'a
-  show "(x \<le> z \<leftarrow> y) = (x \<cdot> y \<le> z)"
-    by (metis eq3 eq4L eq4R leq_def order_trans subdistr)
-  show "(x \<cdot> y \<le> z) = (y \<le> x \<rightarrow> z)"
-    by (metis eq1 eq2L eq2R order_prop order_trans subdistl)
-  show "1 + x\<^sup>\<star> \<cdot> x\<^sup>\<star> + x \<le> x\<^sup>\<star>"
-    by (metis eq5)
-  show "1 + y \<cdot> y + x \<le> y \<longrightarrow> x\<^sup>\<star> \<le> y"
-    by (metis add_lub eq2L eq2R eq6 eq7 eq_iff leq_def mult_onel subdistl subdistr)
-qed
+  where astar = eqstar and preimp = eqpreimp and postimp = eqpostimp
+  apply unfold_locales
+  apply (simp add: galois_connection_def, metis eq3 eq4L eq4R leq_def order_trans subdistr)
+  apply (simp add: galois_connection_def, metis eq1 eq2L eq2R order_prop order_trans subdistl)
+  apply (metis eq5)
+  by (metis add_lub eq2L eq2R eq6 eq7 eq_iff leq_def mult_onel subdistl subdistr)
 
 sublocale equational_action_algebra \<subseteq> kleene_algebra
-apply intro_locales
-done
+  where star = eqstar
+  by intro_locales
 
+class boffa = dioid +
+  fixes bstar :: "'a \<Rightarrow> 'a"
+  assumes b1: "one \<squnion> x \<squnion> (bstar x)\<cdot>(bstar x) \<le> bstar x"
+  and b2: "one \<squnion> x \<squnion> y\<cdot>y \<le> y \<longrightarrow> bstar x \<le> y"
+
+begin
+
+  lemma b3: "(bstar x)\<cdot>(bstar x) = bstar x"
+    by (metis add_comm add_idem add_lub b1 distl leq_def mult_oner)
+
+  lemma b4: "one \<squnion> x \<le> y \<and> y\<cdot>y = y \<longrightarrow> bstar x \<le> y"
+    by (metis b2 leq_def order_refl)
+
+end
+
+class boffa_2 = dioid +
+  fixes b2star :: "'a \<Rightarrow> 'a"
+  assumes b5: "one \<squnion> x \<le> x"
+  and b6: "(b2star x)\<cdot>(b2star x) = b2star x"
+  and b7: "one \<squnion> x \<le> y \<and> y\<cdot>y = y \<longrightarrow> b2star x \<le> y"
+
+begin
+
+  lemma b8: "one \<squnion> x \<squnion> (b2star x)\<cdot>(b2star x) \<le> b2star x"
+    by (metis (full_types) add_comm annil b5 leq_def min_zero mult_oner)
+
+  lemma b9: "one \<squnion> x \<squnion> y\<cdot>y \<le> y \<longrightarrow> b2star x \<le> y"
+    by (metis add_lub antisym b7 mult_isol mult_oner)
+
+end
+
+sublocale action_algebra \<subseteq> boffa
+  where bstar = astar
+  apply unfold_locales
+  apply (metis act_star1 add_assoc add_comm)
+  by (metis act_star2 add_assoc add_comm)
 
 end

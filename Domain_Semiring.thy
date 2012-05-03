@@ -23,6 +23,7 @@ class domain_semiring = semiring_one_zero + plus_ord + d_op +
   and d3: "d(x)+1 = 1"
   and d4: "d(0) = 0"
   and d5: "d(x+y) = d(x)+d(y)"
+
 begin
 
 text {* We first show that every domain semiring is "automatically"

@@ -349,13 +349,12 @@ begin
 
   definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
     "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
-end
 
 lemma lpp_unique: "\<lbrakk>is_lpp x f; is_lpp y f\<rbrakk> \<Longrightarrow> x = y"
-  by (simp add: is_lpp_def is_pre_fp_def, metis order_eq_iff)
+  by (metis eq_iff is_lpp_def_var)
 
 lemma gpp_unique: "\<lbrakk>is_gpp x f; is_gpp y f\<rbrakk> \<Longrightarrow> x = y"
-  by (simp add: is_gpp_def is_post_fp_def, metis order_eq_iff)
+  by (metis eq_iff is_gpp_def_var)
 
 lemma lpp_equality [intro?]: "is_lpp x f \<Longrightarrow> \<mu>\<^sub>\<le> f = x"
   by (simp add: least_prefix_point_def, rule the_equality, auto, metis antisym is_lpp_def is_pre_fp_def)
@@ -377,11 +376,11 @@ lemma gfp_equality_var [intro?]: "\<lbrakk>f x = x; \<And>y. f y = y \<Longright
 
 lemma lpp_is_lfp: "\<lbrakk>isotone f; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
   apply (simp add: is_lpp_def is_lfp_def is_fp_def is_pre_fp_def)
-  by (metis isotone_def order_eq_iff)
+  by (metis eq_iff isotoneD)
 
 lemma gpp_is_gfp: "\<lbrakk>isotone f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
   apply (simp add: is_gpp_def is_gfp_def is_fp_def is_post_fp_def)
-  by (metis isotone_def order_antisym)
+  by (metis isotone_def antisym)
 
 (* +------------------------------------------------------------------------+
    | Knaster-Tarski                                                         |
@@ -391,7 +390,7 @@ lemma gpp_is_gfp: "\<lbrakk>isotone f; is_gpp x f\<rbrakk> \<Longrightarrow> is_
 
 theorem knaster_tarski_lpp:
   assumes fmon: "isotone f"
-  obtains a :: "'a::complete_lattice" where "is_lpp a f"
+  obtains a where "is_lpp a f"
 proof
   let ?H = "{u. f u \<le> u}"
   let ?a = "\<Pi> ?H"
@@ -399,7 +398,7 @@ proof
   proof -
     have "\<forall>x\<in>?H. ?a \<le> x" by (metis glb_least)
     hence "\<forall>x\<in>?H. f ?a \<le> f x" by (metis assms glb_least isotoneD)
-    hence "\<forall>x\<in>?H. f ?a \<le> x" by (smt Collect_def double_complement mem_def xt1(6))
+    hence "\<forall>x\<in>?H. f ?a \<le> x" by (metis Collect_def mem_def order_trans)
     hence "f ?a \<le> \<Pi> ?H" by (smt glb_greatest)
     thus ?thesis by (metis is_pre_fp_def)
   qed
@@ -414,7 +413,7 @@ corollary is_lpp_lpp [intro?]: "isotone f \<Longrightarrow> is_lpp (\<mu>\<^sub>
 
 theorem knaster_tarski:
   assumes fmon: "isotone f"
-  obtains a :: "'a::complete_lattice" where "is_lfp a f"
+  obtains a where "is_lfp a f"
   by (metis assms is_lpp_lpp lpp_is_lfp)
 
 corollary knaster_tarski_var: "isotone f \<Longrightarrow> \<exists>!x. is_lfp x f"
@@ -427,7 +426,7 @@ corollary is_lfp_lfp [intro?]: "isotone f \<Longrightarrow> is_lfp (\<mu> f) f"
 
 theorem knaster_tarski_gpp:
   assumes fmon: "isotone f"
-  obtains a :: "'a::complete_lattice" where "is_gpp a f"
+  obtains a :: "'a" where "is_gpp a f"
 proof
   let ?H = "{u. u \<le> f u}"
   let ?a = "\<Sigma> ?H"
@@ -450,7 +449,7 @@ corollary is_gpp_gpp [intro?]: "isotone f \<Longrightarrow> is_gpp (\<nu>\<^sub>
 
 theorem knaster_tarski_greatest:
   assumes fmon: "isotone f"
-  obtains a :: "'a::complete_lattice" where "is_gfp a f"
+  obtains a :: "'a" where "is_gfp a f"
   by (metis assms is_gpp_gpp gpp_is_gfp)
 
 corollary knaster_tarski_greatest_var: "isotone f \<Longrightarrow> \<exists>!x. is_gfp x f"
@@ -512,7 +511,7 @@ lemma greatest_fixpoint_induction [intro?]:
   by (metis fmon fp is_gpp_gpp gfp_equality gpp_is_gfp greatest_postfix_point_induction)
 
 lemma fixpoint_compose:
-  assumes kmon: "mono k" and comp: "g\<circ>k = k\<circ>h" and fp: "is_fp x h"
+  assumes kmon: "isotone k" and comp: "g\<circ>k = k\<circ>h" and fp: "is_fp x h"
   shows "is_fp (k x) g"
 proof (unfold is_fp_def)
   have "h x = x" using fp by (unfold is_fp_def)
@@ -542,6 +541,8 @@ proof -
     thus "\<nu> f \<le> g (\<nu> f)" using fmon by simp
   qed
 qed
+
+end
 
 (* +------------------------------------------------------------------------+
    | Galois Connections                                                     |
@@ -1052,8 +1053,6 @@ theorem upper_exists: "lower_adjoint f = (isotone f \<and> join_preserving f)"
 theorem lower_exists: "upper_adjoint g = (isotone g \<and> meet_preserving g)"
   by (metis upper_adjoint_def cl_upper_join_preserving galois_meet_preserving meet_preserving_is_ex)
 
-end
-
 (* +------------------------------------------------------------------------+
    | Fixpoints and Galois connections                                       |
    +------------------------------------------------------------------------+ *)
@@ -1129,6 +1128,8 @@ next
   qed
   thus "y \<le> g (\<nu> h)" by (metis conn galois_connection_def)
 qed
+
+end
 
 (* +------------------------------------------------------------------------+
    | Join semilattices with zero and dioids                                 |
@@ -1526,6 +1527,24 @@ proof (unfold_locales, clarify)
     by (simp only: powers_c_def, rule function_image)
 qed
 
+lemma (in unital_quantale) "qstar x = \<mu>(\<lambda>y. qone \<squnion> y\<odot>x)"
+proof
+  show "qone \<squnion> qstar x \<odot> x = qstar x" by (metis cstar_unfoldr)
+next
+  fix y assume "qone \<squnion> y\<odot>x = y"
+  thus "qstar x \<le> y"
+    by (metis mult_onel order_refl star_inductr)
+qed
+
+lemma (in unital_quantale) "qstar x = \<mu>(\<lambda>y. qone \<squnion> x\<odot>y)"
+proof
+  show "qone \<squnion> x \<odot> qstar x = qstar x" by (metis cstar_unfoldl)
+next
+  fix y assume "qone \<squnion> x\<odot>y = y"
+  thus "qstar x \<le> y"
+    by (metis mult_oner order_refl star_inductl)
+qed
+
 (* +------------------------------------------------------------------------+
    | Involutive Quantales                                                   |
    +------------------------------------------------------------------------+ *)
@@ -1580,23 +1599,20 @@ proof
     by (metis add_lub antisym boffa_orig3 mult_isol mult_oner)
 qed
 
-class action_algebra = dioid +
-  fixes astar :: "'a \<Rightarrow> 'a"
-  and preimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixr "\<rightarrow>" 60)
+class action_algebra = boffa +
+  fixes preimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixr "\<rightarrow>" 60)
   and postimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<leftarrow>" 60)
   assumes act_galois1: "galois_connection (\<lambda>x. x\<cdot>y) (\<lambda>x. x\<leftarrow>y)"
-  assumes act_galois2: "galois_connection (\<lambda>y. x\<cdot>y) (\<lambda>y. x\<rightarrow>y)"
-  and act_star1: "one \<squnion> (astar x)\<cdot>(astar x) \<squnion> x \<le> (astar x)"
-  and act_star2: "(one \<squnion> y\<cdot>y \<squnion> x \<le> y) \<longrightarrow> (astar x \<le> y)"
+  and act_galois2: "galois_connection (\<lambda>y. x\<cdot>y) (\<lambda>y. x\<rightarrow>y)"
 
 sublocale unital_quantale \<subseteq> action_algebra
-  where zero = bot and mult = qmult and one = qone and astar = qstar
+  where zero = bot and mult = qmult and one = qone and bstar = qstar
   and preimp = qpreimp and postimp = qpostimp
   apply unfold_locales
+  apply (metis add_lub cstar_inductl star_1l star_ext star_ref)
+  apply (metis add_lub leq_def mult_onel star_inductr star_subdist star_unfoldl_eq)
   apply (metis qpostimp_conn)
-  apply (metis qpreimp_conn)
-  apply (metis add_lub order_refl star_ext star_ref star_trans_eq)
-  by (metis add_lub leq_def mult_onel star_inductr star_subdist star_unfoldl_eq)
+  by (metis qpreimp_conn)
 
 context action_algebra
 begin
@@ -1625,38 +1641,39 @@ begin
   lemma postimp_refl: "one \<le> x \<rightarrow> x" by (metis act1R mult_oner order_refl)
   lemma preimp_refl: "one \<le> x \<leftarrow> x" by (metis galois_unitL mult_onel)
 
-  lemma postimp_pure_induction: "astar (x \<rightarrow> x) \<le> (x \<rightarrow> x)"
-    by (metis act_star2 add_lub eq_refl postimp_refl postimp_trans)
+  lemma postimp_pure_induction: "bstar (x \<rightarrow> x) \<le> (x \<rightarrow> x)"
+    by (metis add_lub boffa2 order_refl postimp_refl postimp_trans)
 
-  lemma postimp_pure_induction_uncurried: "x\<cdot>astar (x \<rightarrow> x) \<le> x"
+  lemma postimp_pure_induction_uncurried: "x\<cdot>bstar (x \<rightarrow> x) \<le> x"
     by (metis act1R postimp_pure_induction)
 
-  lemma preimp_pure_induction: "astar (x \<leftarrow> x) \<le> (x \<leftarrow> x)"
-    by (metis act_star2 add_lub eq_refl preimp_refl preimp_trans)
+  lemma preimp_pure_induction: "bstar (x \<leftarrow> x) \<le> (x \<leftarrow> x)"
+    by (metis add_lub boffa2 order_refl preimp_refl preimp_trans)
 
-  lemma star_refl: "one \<le> astar x" by (metis act_star1 add_lub)
-  lemma star3: "x \<le> astar x" by (metis act_star1 add_lub)
+  lemma star_refl: "one \<le> bstar x" by (metis boffa1 add_lub)
+  lemma star3: "x \<le> bstar x" by (metis boffa1 add_lub)
 
-  lemma star_mon: "(x \<le> y) \<longrightarrow> (astar x \<le> astar y)" by (metis act_star1 act_star2 add_lub order_trans star3)
+  lemma star_mon: "(x \<le> y) \<longrightarrow> (bstar x \<le> bstar y)"
+    by (metis add_lub boffa_orig2 boffa_orig3 order_trans star3 star_refl)
 
-  lemma star_left_preserves: "(x\<cdot>y \<le> y) \<longrightarrow> ((astar x)\<cdot>y \<le> y)"
+  lemma star_left_preserves: "(x\<cdot>y \<le> y) \<longrightarrow> ((bstar x)\<cdot>y \<le> y)"
     by (metis act1L order_trans preimp_pure_induction star_mon)
 
-  lemma star_right_preserves: "(y\<cdot>x \<le> y) \<longrightarrow> (y\<cdot>astar x \<le> y)"
+  lemma star_right_preserves: "(y\<cdot>x \<le> y) \<longrightarrow> (y\<cdot>bstar x \<le> y)"
     by (metis act1R order_trans postimp_pure_induction star_mon)
 end
 
 sublocale action_algebra \<subseteq> kleene_algebra
-  where star = astar
+  where star = bstar
 proof
   fix x y z :: 'a
-  show "one \<squnion> x\<cdot>astar x \<le> astar x"
-    by (metis act_star1 add_assoc add_comm distl distr leq_def mult_oner star3 star_refl)
-  show "one \<squnion> astar x \<cdot> x \<le> astar x"
-    by (metis act_star1 add_assoc add_comm distl distr leq_def mult_oner star3 star_refl)
-  show "z \<squnion> x \<cdot> y \<le> y \<longrightarrow> astar x \<cdot> z \<le> y"
+  show "one \<squnion> x\<cdot>bstar x \<le> bstar x"
+    by (metis boffa1 add_assoc add_comm distl distr leq_def mult_oner star3 star_refl)
+  show "one \<squnion> bstar x \<cdot> x \<le> bstar x"
+    by (metis boffa1 add_assoc add_comm distl distr leq_def mult_oner star3 star_refl)
+  show "z \<squnion> x \<cdot> y \<le> y \<longrightarrow> bstar x \<cdot> z \<le> y"
     by (metis add_lub mult_isol order_trans star_left_preserves)
-  show "z \<squnion> y \<cdot> x \<le> y \<longrightarrow> z \<cdot> astar x \<le> y"
+  show "z \<squnion> y \<cdot> x \<le> y \<longrightarrow> z \<cdot> bstar x \<le> y"
     by (metis add_lub mult_isor order_trans star_right_preserves)
 qed
 
@@ -1675,7 +1692,7 @@ class equational_action_algebra = dioid +
   and eq7: "eqstar (eqpreimp x x) \<le> (eqpreimp x x)"
 
 sublocale action_algebra \<subseteq> equational_action_algebra
-  where eqstar = astar and eqpreimp = preimp and eqpostimp = postimp
+  where eqstar = bstar and eqpreimp = preimp and eqpostimp = postimp
   apply unfold_locales
   apply (metis act1R add_ub galois_counitR order_trans)
   apply (metis galois_counitR)
@@ -1683,57 +1700,20 @@ sublocale action_algebra \<subseteq> equational_action_algebra
   apply (metis act1L add_ub galois_counitL order_trans)
   apply (metis galois_counitL)
   apply (metis galois_unitL)
-  apply (metis act_star1)
+  apply (metis add_assoc add_comm boffa1)
   apply (metis star_subdist)
   by (metis postimp_pure_induction)
 
 sublocale equational_action_algebra \<subseteq> action_algebra
-  where astar = eqstar and preimp = eqpreimp and postimp = eqpostimp
+  where bstar = eqstar and preimp = eqpreimp and postimp = eqpostimp
   apply unfold_locales
+  apply (metis add_assoc add_comm eq5)
+  apply (metis add_lub eq2L eq2R eq6 eq7 eq_iff leq_def mult_onel subdistl subdistr)
   apply (simp add: galois_connection_def, metis eq3 eq4L eq4R leq_def order_trans subdistr)
-  apply (simp add: galois_connection_def, metis eq1 eq2L eq2R order_prop order_trans subdistl)
-  apply (metis eq5)
-  by (metis add_lub eq2L eq2R eq6 eq7 eq_iff leq_def mult_onel subdistl subdistr)
+  by (simp add: galois_connection_def, metis eq1 eq2L eq2R order_prop order_trans subdistl)
 
 sublocale equational_action_algebra \<subseteq> kleene_algebra
   where star = eqstar
   by intro_locales
-
-class boffa = dioid +
-  fixes bstar :: "'a \<Rightarrow> 'a"
-  assumes b1: "one \<squnion> x \<squnion> (bstar x)\<cdot>(bstar x) \<le> bstar x"
-  and b2: "one \<squnion> x \<squnion> y\<cdot>y \<le> y \<longrightarrow> bstar x \<le> y"
-
-begin
-
-  lemma b3: "(bstar x)\<cdot>(bstar x) = bstar x"
-    by (metis add_comm add_idem add_lub b1 distl leq_def mult_oner)
-
-  lemma b4: "one \<squnion> x \<le> y \<and> y\<cdot>y = y \<longrightarrow> bstar x \<le> y"
-    by (metis b2 leq_def order_refl)
-
-end
-
-class boffa_2 = dioid +
-  fixes b2star :: "'a \<Rightarrow> 'a"
-  assumes b5: "one \<squnion> x \<le> x"
-  and b6: "(b2star x)\<cdot>(b2star x) = b2star x"
-  and b7: "one \<squnion> x \<le> y \<and> y\<cdot>y = y \<longrightarrow> b2star x \<le> y"
-
-begin
-
-  lemma b8: "one \<squnion> x \<squnion> (b2star x)\<cdot>(b2star x) \<le> b2star x"
-    by (metis (full_types) add_comm annil b5 leq_def min_zero mult_oner)
-
-  lemma b9: "one \<squnion> x \<squnion> y\<cdot>y \<le> y \<longrightarrow> b2star x \<le> y"
-    by (metis add_lub antisym b7 mult_isol mult_oner)
-
-end
-
-sublocale action_algebra \<subseteq> boffa
-  where bstar = astar
-  apply unfold_locales
-  apply (metis act_star1 add_assoc add_comm)
-  by (metis act_star2 add_assoc add_comm)
 
 end

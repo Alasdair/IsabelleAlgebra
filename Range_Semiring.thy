@@ -2,7 +2,7 @@ header {* Range Semirings *}
 
 theory Range_Semiring
   imports Domain_Semiring
-begin
+beg
 
 section {* Range Semirings  *}
 

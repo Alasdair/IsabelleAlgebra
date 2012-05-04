@@ -378,21 +378,9 @@ lemma lpp_is_lfp: "\<lbrakk>isotone f; is_lpp x f\<rbrakk> \<Longrightarrow> is_
   apply (simp add: is_lpp_def is_lfp_def is_fp_def is_pre_fp_def)
   by (metis eq_iff isotoneD)
 
-lemma lfp_is_lpp: "\<lbrakk>isotone f; is_lfp x f\<rbrakk> \<Longrightarrow>  is_lpp x f"
-  by (metis lfp_equality lpp_is_lfp is_lpp_lpp)
-
-lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
-  by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
-
 lemma gpp_is_gfp: "\<lbrakk>isotone f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
   apply (simp add: is_gpp_def is_gfp_def is_fp_def is_post_fp_def)
   by (metis isotone_def antisym)
-
-lemma gfp_is_gpp: "\<lbrakk>isotone f; is_gfp x f\<rbrakk> \<Longrightarrow>  is_gpp x f"
-  by (metis gfp_equality gpp_is_gfp is_gpp_gpp)
-
-lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
-  by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
 
 (* +------------------------------------------------------------------------+
    | Knaster-Tarski                                                         |
@@ -1806,3 +1794,7 @@ next
   thus "\<forall>y z. y \<le> x \<odot> y \<squnion> z \<longrightarrow> y \<le> qstar x \<odot> z"
     by (metis greatest_fixpoint_induction kiso)
 qed
+
+end
+
+end

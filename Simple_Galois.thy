@@ -378,9 +378,21 @@ lemma lpp_is_lfp: "\<lbrakk>isotone f; is_lpp x f\<rbrakk> \<Longrightarrow> is_
   apply (simp add: is_lpp_def is_lfp_def is_fp_def is_pre_fp_def)
   by (metis eq_iff isotoneD)
 
+lemma lfp_is_lpp: "\<lbrakk>isotone f; is_lfp x f\<rbrakk> \<Longrightarrow>  is_lpp x f"
+  by (metis lfp_equality lpp_is_lfp is_lpp_lpp)
+
+lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
+  by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
+
 lemma gpp_is_gfp: "\<lbrakk>isotone f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
   apply (simp add: is_gpp_def is_gfp_def is_fp_def is_post_fp_def)
   by (metis isotone_def antisym)
+
+lemma gfp_is_gpp: "\<lbrakk>isotone f; is_gfp x f\<rbrakk> \<Longrightarrow>  is_gpp x f"
+  by (metis gfp_equality gpp_is_gfp is_gpp_gpp)
+
+lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
+  by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
 
 (* +------------------------------------------------------------------------+
    | Knaster-Tarski                                                         |
@@ -457,6 +469,18 @@ corollary knaster_tarski_greatest_var: "isotone f \<Longrightarrow> \<exists>!x.
 
 corollary is_gfp_gfp [intro?]: "isotone f \<Longrightarrow> is_gfp (\<nu> f) f"
   using knaster_tarski_greatest by (metis gfp_equality)
+
+lemma lfp_is_lpp: "\<lbrakk>isotone f; is_lfp x f\<rbrakk> \<Longrightarrow>  is_lpp x f"
+  by (metis lfp_equality lpp_is_lfp is_lpp_lpp)
+
+lemma lfp_is_lpp_var: "isotone f \<Longrightarrow> \<mu> f = \<mu>\<^sub>\<le> f"
+  by (metis lfp_is_lpp lpp_equality is_lfp_lfp)
+
+lemma gfp_is_gpp: "\<lbrakk>isotone f; is_gfp x f\<rbrakk> \<Longrightarrow>  is_gpp x f"
+  by (metis gfp_equality gpp_is_gfp is_gpp_gpp)
+
+lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
+  by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
 
 (* We now show some more properties of fixpoints *)
 
@@ -1620,17 +1644,19 @@ begin
 
   lemma act1R: "(x\<cdot>y \<le> z) \<longleftrightarrow> y \<le> x \<rightarrow> z" by (metis galois_connection_def act_galois2)
 
-  lemma galois_unitR: "y \<le> x \<rightarrow> x\<cdot>y" by (metis act1R le_less)
+  (* We can obtain these by instantiating proofs from galois connections *)
 
-  lemma galois_counitR: "x \<cdot> (x \<rightarrow> y) \<le> y" by (metis act1R le_less)
+  lemma galois_unitR: "y \<le> x \<rightarrow> x\<cdot>y" by (metis act_galois2 inflation)
 
-  lemma eq_ax1: "x \<rightarrow> y \<le> x \<rightarrow> (y \<squnion> y')" by (metis act1R add_ub galois_counitR order_trans)
+  lemma galois_counitR: "x \<cdot> (x \<rightarrow> y) \<le> y" by (metis act_galois2 deflation)
 
-  lemma galois_unitL: "x \<le> x\<cdot>y \<leftarrow> y" by (metis act1L le_less)
+  lemma galois_unitL: "x \<le> x\<cdot>y \<leftarrow> y" by (metis act_galois1 inflation)
 
-  lemma galois_counitL: "(y \<leftarrow> x) \<cdot> x \<le> y" by (metis act1L le_less)
+  lemma galois_counitL: "(y \<leftarrow> x) \<cdot> x \<le> y" by (metis act_galois1 deflation)
 
-  lemma eq_ax1': "x \<leftarrow> y \<le> (x \<squnion> x') \<leftarrow> y" by (metis act1L add_ub galois_counitL order_trans)
+  lemma eq_ax1: "x \<rightarrow> y \<le> x \<rightarrow> (y \<squnion> y')" by (metis act_galois2 add_ub galois_ump1 isotoneD)
+
+  lemma eq_ax1': "x \<leftarrow> y \<le> (x \<squnion> x') \<leftarrow> y" by (metis act_galois1 add_ub galois_ump1 isotoneD)
 
   lemma postimp_trans: "(x \<rightarrow> y) \<cdot> (y \<rightarrow> z) \<le> x \<rightarrow> z"
     by (smt act1L act1R galois_counitR mult_assoc order_trans)
@@ -1716,4 +1742,67 @@ sublocale equational_action_algebra \<subseteq> kleene_algebra
   where star = eqstar
   by intro_locales
 
-end
+(* +------------------------------------------------------------------------+
+   | Deflationarity aka wellfoundedness vs UEP                              |
+   +------------------------------------------------------------------------+ *)
+
+class completely_distributive_quantale = unital_quantale +
+  assumes jm_inf_distributive: "x \<squnion> \<Pi> Y = \<Pi> ((\<lambda>y. x\<squnion>y) ` Y)"
+
+begin
+
+lemma lambda_eq: "\<forall>x. P x = Q x \<Longrightarrow> (\<lambda>x. P x) = (\<lambda>x. Q x)" by metis
+
+lemma arden_fusion: "\<nu> (\<lambda>y. x\<odot>y \<squnion> z) = qstar x \<odot> z \<squnion> \<nu> (\<lambda>y. x\<odot>y)"
+proof -
+  have lower_ex: "upper_adjoint (\<lambda>y. qstar x \<odot> z \<squnion> y)"
+  proof (unfold lower_exists, safe)
+    show "isotone (\<lambda>y. qstar x \<odot> z \<squnion> y)"
+      by (metis add_comm add_lub add_ub isotone_def order_trans)
+    show "meet_preserving (\<lambda>y. qstar x \<odot> z \<squnion> y)"
+      by (metis jm_inf_distributive meet_preserving_def)
+  qed
+
+  have kiso: "isotone (\<lambda>y. x\<odot>y \<squnion> z)"
+    by (smt add_iso isotone_def order_prop subdistl)
+
+  have hiso: "isotone (\<lambda>y. x\<odot>y)"
+    by (metis qmult_isotonel)
+
+  have comm: "(\<lambda>y. qstar x \<odot> z \<squnion> y)\<circ>(\<lambda>y. x\<odot>y) = (\<lambda>y. x\<odot>y \<squnion> z)\<circ>(\<lambda>y. qstar x \<odot> z \<squnion> y)"
+    proof (unfold o_def, rule lambda_eq, safe)
+      fix y
+      have "x \<odot> (qstar x \<odot> z \<squnion> y) \<squnion> z = x\<odot>(qstar x)\<odot>z \<squnion> x\<odot>y \<squnion> z" by (metis distl mult_assoc)
+      also have "... = (qone \<squnion> x\<odot>(qstar x))\<odot>z \<squnion> x\<odot>y"
+        by (smt add_assoc add_comm mult_assoc mult_onel qdistr1)
+      also have "... = (qstar x)\<odot>z \<squnion> x\<odot>y" by (metis star_unfoldl_eq)
+      finally show "qstar x \<odot> z \<squnion> x \<odot> y = x \<odot> (qstar x \<odot> z \<squnion> y) \<squnion> z" by metis
+   qed
+
+   show ?thesis
+     by (metis comm greatest_fixpoint_fusion hiso kiso lower_ex)
+qed
+
+lemma gfp_is_gpp: "\<lbrakk>isotone f; is_gfp x f\<rbrakk> \<Longrightarrow>  is_gpp x f"
+  by (metis gfp_equality gpp_is_gfp is_gpp_gpp)
+
+lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
+  by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
+
+lemma deflationarity_implies_uep:
+  "(\<forall>y. y \<le> x\<odot>y \<longrightarrow> y = \<bottom>) \<longleftrightarrow> (\<forall>y z. y \<le> x\<odot>y \<squnion> z \<longrightarrow> y \<le> (qstar x) \<odot> z)"
+proof
+  assume "\<forall>y z. y \<le> x \<odot> y \<squnion> z \<longrightarrow> y \<le> (qstar x) \<odot> z"
+  thus "\<forall>y. y \<le> x \<odot> y \<longrightarrow> y = \<bottom>" by (metis annil bot_oner leq_def)
+next
+  have kiso: "\<forall>z. isotone (\<lambda>y. x\<odot>y \<squnion> z)"
+    by (smt add_iso isotone_def order_prop subdistl)
+
+  assume "\<forall>y. y \<le> x \<odot> y \<longrightarrow> y = \<bottom>"
+  hence "\<nu> (\<lambda>y. x\<odot>y) = \<bottom>"
+    by (metis annil gfp_equality_var order_refl)
+  hence "\<forall>z. \<nu> (\<lambda>y. x\<odot>y \<squnion> z) = qstar x \<odot> z"
+    by (metis arden_fusion bot_oner)
+  thus "\<forall>y z. y \<le> x \<odot> y \<squnion> z \<longrightarrow> y \<le> qstar x \<odot> z"
+    by (metis greatest_fixpoint_induction kiso)
+qed

@@ -1,15 +1,9 @@
-theory Lattice
+theory Order
   imports Main
 begin
 
 record 'a partial_object =
   carrier :: "'a set"
-
-abbreviation closed :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a set \<Rightarrow> 'b set \<Rightarrow> bool" ("_\<Colon>_\<rightarrow>_") where
-  "closed f A B \<equiv> (\<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B)"
-
-lemma closed_composition: "\<lbrakk>f \<Colon> A \<rightarrow> B; g \<Colon> B \<rightarrow> C\<rbrakk> \<Longrightarrow> g \<circ> f \<Colon> A \<rightarrow> C"
-  by (metis o_apply)
 
 locale equivalence = fixes S (structure)
   assumes refl [simp, intro]: "x \<in> carrier S \<Longrightarrow> x = x"
@@ -29,6 +23,9 @@ definition isotone :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarro
 
 definition idempotent :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a) set" where
   "idempotent A f \<equiv> \<forall>x\<in>A. (f \<circ> f) x = f x"
+
+abbreviation closed :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a set \<Rightarrow> 'b set \<Rightarrow> bool" ("_\<Colon>_\<rightarrow>_") where
+  "closed f A B \<equiv> (\<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B)"
 
 context order
 begin
@@ -346,9 +343,9 @@ begin
     by (metis glb_ex glb_is_glb)
 
 (*
-  lemma glb_greatest [intro?]: "\<And>y. \<lbrakk>X \<subseteq> carrier A; y \<in> X; y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> x \<sqsubseteq> \<Pi> X" nitpick
+  lemma glb_greatest [intro?]: "\<And>y. \<lbrakk>x \<in> carrier A; y \<in> carrier A; X \<subseteq> carrier A; y \<in> X; y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> \<Sigma> X \<sqsubseteq> x"
     apply (rule the_glb_leq)
-    apply (metis glb_ex)
+apply (metis glb_ex)
     nitpick
     by (metis is_glb_equiv is_glb_glb)
 *)
@@ -368,15 +365,11 @@ begin
 end
 
 (* +------------------------------------------------------------------------+
-   | Complete Lattices                                                      |
+   | Complete meet semilattices                                             |
    +------------------------------------------------------------------------+ *)
 
 locale complete_lattice = complete_join_semilattice + complete_meet_semilattice
 
-sublocale complete_lattice \<subseteq> lattice
-  by unfold_locales
-
-context complete_lattice
 begin
 
   lemma univ_lub: "\<Sigma> (carrier A) = \<top>"
@@ -385,101 +378,106 @@ begin
   lemma univ_glb: "\<Pi> (carrier A) = \<bottom>"
     by (metis bot_ax bot_closed is_glb_def is_glb_glb is_lb_def prop_bot subset_refl)
 
-  definition is_pre_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_pre_fp x f \<equiv> f \<Colon> carrier A \<rightarrow> carrier A \<and> x \<in> carrier A \<and> f x \<sqsubseteq> x"
+end
 
-  definition is_post_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_post_fp x f \<equiv> f \<Colon> carrier A \<rightarrow> carrier A \<and> x \<in> carrier A \<and> x \<sqsubseteq> f x"
+sublocale complete_lattice \<subseteq> lattice
+  by unfold_locales
 
-  definition is_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_fp x f \<equiv> f \<Colon> carrier A \<rightarrow> carrier A \<and> x \<in> carrier A \<and> f x = x"
 
-  lemma is_fp_def_var: "is_fp x f = (is_pre_fp x f \<and> is_post_fp x f)"
-    by (simp add: is_fp_def is_pre_fp_def is_post_fp_def, metis antisym order_refl)
 
-  definition is_lpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_lpp x f \<equiv> (is_pre_fp x f) \<and> (\<forall>y\<in>carrier A. f y \<sqsubseteq> y \<longrightarrow> x \<sqsubseteq> y)"
+(*
+record ('a, 'b) adjoints = "('a, 'b) bi_ord" +
+  lower :: "'a \<Rightarrow> 'b" ("\<pi>\<^sup>*\<index>")
+  upper :: "'b \<Rightarrow> 'a" ("\<pi>\<^sub>*\<index>")
 
-  definition is_gpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_gpp x f \<equiv> (is_post_fp x f) \<and> (\<forall>y\<in>carrier A. y \<sqsubseteq> f y \<longrightarrow> y \<sqsubseteq> x)"
+locale galois_connection = fixes G (structure)"
+  assumes is_order_A: "order \<alpha>"
+  and is_order_B: "order \<beta>"
+  and lower_closure: "x \<in> carrier \<alpha> \<Longrightarrow> \<pi>\<^sup>* x \<in> carrier \<beta>"
+  and upper_closure: "y \<in> carrier \<beta> \<Longrightarrow> \<pi>\<^sub>* y \<in> carrier \<alpha>"
+  and galois_property: "\<lbrakk>\<pi>\<^sup>* x \<in> carrier \<beta>; x \<in> carrier \<alpha>; y \<in> carrier \<beta>; \<pi>\<^sub>* y \<in> carrier \<alpha>\<rbrakk> \<Longrightarrow> \<pi>\<^sup>* x \<sqsubseteq>\<^bsub>\<beta>\<^esub> y \<longleftrightarrow> x \<sqsubseteq>\<^bsub>\<alpha>\<^esub> \<pi>\<^sub>* y"
+*)
 
-  definition is_lfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_lfp x f \<equiv> is_fp x f \<and> (\<forall>y\<in>carrier A. is_fp y f \<longrightarrow> x \<sqsubseteq> y)"
+locale galois_connection =
+  fixes orderA :: "'a ord" ("\<alpha>")
+  and orderB :: "'b ord" ("\<beta>")
+  and lower :: "'a \<Rightarrow> 'b" ("\<pi>\<^sup>*")
+  and upper :: "'b \<Rightarrow> 'a" ("\<pi>\<^sub>*")
+  assumes is_order_A: "order \<alpha>"
+  and is_order_B: "order \<beta>"
+  and lower_closure: "x \<in> carrier \<alpha> \<longleftrightarrow> \<pi>\<^sup>* x \<in> carrier \<beta>"
+  and upper_closure: "y \<in> carrier \<beta> \<longleftrightarrow> \<pi>\<^sub>* y \<in> carrier \<alpha>"
+  and galois_property: "\<lbrakk>\<pi>\<^sup>* x \<in> carrier \<beta>; x \<in> carrier \<alpha>; y \<in> carrier \<beta>; \<pi>\<^sub>* y \<in> carrier \<alpha>\<rbrakk> \<Longrightarrow> \<pi>\<^sup>* x \<sqsubseteq>\<^bsub>\<beta>\<^esub> y \<longleftrightarrow> x \<sqsubseteq>\<^bsub>\<alpha>\<^esub> \<pi>\<^sub>* y"
 
-  definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y\<in>carrier A. is_fp y f \<longrightarrow> y \<sqsubseteq> x)"
+begin
 
-  definition least_prefix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
-    "least_prefix_point f \<equiv> THE x. is_lpp x f"
+  lemma deflation: "y \<in> carrier \<beta> \<Longrightarrow> \<pi>\<^sup>* (\<pi>\<^sub>* y) \<sqsubseteq>\<^bsub>\<beta>\<^esub> y"
+    by (metis galois_property is_order_A lower_closure order.order_refl upper_closure)
 
-  definition greatest_postfix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^sub>\<le>") where
-    "greatest_postfix_point f \<equiv> THE x. is_gpp x f"
+  lemma inflation: "x \<in> carrier \<alpha> \<Longrightarrow> x \<sqsubseteq>\<^bsub>\<alpha>\<^esub> \<pi>\<^sub>* (\<pi>\<^sup>* x)"
+    by (metis galois_property is_order_B lower_closure order.order_refl upper_closure)
 
-  definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
-    "least_fixpoint f \<equiv> THE x. is_lfp x f"
+  lemma lower_iso: "isotone \<alpha> \<beta> \<pi>\<^sup>*"
+    by (smt galois_property inflation is_order_A is_order_B isotone_def lower_closure order.order_trans upper_closure)
 
-  definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
-    "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
+  lemma upper_iso: "isotone \<beta> \<alpha> \<pi>\<^sub>*"
+    by (smt deflation galois_property is_order_A is_order_B isotone_def lower_closure order.order_trans upper_closure)
 
-  lemma lpp_unique: "\<lbrakk>is_lpp x f; is_lpp y f\<rbrakk> \<Longrightarrow> x = y"
-    by (metis antisym is_lpp_def is_pre_fp_def)
+  lemma lower_comp: "x \<in> carrier \<alpha> \<Longrightarrow> (\<pi>\<^sup>* \<circ> \<pi>\<^sub>* \<circ> \<pi>\<^sup>*) x = \<pi>\<^sup>* x"
+    by (metis (no_types) Order.order.antisym deflation inflation isotone_def lower_closure lower_iso o_apply upper_closure)
 
-  lemma gpp_unique: "\<lbrakk>is_gpp x f; is_gpp y f\<rbrakk> \<Longrightarrow> x = y"
-    by (metis antisym is_gpp_def is_post_fp_def)
+  lemma upper_comp: "y \<in> carrier \<beta> \<Longrightarrow> (\<pi>\<^sub>* \<circ> \<pi>\<^sup>* \<circ> \<pi>\<^sub>*) y = \<pi>\<^sub>* y"
+    by (smt Order.order.antisym deflation inflation isotone_def lower_closure o_apply upper_closure upper_iso)
 
-  lemma lpp_equality [intro?]: "is_lpp x f \<Longrightarrow> \<mu>\<^sub>\<le> f = x"
-    by (simp add: least_prefix_point_def, rule the_equality, auto, metis antisym is_lpp_def is_pre_fp_def)
+  lemma adjoint_idem1: "idempotent (carrier \<beta>) (\<pi>\<^sup>* \<circ> \<pi>\<^sub>*)"
+    by (smt idempotent_def o_apply o_assoc upper_comp)
 
-  lemma gpp_equality [intro?]: "is_gpp x f \<Longrightarrow> \<nu>\<^sub>\<le> f = x"
-    by (simp add: greatest_postfix_point_def, rule the_equality, auto, metis antisym is_gpp_def is_post_fp_def)
-
-  lemma lfp_equality: "is_lfp x f \<Longrightarrow> \<mu> f = x"
-    by (simp add: least_fixpoint_def, rule the_equality, auto, metis antisym is_fp_def is_lfp_def)
-
-  lemma lfp_equality_var [intro?]: "\<lbrakk>f \<Colon> carrier A \<rightarrow> carrier A; x \<in> carrier A; f x = x; \<forall>y\<in>carrier A. f y = y \<longrightarrow> x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> x = \<mu> f"
-    by (metis is_fp_def is_lfp_def lfp_equality)
-
-  lemma gfp_equality: "is_gfp x f \<Longrightarrow> \<nu> f = x"
-    by (simp add: greatest_fixpoint_def, rule the_equality, auto, metis antisym is_gfp_def is_fp_def)
-
-  lemma gfp_equality_var [intro?]: "\<lbrakk>f \<Colon> carrier A \<rightarrow> carrier A; x \<in> carrier A; f x = x; \<forall>y\<in>carrier A. f y = y \<longrightarrow> y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> x = \<nu> f"
-    by (metis gfp_equality is_fp_def is_gfp_def)
-
-  lemma lpp_is_lfp: "\<lbrakk>isotone (truncate A) (truncate A) f; is_lpp x f\<rbrakk> \<Longrightarrow> is_lfp x f"
-    by (simp add: isotone_def truncate_def order_def order_axioms_def is_lpp_def is_pre_fp_def is_lfp_def is_fp_def)
-
-  lemma gpp_is_gfp: "\<lbrakk>isotone (truncate A) (truncate A) f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
-    by (simp add: isotone_def truncate_def order_def order_axioms_def is_gpp_def is_post_fp_def is_gfp_def is_fp_def)
-
-  lemma use_iso: "\<lbrakk>isotone (truncate A) (truncate A) f; x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq> f y"
-    by (simp add: isotone_def truncate_def)
-
-  theorem knaster_tarski_lpp:
-    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
-    and f_iso: "isotone (truncate A) (truncate A) f"
-    obtains a where "is_lpp a f"
-  proof
-    let ?H = "{u. f u \<sqsubseteq> u \<and> u \<in> carrier A}"
-    let ?a = "\<Pi> ?H"
-
-    have H_carrier: "?H \<subseteq> carrier A" by (default, simp add: Collect_def mem_def)
-    hence a_carrier: "?a \<in> carrier A" by (metis (no_types) is_glb_def is_glb_glb is_lb_def)
-
-    have f_iso_var: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq> f y" using f_iso
-      by (simp add: isotone_def truncate_def)
-
-    have "is_pre_fp ?a f"
-    proof -
-      have "\<forall>x\<in>?H. ?a \<sqsubseteq> x" by (smt H_carrier glb_least)
-      hence "\<forall>x\<in>?H. f ?a \<sqsubseteq> f x" by (safe, rule_tac ?f = f in use_iso, metis f_iso, metis a_carrier, auto)
-      hence "\<forall>x\<in>?H. f ?a \<sqsubseteq> x" by (smt Collect_def a_carrier f_closed mem_def order_trans)
-      hence "f ?a \<sqsubseteq> \<Pi> ?H" 
-      thus ?thesis by (metis is_pre_fp_def)
-    qed
-    moreover have "f y \<le> y \<Longrightarrow> ?a \<le> y"
-      by (metis Collect_def glb_least mem_def)
-    ultimately show "is_lpp ?a f"
-      by (smt is_lpp_def Collect_def glb_least mem_def)
-  qed
+  lemma adjoint_idem2: "idempotent (carrier \<alpha>) (\<pi>\<^sub>* \<circ> \<pi>\<^sup>*)"
+    by (smt idempotent_def o_apply o_assoc lower_comp)
 
 end
+
+abbreviation closed :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a set \<Rightarrow> 'b set \<Rightarrow> bool" ("_\<Colon>_\<rightarrow>_") where
+  "closed f A B \<equiv> (\<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B)"
+
+lemma galois_ump1: "galois_connection A B f g = (isotone A B f \<and> (\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> g y) \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A)"
+proof
+  assume "galois_connection A B f g"
+  thus "isotone A B f \<and> (\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> g y) \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A"
+    by (smt galois_connection.deflation galois_connection.galois_property galois_connection.lower_closure galois_connection.lower_iso galois_connection.upper_closure)
+next
+  assume "isotone A B f \<and> (\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> g y) \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A"
+  thus "galois_connection A B f g"
+    by (unfold galois_connection_def, safe, (metis isotone_def order.order_trans)+)
+qed
+
+lemma galois_ump2: "galois_connection A B f g = (isotone B A g \<and> (\<forall>x\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> g (f x)) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. x \<sqsubseteq>\<^bsub>A\<^esub> g y \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A)"
+proof
+  assume "galois_connection A B f g"
+  thus "isotone B A g \<and> (\<forall>x\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> g (f x)) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. x \<sqsubseteq>\<^bsub>A\<^esub> g y \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A"
+    by (smt galois_connection.inflation galois_connection.galois_property galois_connection.lower_closure galois_connection.upper_iso galois_connection.upper_closure)
+next
+  assume "isotone B A g \<and> (\<forall>x\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> g (f x)) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. x \<sqsubseteq>\<^bsub>A\<^esub> g y \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A"
+  thus "galois_connection A B f g"
+    by (unfold galois_connection_def, safe, (metis isotone_def order.order_trans)+)
+qed
+
+(*
+If we used our first definition of galois connections with carrier sets.
+lemma galois_ump1: "galois_connection G = (isotone \<alpha>\<^bsub>G\<^esub> \<beta>\<^bsub>G\<^esub> \<pi>\<^sup>*\<^bsub>G\<^esub> \<and> (\<forall>y\<in>carrier \<beta>\<^bsub>G\<^esub>. \<pi>\<^sup>*\<^bsub>G\<^esub> (\<pi>\<^sub>*\<^bsub>G\<^esub> y) \<sqsubseteq>\<^bsub>(orderB G)\<^esub> y) \<and> (\<forall>x\<in>carrier \<alpha>\<^bsub>G\<^esub>. \<forall>y\<in>carrier \<beta>\<^bsub>G\<^esub>. \<pi>\<^sup>*\<^bsub>G\<^esub> x \<sqsubseteq>\<^bsub>(orderB G)\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>(orderA G)\<^esub> \<pi>\<^sub>*\<^bsub>G\<^esub> y))"
+*)
+
+(* +------------------------------------------------------------------------+
+   | Theorem 4.10(a)                                                        |
+   +------------------------------------------------------------------------+ *)
+
+lemma ore_galois:
+  assumes fclosed: "f \<Colon> carrier A \<rightarrow> carrier B" and gclosed: "g \<Colon> carrier B \<rightarrow> carrier A"
+  and a: "\<forall>x\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> g (f x)" and b: "\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y"
+  and c: "isotone A B f" and d: "isotone B A g"
+  shows "galois_connection A B f g"
+  by (unfold galois_connection_def, safe, (metis a b c d gclosed fclosed isotone_def order.order_trans)+)
+
+
+
+

@@ -79,7 +79,7 @@ begin
     "is_lb x X \<equiv> (X \<subseteq> carrier A) \<and> (x \<in> carrier A) \<and> (\<forall>y\<in>X. x \<sqsubseteq> y)"
 
   definition is_glb :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-    "is_glb x X \<longleftrightarrow> is_lb x X \<and> (\<forall>y.(\<forall>z\<in>X. y \<sqsubseteq> z) \<longrightarrow> y \<sqsubseteq> x)"
+    "is_glb x X \<longleftrightarrow> is_lb x X \<and> (\<forall>y\<in>carrier A.(\<forall>z\<in>X. y \<sqsubseteq> z) \<longrightarrow> y \<sqsubseteq> x)"
 
   lemma is_glb_unique: "is_glb x X \<longrightarrow> is_glb y X \<longrightarrow> x = y"
     by (smt antisym is_glb_def is_lb_def)
@@ -102,7 +102,8 @@ begin
   lemma surjective_glb: "\<forall>y\<in>carrier A. \<exists>X\<subseteq>carrier A. y = \<Pi> X"
     by (metis bot_least insert_subset singleton_glb)
 
-  lemma glb_subset: "\<lbrakk>X \<subseteq> Y; is_glb x X; is_glb y Y\<rbrakk> \<Longrightarrow> y \<sqsubseteq> x" by (metis in_mono is_glb_def is_lb_def)
+  lemma glb_subset: "\<lbrakk>X \<subseteq> Y; is_glb x X; is_glb y Y\<rbrakk> \<Longrightarrow> y \<sqsubseteq> x"
+    by (metis (no_types) in_mono is_glb_def is_lb_def)
 
   lemma glb_closed: "\<lbrakk>X \<subseteq> carrier A; \<exists>x. is_glb x X\<rbrakk> \<Longrightarrow> \<Pi> X \<in> carrier A"
     by (rule_tac ?P = "\<lambda>x. is_glb x X" in the1I2, metis is_glb_unique, metis is_glb_def is_lb_def glb_is_glb)
@@ -719,5 +720,7 @@ begin
     ultimately have "\<Sigma> ?S \<in> carrier Q" by (smt lub_closed)
     thus ?thesis by (metis postimp_def)
   qed
+
+end
 
 end

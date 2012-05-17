@@ -202,10 +202,55 @@ lemma lower_ub: "\<lbrakk>X\<subseteq>carrier A; x \<in> carrier A; order.is_lub
   apply metis
   by (smt in_mono order.order_refl order.order_trans)
 
-definition (in order) is_f_lub :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-  "is_f_lub x X \<equiv>  is_ub x X \<and> (\<forall>y\<in>carrier A.(\<forall>z\<in>X. z \<sqsubseteq> y) \<longrightarrow> x \<sqsubseteq> y)"
+lemma lower_lub:
+  assumes Xc: "X\<subseteq>carrier A" and xc: "x \<in> carrier A"
+  and il: "order.is_lub A x X" and la: "lower_adjoint A B f"
+  shows "order.is_lub B (f x) (f ` X)"
+proof -
+  have ord_B: "order B" and ord_A: "order A"
+    by (metis galois_connection.is_order_B galois_connection.is_order_A la lower_adjoint_def)+
+  thus ?thesis apply (simp add: order.is_lub_def)
+  proof
+    show "order.is_ub B (f x) (f ` X)"
+      by (metis Xc il la lower_ub xc)
 
-lemma lower_lub: "\<lbrakk>X\<subseteq>carrier A; x \<in> carrier A; order.is_f_lub A x X; lower_adjoint A B f\<rbrakk> \<Longrightarrow> order.is_f_lub B (f x) (f ` X)" nitpick
+    obtain g where gc: "galois_connection A B f g"
+      by (metis la lower_adjoint_def)
+
+    thus "\<forall>y\<in>carrier B. (\<forall>z\<in>X. f z \<sqsubseteq>\<^bsub>B\<^esub> y) \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y"
+      by (smt Xc galois_ump1 gc galois_connection_def set_rev_mp xc il ord_A order.is_lub_def)
+  qed
+qed
+
+lemma upper_lb: "\<lbrakk>X\<subseteq>carrier B; x \<in> carrier B; order.is_glb B x X; upper_adjoint A B g\<rbrakk> \<Longrightarrow> order.is_ub A (g x) (g ` X)" nitpick
+  apply (simp add: lower_adjoint_def)
+  apply (unfold galois_connection_def)
+  apply clarify
+  apply (unfold order.is_lub_def order.is_ub_def)
+  apply safe
+  apply (metis in_mono)
+  apply metis
+  by (smt in_mono order.order_refl order.order_trans)
+
+lemma lower_lub:
+  assumes Xc: "X\<subseteq>carrier A" and xc: "x \<in> carrier A"
+  and il: "order.is_lub A x X" and la: "lower_adjoint A B f"
+  shows "order.is_lub B (f x) (f ` X)"
+proof -
+  have ord_B: "order B" and ord_A: "order A"
+    by (metis galois_connection.is_order_B galois_connection.is_order_A la lower_adjoint_def)+
+  thus ?thesis apply (simp add: order.is_lub_def)
+  proof
+    show "order.is_ub B (f x) (f ` X)"
+      by (metis Xc il la lower_ub xc)
+
+    obtain g where gc: "galois_connection A B f g"
+      by (metis la lower_adjoint_def)
+
+    thus "\<forall>y\<in>carrier B. (\<forall>z\<in>X. f z \<sqsubseteq>\<^bsub>B\<^esub> y) \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y"
+      by (smt Xc galois_ump1 gc galois_connection_def set_rev_mp xc il ord_A order.is_lub_def)
+  qed
+qed
 
 lemma upper_glb: "\<lbrakk>X\<subseteq>carrier A; x \<in> carrier A; order.is_lub B x X; upper_adjoint A B g\<rbrakk> \<Longrightarrow> order.is_lb A (g x) (g ` X)"
 

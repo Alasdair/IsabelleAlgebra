@@ -41,7 +41,7 @@ begin
     "is_ub x X \<equiv> (X \<subseteq> carrier A) \<and> (x \<in> carrier A) \<and> (\<forall>y\<in>X. y \<sqsubseteq> x)"
 
   definition is_lub :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-    "is_lub x X \<equiv>  is_ub x X \<and> (\<forall>y.(\<forall>z\<in>X. z \<sqsubseteq> y) \<longrightarrow> x \<sqsubseteq> y)"
+    "is_lub x X \<equiv>  is_ub x X \<and> (\<forall>y\<in>carrier A.(\<forall>z\<in>X. z \<sqsubseteq> y) \<longrightarrow> x \<sqsubseteq> y)"
 
   lemma is_lub_unique: "is_lub x X \<longrightarrow> is_lub y X \<longrightarrow> x = y"
     by (smt antisym is_lub_def is_ub_def)
@@ -64,7 +64,8 @@ begin
   lemma surjective_lub: "\<forall>y\<in>carrier A. \<exists>X\<subseteq>carrier A. y = \<Sigma> X"
     by (metis bot_least insert_subset singleton_lub)
 
-  lemma lub_subset: "\<lbrakk>X \<subseteq> Y; is_lub x X; is_lub y Y\<rbrakk> \<Longrightarrow> x \<sqsubseteq> y" by (metis in_mono is_lub_def is_ub_def)
+  lemma lub_subset: "\<lbrakk>X \<subseteq> Y; is_lub x X; is_lub y Y\<rbrakk> \<Longrightarrow> x \<sqsubseteq> y"
+    by (metis (no_types) is_lub_def is_ub_def set_rev_mp)
 
   lemma lub_closed: "\<lbrakk>X \<subseteq> carrier A; \<exists>x. is_lub x X\<rbrakk> \<Longrightarrow> \<Sigma> X \<in> carrier A"
     by (rule_tac ?P = "\<lambda>x. is_lub x X" in the1I2, metis is_lub_unique, metis is_lub_def is_ub_def lub_is_lub)
@@ -266,7 +267,7 @@ context complete_join_semilattice
 begin
 
   lemma bot_ax: "\<exists>!b\<in>carrier A. \<forall>x\<in>carrier A. b \<sqsubseteq> x"
-    by (metis (full_types) antisym bot_least empty_iff is_lub_def lub_ex)
+    by (metis (no_types) antisym bot_least equals0D is_lub_def lub_ex)
 
   definition bot :: "'a" ("\<bottom>") where "\<bottom> \<equiv> THE x. x\<in>carrier A \<and> (\<forall>y\<in>carrier A. x \<sqsubseteq> y)"
 
@@ -718,14 +719,5 @@ begin
     ultimately have "\<Sigma> ?S \<in> carrier Q" by (smt lub_closed)
     thus ?thesis by (metis postimp_def)
   qed
-
-  lemma postimp_trans: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> (x \<rightharpoondown> y) \<cdot> (y \<rightharpoondown> z) \<sqsubseteq> (x \<rightharpoondown> z)"
-
-  lemma act_eq2L: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x\<cdot>(x \<rightharpoondown> y) \<sqsubseteq> y"
-  proof -
-    have "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x\<cdot>(x \<rightharpoondown> y) + y = y"
-
-  lemma act_eq1: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<rightharpoondown> y \<sqsubseteq> x \<rightharpoondown> (y + z)"
-
 
 end

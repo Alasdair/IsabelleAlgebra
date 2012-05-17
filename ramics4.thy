@@ -1,4 +1,4 @@
-theory RAMICS3
+theory RAMiCS
   imports Main
 begin
 
@@ -130,7 +130,6 @@ begin
 
   lemma add_comm: "x \<squnion> y = y \<squnion> x" by (metis insert_commute join_def)
 
-  (* TODO: Don't unfold *)
   lemma add_assoc: "(x \<squnion> y) \<squnion> z = x \<squnion> (y \<squnion> z)"
   proof -
     have "(x \<squnion> y) \<squnion> z \<le> x \<squnion> (y \<squnion> z)"
@@ -179,7 +178,7 @@ begin
   lemma mult_comm: "x \<sqinter> y = y \<sqinter> x"
     by (metis insert_commute meet_def)
 
-  lemma bin_lub_var: "x\<sqinter>y \<ge> z \<longleftrightarrow> x \<ge> z \<and> y \<ge> z"
+  lemma bin_glb_var: "x\<sqinter>y \<ge> z \<longleftrightarrow> x \<ge> z \<and> y \<ge> z"
   proof
     assume a: "z \<le> x\<sqinter>y"
     hence "\<Pi> {x,z} = z" by (metis leq_def2 glb_is_glb insertI1 is_glb_equiv meet_ex meet_def)
@@ -194,9 +193,9 @@ begin
   lemma mult_assoc: "(x \<sqinter> y) \<sqinter> z = x \<sqinter> (y \<sqinter> z)"
   proof -
     have "(x \<sqinter> y) \<sqinter> z \<le> x \<sqinter> (y \<sqinter> z)"
-      by (metis eq_refl bin_lub_var)
+      by (metis eq_refl bin_glb_var)
     thus ?thesis
-      by (metis antisym bin_lub_var order_refl)
+      by (metis antisym bin_glb_var order_refl)
   qed
 
   lemma ex_meet_preserving_iso: "ex_meet_preserving f \<Longrightarrow> isotone f"
@@ -331,47 +330,48 @@ lemma order_monomorphism_iso: "order_monomorphism f \<Longrightarrow> isotone f"
 
 context complete_lattice
 begin
-  definition is_pre_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_pre_fp x f \<equiv> f x \<le> x"
 
-  definition is_post_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_post_fp x f \<equiv> x \<le> f x"
+definition is_pre_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_pre_fp x f \<equiv> f x \<le> x"
 
-  definition is_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_fp x f \<equiv> f x = x"
+definition is_post_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_post_fp x f \<equiv> x \<le> f x"
 
-  lemma is_fp_def_var: "is_fp x f = (is_pre_fp x f \<and> is_post_fp x f)"
-    by (metis antisym eq_refl is_fp_def is_post_fp_def is_pre_fp_def)
+definition is_fp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_fp x f \<equiv> f x = x"
 
-  definition is_lpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_lpp x f \<equiv> (is_pre_fp x f) \<and> (\<forall>y. f y \<le> y \<longrightarrow> x \<le> y)"
+lemma is_fp_def_var: "is_fp x f = (is_pre_fp x f \<and> is_post_fp x f)"
+  by (metis antisym eq_refl is_fp_def is_post_fp_def is_pre_fp_def)
 
-  lemma is_lpp_def_var: "is_lpp x f = (f x \<le> x \<and> (\<forall>y. f y \<le> y \<longrightarrow> x \<le> y))"
-    by (metis is_lpp_def is_pre_fp_def)
+definition is_lpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_lpp x f \<equiv> (is_pre_fp x f) \<and> (\<forall>y. f y \<le> y \<longrightarrow> x \<le> y)"
 
-  definition is_gpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_gpp x f \<equiv> (is_post_fp x f) \<and> (\<forall>y. y \<le> f y \<longrightarrow> y \<le> x)"
+lemma is_lpp_def_var: "is_lpp x f = (f x \<le> x \<and> (\<forall>y. f y \<le> y \<longrightarrow> x \<le> y))"
+  by (metis is_lpp_def is_pre_fp_def)
 
-  lemma is_gpp_def_var: "is_gpp x f = (x \<le> f x \<and> (\<forall>y. y \<le> f y \<longrightarrow> y \<le> x))"
-    by (metis is_gpp_def is_post_fp_def)
+definition is_gpp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_gpp x f \<equiv> (is_post_fp x f) \<and> (\<forall>y. y \<le> f y \<longrightarrow> y \<le> x)"
 
-  definition is_lfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_lfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> x \<le> y)"
+lemma is_gpp_def_var: "is_gpp x f = (x \<le> f x \<and> (\<forall>y. y \<le> f y \<longrightarrow> y \<le> x))"
+  by (metis is_gpp_def is_post_fp_def)
 
-  definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
-    "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> y \<le> x)"
+definition is_lfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_lfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> x \<le> y)"
 
-  definition least_prefix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
-    "least_prefix_point f \<equiv> THE x. is_lpp x f"
+definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y. is_fp y f \<longrightarrow> y \<le> x)"
 
-  definition greatest_postfix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^sub>\<le>") where
-    "greatest_postfix_point f \<equiv> THE x. is_gpp x f"
+definition least_prefix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
+  "least_prefix_point f \<equiv> THE x. is_lpp x f"
 
-  definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
-    "least_fixpoint f \<equiv> THE x. is_lfp x f"
+definition greatest_postfix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^sub>\<le>") where
+  "greatest_postfix_point f \<equiv> THE x. is_gpp x f"
 
-  definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
-    "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
+definition least_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>") where
+  "least_fixpoint f \<equiv> THE x. is_lfp x f"
+
+definition greatest_fixpoint :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>") where
+  "greatest_fixpoint f \<equiv> THE x. is_gfp x f"
 
 lemma lpp_unique: "\<lbrakk>is_lpp x f; is_lpp y f\<rbrakk> \<Longrightarrow> x = y"
   by (metis eq_iff is_lpp_def_var)
@@ -778,16 +778,14 @@ qed
 corollary min_galois_rule: "\<lbrakk>isotone g; \<forall>x. is_min (f x) {y. x \<le> g y}\<rbrakk> \<Longrightarrow> galois_connection f g"
   by (metis min_galois)
 
-(* hide_fact galois_min galois_max *)
-
 (* Corollary 4.21 *)
 
 lemma galois_lub: "galois_connection f g \<Longrightarrow> is_lub (g y) {x. f x \<le> y}"
-by (metis galois_max is_max_def)
+  by (metis galois_max is_max_def)
 
 lemma galois_glb: "galois_connection f g \<Longrightarrow> is_glb (f x) {y. x \<le> g y}"
-by (metis galois_min is_min_def)
- 
+  by (metis galois_min is_min_def)
+
 lemma galois_lub_var: "galois_connection f g \<Longrightarrow> g y = \<Sigma> {x. f x \<le> y}"
   by (metis galois_lub lub_is_lub)
 
@@ -804,8 +802,6 @@ lemma lower_lub: "\<lbrakk>is_lub x X; lower_adjoint f\<rbrakk> \<Longrightarrow
 lemma upper_glb: "\<lbrakk>is_glb x X; upper_adjoint g\<rbrakk> \<Longrightarrow> is_glb (g x) (g ` X)"
   apply (simp add: is_glb_def upper_adjoint_def is_lb_def galois_connection_def)
   by (metis order_refl order_trans)
-
-(* TODO: Make these proofs simpler *)
 
 lemma lower_preserves_joins: assumes lower: "lower_adjoint f" shows "ex_join_preserving f"
   by (metis assms ex_join_preserving_def lower_lub lub_is_lub)
@@ -938,7 +934,7 @@ next
     show "\<forall>x. is_glb (\<Pi> {y. x \<le> g y}) {y. x \<le> g y}" by (metis glb_ex glb_is_glb)
   qed
   thus "upper_adjoint g" by (metis emp infima_galois upper_adjoint_def)
-qed 
+qed
 
 lemma join_preserving_is_ex: "join_preserving f \<Longrightarrow> ex_join_preserving f"
   by (metis ex_join_preserving_def join_preserving_def)
@@ -976,7 +972,7 @@ proof
     by (metis assms o_def semi_inverse1)
 next
   fix y assume fgy: "(f \<circ> g) y = y"
-  have "\<mu> (g \<circ> f) \<le> g y" (* Sledgehammer could do this in one step *)
+  have "\<mu> (g \<circ> f) \<le> g y"
     by (metis assms dual.order_refl fgy fixpoint_induction galois_isotone1 o_eq_dest_lhs)
   thus "f (\<mu> (g \<circ> f)) \<le> y" by (metis conn galois_connection_def)
 qed
@@ -1157,9 +1153,6 @@ end
    | Kleene Algebra                                                         |
    +------------------------------------------------------------------------+ *)
 
-(* This works extremely well until you want to use the plus for nat *)
-(* translations "x+y" == "x\<squnion>y" *)
-
 class kleene_algebra = dioid +
   fixes star :: "'a \<Rightarrow> 'a" ("_\<^sup>\<star>" [101] 100)
   assumes star_unfoldl: "one\<squnion>x\<cdot>x\<^sup>\<star> \<le> x\<^sup>\<star>"
@@ -1188,7 +1181,7 @@ lemma star_iso: "x \<le> y \<longrightarrow> x\<^sup>\<star> \<le> y\<^sup>\<sta
   by (metis leq_def star_subdist)
 
 lemma star_invol: "x\<^sup>\<star> = (x\<^sup>\<star>)\<^sup>\<star>"
-by (smt antisym distl leq_def mult_oner star_1l star_inductl star_ref star_trans_eq)
+  by (smt antisym distl leq_def mult_oner star_1l star_inductl star_ref star_trans_eq)
 
 lemma star2: "(one\<squnion>x)\<^sup>\<star> = x\<^sup>\<star>"
   by (metis add_comm distr leq_def mult_onel mult_oner star_1l star_inductl star_invol star_ref star_subdist eq_iff)
@@ -1318,10 +1311,10 @@ by (metis empty_lub image_empty inf_distr)
   lemma qmult_right_lower: "lower_adjoint (\<lambda>y. y\<odot>x)"
     by (metis qmult_right_join_preserving qmult_isotoner upper_exists)
 
-  definition qpreimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" where
+  definition qpreimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixr "\<rightharpoondown>" 60) where
     "qpreimp x y \<equiv> \<Sigma> {z. x \<odot> z \<le> y}"
 
-  definition qpostimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" where
+  definition qpostimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<leftharpoondown>" 60) where
     "qpostimp x y \<equiv> \<Sigma> {z. z \<odot> y \<le> x}"
 
   lemma qpreimp_conn: "galois_connection (\<lambda>y. x\<odot>y) (qpreimp x)"
@@ -1342,8 +1335,79 @@ by (metis empty_lub image_empty inf_distr)
       by (simp add: qpostimp_def, metis galois_connection_def galois_lub_var)
   qed
 
+  definition dualising :: "'a \<Rightarrow> bool" where
+    "dualising z \<equiv> \<forall>x. z \<leftharpoondown> (x \<rightharpoondown> z) = (z \<leftharpoondown> x) \<rightharpoondown> z"
 
-(* show that the imps are upper adjoints *)
+  definition cyclic :: "'a \<Rightarrow> bool" where
+    "cyclic z \<equiv> \<forall>x y. (x\<odot>y \<le> z) = (y\<odot>x \<le> z)"
+
+  definition Z :: "'a set" where
+    "Z \<equiv> {x. \<forall>y. x\<odot>y = y\<odot>x}"
+
+  definition c :: "'a \<Rightarrow> 'a" where
+    "c x \<equiv> \<Sigma> {y. y \<le> x \<and> y \<in> Z}"
+
+  lemma usimp: "\<Sigma> ({y. y \<le> x} \<inter> Z) = c x"
+    by (metis Collect_conj_eq Int_absorb Int_def c_def)
+
+  lemma c_deflationary: "c x \<le> x"
+    apply (simp add: c_def Z_def)
+    apply (rule the_lub_leq)
+    apply (smt Collect_def Z_def atMost_def is_lub_lub)
+    by (smt Collect_def is_lub_equiv mem_def)
+
+    lemma usimp2: "y \<le> c x \<Longrightarrow> y \<le> x"
+      by (metis c_deflationary dual.order_trans)
+
+    lemma usimp3: "(\<forall>y. y \<le> x \<and> Q \<longrightarrow> P) \<Longrightarrow> (y \<le> c x \<and> Q \<longrightarrow> P)"
+      by (metis dual.order_refl)
+
+  lemma c_mono: "x \<le> y \<Longrightarrow> c x \<le> c y"
+    apply (simp add: c_def Z_def)
+    apply (rule the_lub_geq)
+    apply (metis Collect_conj_eq Z_def lub_ex)
+    apply (rule the_lub_leq)
+    apply (metis Collect_conj_eq Z_def lub_ex)
+    apply clarify
+    apply (simp add: is_lub_def is_ub_def)
+    by (metis dual.order_trans)
+
+  lemma c_idem: "c (c x) = c x" sorry
+(*
+    apply (simp add: c_def Z_def)
+    apply (rule antisym)
+    apply (rule the_lub_leq)
+    apply (metis Collect_conj_eq Z_def is_lub_lub)
+    apply clarify
+    apply (rule the_lub_geq)
+    apply (metis Collect_conj_eq Z_def lub_ex)
+    apply (simp add: is_lub_def is_ub_def)
+    apply (metis Collect_conj_eq Int_absorb Int_def Z_def c_def c_deflationary order_trans)
+    apply (rule the_lub_geq)
+    apply (metis Collect_conj_eq Z_def lub_ex)
+    apply (rule the_lub_leq)
+    apply (metis Collect_conj_eq Z_def lub_ex)
+    apply (simp add: is_lub_def is_ub_def)
+    apply (simp add: Collect_conj_eq)
+    apply (simp add: Z_def[symmetric] usimp)
+    apply clarify
+    apply (rule usimp2)
+    using usimp2 usimp3 nitpick
+    sledgehammer [timeout = 300]
+*)
+
+  
+
+end
+
+class girard_quantale = quantale +
+  fixes qgir :: 'a ("\<dagger>")
+  assumes qdualising: "dualising \<dagger>"
+  assumes qcyclic: "cyclic \<dagger>"
+
+begin
+
+
 end
 
 (* +------------------------------------------------------------------------+
@@ -1375,10 +1439,8 @@ begin
   definition qstar :: "'a \<Rightarrow> 'a" where
     "qstar x \<equiv> \<Sigma> (powers x)"
 
-  (* Really ugly proofs *)
-
-  lemma set_predicate_eq: "\<forall>x. P x = Q x \<Longrightarrow> {x. P x} = {x. Q x}" 
-by (metis (no_types) order_eq_iff predicate1I)
+  lemma set_predicate_eq: "\<forall>x. P x = Q x \<Longrightarrow> {x. P x} = {x. Q x}"
+    by (metis (no_types) order_eq_iff predicate1I)
 
   lemma qstar_distl: "x \<odot> qstar y = \<Sigma> {x\<odot>z|z. (\<exists>i. z = power y i)}"
   proof (simp add: qstar_def powers_def inf_distl, rule_tac f = "\<lambda>x. \<Sigma> x" in arg_cong)
@@ -1430,7 +1492,7 @@ qed
 
 lemma (in unital_quantale) "qstar x = \<mu>(\<lambda>y. qone \<squnion> y\<odot>x)"
 proof
-  show "qone \<squnion> qstar x \<odot> x = qstar x" 
+  show "qone \<squnion> qstar x \<odot> x = qstar x"
     by (metis cstar_unfoldr)
   show "\<And>y. qone \<squnion> y \<odot> x = y \<Longrightarrow> qstar x \<le> y"
     by (metis dual.order_refl mult_onel star_inductr)
@@ -1438,11 +1500,20 @@ qed
 
 lemma (in unital_quantale) "qstar x = \<mu>(\<lambda>y. qone \<squnion> x\<odot>y)"
 proof
-  show "qone \<squnion> x \<odot> qstar x = qstar x" 
+  show "qone \<squnion> x \<odot> qstar x = qstar x"
     by (metis cstar_unfoldl)
   show "\<And>y. qone \<squnion> x \<odot> y = y \<Longrightarrow> qstar x \<le> y"
     by (metis dual.order_refl mult_oner star_inductl)
 qed
+
+context unital_quantale
+begin
+
+  definition cyclic :: "'a \<Rightarrow> bool" where
+    "cyclic s \<equiv> \<forall>a. qpreimp a s \<and> qpostimp a s"
+
+end
+
 
 (* +------------------------------------------------------------------------+
    | Involutive Quantales                                                   |
@@ -1534,8 +1605,6 @@ begin
 
   lemma eq_ax1': "x \<leftarrow> y \<le> (x \<squnion> x') \<leftarrow> y" by (metis act_galois1 add_ub galois_ump1 isotoneD)
 
-(* prove that residuation preserves meets *)
-
   lemma postimp_trans: "(x \<rightarrow> y) \<cdot> (y \<rightarrow> z) \<le> x \<rightarrow> z"
     by (smt act1L act1R galois_counitR mult_assoc order_trans)
 
@@ -1565,6 +1634,7 @@ begin
 
   lemma star_right_preserves: "(y\<cdot>x \<le> y) \<longrightarrow> (y\<cdot>bstar x \<le> y)"
     by (metis act1R order_trans postimp_pure_induction star_mon)
+
 end
 
 sublocale action_algebra \<subseteq> kleene_algebra
@@ -1650,15 +1720,11 @@ qed
 lemma arden_fusion: "\<nu> (\<lambda>y. x\<odot>y \<squnion> z) = qstar x \<odot> z \<squnion> \<nu> (\<lambda>y. x\<odot>y)"
   by (metis comm greatest_fixpoint_fusion hiso kiso lower_ex)
 
-(* these need to go to fixpoint lemmas, i guess *)
-
 lemma gfp_is_gpp: "\<lbrakk>isotone f; is_gfp x f\<rbrakk> \<Longrightarrow>  is_gpp x f"
   by (metis gfp_equality gpp_is_gfp is_gpp_gpp)
 
 lemma gfp_is_gpp_var: "isotone f \<Longrightarrow> \<nu> f = \<nu>\<^sub>\<le> f"
   by (metis gfp_is_gpp gpp_equality is_gfp_gfp)
-
-(*********)
 
 lemma deflationarity_eq_strong_deflationarity:
   "(\<forall>y. y \<le> x\<odot>y \<longrightarrow> y = \<bottom>) \<longleftrightarrow> (\<forall>y z. y \<le> x\<odot>y \<squnion> z \<longrightarrow> y \<le> (qstar x) \<odot> z)"
@@ -1680,12 +1746,6 @@ definition l_prod :: "'a lan \<Rightarrow> 'a lan \<Rightarrow> 'a lan" (infixr 
 
 lemma l_prod_elim: "w\<in>X\<cdot>Y \<longleftrightarrow> (\<exists>u v. w = u@v \<and> u\<in>X \<and> v\<in>Y)"
   by (smt Collect_def l_prod_def mem_def)
-
-(* Seems broken
-interpretation subset_order: order "op \<subseteq> :: 'a lan \<Rightarrow> 'a lan \<Rightarrow> bool" "op \<subset> :: 'a lan \<Rightarrow> 'a lan \<Rightarrow> bool" ..
-
-print_interps order
-*)
 
 lemma union_is_join: "X \<union> Y = X \<squnion> Y"
   apply (simp add: join_def lub_def)

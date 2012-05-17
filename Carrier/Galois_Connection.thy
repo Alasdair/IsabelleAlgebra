@@ -237,8 +237,6 @@ lemma upper_glb: "\<lbrakk>is_glb x X; upper_adjoint g\<rbrakk> \<Longrightarrow
   by (metis order_refl order_trans)
 *)
 
-(* TODO: Make these proofs simpler *)
-
 lemma lower_preserves_joins: assumes lower: "lower_adjoint A B f" shows "order.join_preserving A f"
   using lower apply (simp add: lower_adjoint_def galois_connection_def) apply safe
   apply (simp add: order.join_preserving_def order.lub_def order.is_lub_def order.is_ub_def) nitpick

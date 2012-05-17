@@ -150,9 +150,9 @@ begin
       by (metis insertCI is_lub_def is_ub_def join_ex lub_def lub_is_lub)
   qed
 
-  lemma add_idem: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> x = x" by (metis leq_def order_refl)
+  lemma join_idem: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> x = x" by (metis leq_def order_refl)
 
-  lemma add_comm: "x \<squnion> y = y \<squnion> x" by (metis insert_commute join_def)
+  lemma join_comm: "x \<squnion> y = y \<squnion> x" by (metis insert_commute join_def)
 
   lemma bin_lub_var: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> y \<sqsubseteq> z \<longleftrightarrow> x \<sqsubseteq> z \<and> y \<sqsubseteq> z"
   proof
@@ -176,16 +176,16 @@ begin
       by (smt emptyE lub_is_lub insertE is_lub_def is_ub_def join_ex join_def ord_le_eq_trans)
   qed
 
-  lemma add_closed: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> y \<in> carrier A"
+  lemma join_closed: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> y \<in> carrier A"
     by (metis join_def join_ex lub_is_lub)
 
-  lemma add_assoc: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> (x \<squnion> y) \<squnion> z = x \<squnion> (y \<squnion> z)"
+  lemma join_assoc: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> (x \<squnion> y) \<squnion> z = x \<squnion> (y \<squnion> z)"
   proof -
     assume x_closed: "x \<in> carrier A" and y_closed: "y \<in> carrier A" and z_closed: "z \<in> carrier A"
     hence "(x \<squnion> y) \<squnion> z \<sqsubseteq> x \<squnion> (y \<squnion> z)"
-      by (metis eq_refl bin_lub_var add_closed)
+      by (metis eq_refl bin_lub_var join_closed)
     thus ?thesis
-      by (smt add_closed antisym bin_lub_var order_refl x_closed y_closed z_closed)
+      by (smt join_closed antisym bin_lub_var order_refl x_closed y_closed z_closed)
   qed
 
 end
@@ -278,13 +278,8 @@ begin
   lemma is_lub_lub [intro?]: "X \<subseteq> carrier A \<Longrightarrow> is_lub (\<Sigma> X) X"
     by (metis lub_ex lub_is_lub)
 
-(*
-  lemma lub_greatest [intro?]: "\<And>y. \<lbrakk>x \<in> carrier A; y \<in> carrier A; X \<subseteq> carrier A; y \<in> X; y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> \<Sigma> X \<sqsubseteq> x"
-    apply (rule the_lub_leq)
-apply (metis lub_ex)
-    nitpick
-    by (metis is_lub_equiv is_lub_lub)
-*)
+  lemma lub_greatest [intro?]: "\<lbrakk>x \<in> carrier A; X \<subseteq> carrier A; \<forall>y\<in>X. y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> \<Sigma> X \<sqsubseteq> x"
+    by (metis is_lub_def is_lub_lub)
 
   lemma lub_least [intro?]: "\<lbrakk>X \<subseteq> carrier A; x \<in> X\<rbrakk> \<Longrightarrow> x \<sqsubseteq> \<Sigma> X"
     by (metis is_lub_def is_lub_lub is_ub_def)
@@ -293,10 +288,10 @@ apply (metis lub_ex)
     by (metis antisym bot_closed bot_least lub_ex lub_is_lub lub_subset prop_bot surjective_lub)
 
   lemma bot_oner [simp]: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> \<bottom> = x"
-    by (metis add_comm bot_closed leq_def prop_bot)
+    by (metis join_comm bot_closed leq_def prop_bot)
 
   lemma bot_onel [simp]: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> \<bottom> \<squnion> x = x"
-    by (metis add_comm bot_oner)
+    by (metis join_comm bot_oner)
 
 end
 
@@ -309,10 +304,10 @@ locale lattice = join_semilattice + meet_semilattice
 begin
 
   lemma absorb1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> (x \<sqinter> y) = x"
-    by (metis add_comm leq_def leq_meet_def meet_assoc meet_closed meet_comm meet_idem)
+    by (metis join_comm leq_def leq_meet_def meet_assoc meet_closed meet_comm meet_idem)
 
   lemma absorb2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqinter> (x \<squnion> y) = x"
-    by (metis add_assoc add_closed add_comm add_idem leq_def leq_meet_def)
+    by (metis join_assoc join_closed join_comm join_idem leq_def leq_meet_def)
 
   lemma order_change: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x\<sqinter>y = y \<longleftrightarrow> y\<squnion>x = x"
     by (metis leq_def leq_meet_def meet_comm)
@@ -345,13 +340,8 @@ begin
   lemma is_glb_glb [intro?]: "X \<subseteq> carrier A \<Longrightarrow> is_glb (\<Pi> X) X"
     by (metis glb_ex glb_is_glb)
 
-(*
-  lemma glb_greatest [intro?]: "\<And>y. \<lbrakk>X \<subseteq> carrier A; y \<in> X; y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> x \<sqsubseteq> \<Pi> X" nitpick
-    apply (rule the_glb_leq)
-    apply (metis glb_ex)
-    nitpick
-    by (metis is_glb_equiv is_glb_glb)
-*)
+  lemma glb_greatest [intro?]: "\<lbrakk>x \<in> carrier A; X \<subseteq> carrier A; \<forall>y\<in>X. x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> x \<sqsubseteq> \<Pi> X"
+    by (metis is_glb_def is_glb_glb)
 
   lemma glb_least [intro?]: "\<lbrakk>X \<subseteq> carrier A; x \<in> X\<rbrakk> \<Longrightarrow> \<Pi> X \<sqsubseteq> x"
     by (metis is_glb_def is_glb_glb is_lb_def)
@@ -454,6 +444,10 @@ begin
   lemma use_iso: "\<lbrakk>isotone (truncate A) (truncate A) f; x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq> f y"
     by (simp add: isotone_def truncate_def)
 
+(* +------------------------------------------------------------------------+
+   | Knaster-Tarski for least fixed points                                  |
+   +------------------------------------------------------------------------+ *)
+
   theorem knaster_tarski_lpp:
     assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
     and f_iso: "isotone (truncate A) (truncate A) f"
@@ -465,21 +459,273 @@ begin
     have H_carrier: "?H \<subseteq> carrier A" by (default, simp add: Collect_def mem_def)
     hence a_carrier: "?a \<in> carrier A" by (metis (no_types) is_glb_def is_glb_glb is_lb_def)
 
-    have f_iso_var: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq> f y" using f_iso
-      by (simp add: isotone_def truncate_def)
-
     have "is_pre_fp ?a f"
     proof -
       have "\<forall>x\<in>?H. ?a \<sqsubseteq> x" by (smt H_carrier glb_least)
       hence "\<forall>x\<in>?H. f ?a \<sqsubseteq> f x" by (safe, rule_tac ?f = f in use_iso, metis f_iso, metis a_carrier, auto)
       hence "\<forall>x\<in>?H. f ?a \<sqsubseteq> x" by (smt Collect_def a_carrier f_closed mem_def order_trans)
-      hence "f ?a \<sqsubseteq> \<Pi> ?H" 
-      thus ?thesis by (metis is_pre_fp_def)
+      hence "f ?a \<sqsubseteq> \<Pi> ?H" by (smt glb_greatest Collect_def a_carrier f_closed H_carrier)
+      thus ?thesis by (smt a_carrier f_closed is_pre_fp_def)
     qed
-    moreover have "f y \<le> y \<Longrightarrow> ?a \<le> y"
-      by (metis Collect_def glb_least mem_def)
+    moreover have "\<forall>y\<in>carrier A. f y \<sqsubseteq> y \<longrightarrow> ?a \<sqsubseteq> y"
+      by (smt Collect_def glb_least mem_def a_carrier f_closed H_carrier)
     ultimately show "is_lpp ?a f"
       by (smt is_lpp_def Collect_def glb_least mem_def)
   qed
+
+  corollary is_lpp_lpp [intro?]: "\<lbrakk>f \<Colon> carrier A \<rightarrow> carrier A; isotone (truncate A) (truncate A) f\<rbrakk> \<Longrightarrow> is_lpp (\<mu>\<^sub>\<le> f) f"
+    by (metis knaster_tarski_lpp lpp_equality)
+
+  theorem knaster_tarksi:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    obtains a where "is_lfp a f"
+    by (metis f_closed f_iso is_lpp_lpp lpp_is_lfp)
+
+  corollary knaster_tarski_var:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    shows "\<exists>!x. is_lfp x f"
+    by (metis f_closed f_iso knaster_tarksi lfp_equality)
+
+  corollary is_lfp_lfp [intro?]: "\<lbrakk>f \<Colon> carrier A \<rightarrow> carrier A; isotone (truncate A) (truncate A) f\<rbrakk> \<Longrightarrow> is_lfp (\<mu> f) f"
+    by (metis knaster_tarski_var lfp_equality)
+
+(* +------------------------------------------------------------------------+
+   | Knaster-Tarski for greatest fixed points                               |
+   +------------------------------------------------------------------------+ *)
+
+  theorem knaster_tarski_gpp:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    obtains a where "is_gpp a f"
+  proof
+    let ?H = "{u. u \<sqsubseteq> f u \<and> u \<in> carrier A}"
+    let ?a = "\<Sigma> ?H"
+
+    have H_carrier: "?H \<subseteq> carrier A" by (default, simp add: Collect_def mem_def)
+    hence a_carrier: "?a \<in> carrier A" by (smt lub_closed lub_ex)
+
+    have "is_post_fp ?a f"
+    proof -
+      have "\<forall>x\<in>?H. x \<sqsubseteq> ?a" by (smt H_carrier lub_least)
+      hence "\<forall>x\<in>?H. f x \<sqsubseteq> f ?a" by (safe, rule_tac ?f = f in use_iso, metis f_iso, auto, metis a_carrier)
+      hence "\<forall>x\<in>?H. x \<sqsubseteq> f ?a" by (smt Collect_def a_carrier f_closed mem_def order_trans)
+      hence "\<Sigma> ?H \<sqsubseteq> f ?a" by (smt lub_greatest Collect_def a_carrier f_closed H_carrier)
+      thus ?thesis by (smt a_carrier f_closed is_post_fp_def)
+    qed
+    moreover have "\<forall>y\<in>carrier A. y \<sqsubseteq> f y \<longrightarrow> y \<sqsubseteq> ?a"
+      by (smt Collect_def lub_least mem_def a_carrier f_closed H_carrier)
+    ultimately show "is_gpp ?a f"
+      by (smt is_gpp_def Collect_def lub_least mem_def)
+  qed
+
+  corollary is_gpp_gpp [intro?]: "\<lbrakk>f \<Colon> carrier A \<rightarrow> carrier A; isotone (truncate A) (truncate A) f\<rbrakk> \<Longrightarrow> is_gpp (\<nu>\<^sub>\<le> f) f"
+    by (metis knaster_tarski_gpp gpp_equality)
+
+  theorem knaster_tarksi_greatest:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    obtains a where "is_gfp a f"
+    by (metis f_closed f_iso is_gpp_gpp gpp_is_gfp)
+
+  corollary knaster_tarski_greatest_var:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    shows "\<exists>!x. is_gfp x f"
+    by (metis f_closed f_iso knaster_tarksi_greatest gfp_equality)
+
+  corollary is_gfp_gfp [intro?]: "\<lbrakk>f \<Colon> carrier A \<rightarrow> carrier A; isotone (truncate A) (truncate A) f\<rbrakk> \<Longrightarrow> is_gfp (\<nu> f) f"
+    by (metis knaster_tarski_greatest_var gfp_equality)
+
+(* We now show some more properties of fixpoints *)
+
+(* +------------------------------------------------------------------------+
+   | Fixpoint Computation                                                   |
+   +------------------------------------------------------------------------+ *)
+
+  lemma prefix_point_computation [simp]:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    shows "f (\<mu>\<^sub>\<le> f) = \<mu>\<^sub>\<le> f"
+    by (metis f_closed f_iso is_fp_def is_lfp_def is_lpp_lpp lpp_is_lfp)
+
+  lemma fixpoint_computation [simp]:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    shows "f (\<mu> f) = \<mu> f"
+    by (metis f_closed f_iso is_lpp_lpp lfp_equality lpp_is_lfp prefix_point_computation)
+
+  lemma greatest_prefix_point_computation [simp]:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    shows "f (\<nu>\<^sub>\<le> f) = \<nu>\<^sub>\<le> f"
+    by (metis f_closed f_iso is_gpp_gpp gpp_is_gfp is_gfp_def is_fp_def)
+
+  lemma greatest_fixpoint_computation [simp]:
+    assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+    and f_iso: "isotone (truncate A) (truncate A) f"
+    shows "f (\<nu> f) = \<nu> f"
+    by (metis f_closed f_iso is_gpp_gpp gfp_equality gpp_is_gfp greatest_prefix_point_computation)
+
+(* +------------------------------------------------------------------------+
+   | Fixpoint Induction                                                     |
+   +------------------------------------------------------------------------+ *)
+
+lemma prefix_point_induction [intro?]:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and x_carrier: "x \<in> carrier A"
+  and f_iso: "isotone (truncate A) (truncate A) f"
+  and pp: "f x \<sqsubseteq> x" shows "\<mu>\<^sub>\<le> f \<sqsubseteq> x"
+  by (metis f_closed f_iso is_lpp_def is_lpp_lpp pp x_carrier)
+
+lemma fixpoint_induction [intro?]:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and x_carrier: "x \<in> carrier A"
+  and f_iso: "isotone (truncate A) (truncate A) f"
+  and fp: "f x \<sqsubseteq> x" shows "\<mu> f \<sqsubseteq> x"
+  by (metis f_closed f_iso fp is_lpp_def is_lpp_lpp lfp_equality lpp_is_lfp x_carrier)
+
+lemma greatest_postfix_point_induction [intro?]:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and x_carrier: "x \<in> carrier A"
+  and f_iso: "isotone (truncate A) (truncate A) f"
+  and pp: "x \<sqsubseteq> f x" shows "x \<sqsubseteq> \<nu>\<^sub>\<le> f"
+  by (metis f_closed f_iso is_gpp_def is_gpp_gpp pp x_carrier)
+
+lemma greatest_fixpoint_induction [intro?]:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and x_carrier: "x \<in> carrier A"
+  and f_iso: "isotone (truncate A) (truncate A) f"
+  and fp: "x \<sqsubseteq> f x" shows "x \<sqsubseteq> \<nu> f"
+  by (metis f_closed f_iso fp gfp_equality gpp_is_gfp is_gpp_def knaster_tarski_gpp x_carrier)
+
+lemma fixpoint_compose:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and g_closed: "g \<Colon> carrier A \<rightarrow> carrier A"
+  and k_closed: "k \<Colon> carrier A \<rightarrow> carrier A"
+  and x_carrier: "x \<in> carrier A"
+  and k_iso: "isotone (truncate A) (truncate A) k"
+  and comp: "g\<circ>k = k\<circ>h" and fp: "is_fp x h"
+  shows "is_fp (k x) g"
+  using fp and comp by (simp add: is_fp_def o_def, safe, (metis g_closed k_closed)+)
+
+lemma fixpoint_mono:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and g_closed: "g \<Colon> carrier A \<rightarrow> carrier A"
+  and f_iso: "isotone (truncate A) (truncate A) f"
+  and g_iso: "isotone (truncate A) (truncate A) g"
+  and fg: "\<forall>x\<in>carrier A. f x \<sqsubseteq> g x" shows "\<mu> f \<sqsubseteq> \<mu> g"
+  by (metis f_closed f_iso fg fixpoint_computation g_closed g_iso is_lpp_def is_pre_fp_def knaster_tarski_lpp lfp_equality lpp_is_lfp)
+
+lemma greatest_fixpoint_mono:
+  assumes f_closed: "f \<Colon> carrier A \<rightarrow> carrier A"
+  and g_closed: "g \<Colon> carrier A \<rightarrow> carrier A"
+  and f_iso: "isotone (truncate A) (truncate A) f"
+  and g_iso: "isotone (truncate A) (truncate A) g"
+  and fg: "\<forall>x\<in>carrier A. f x \<sqsubseteq> g x" shows "\<nu> f \<sqsubseteq> \<nu> g"
+  by (metis f_closed f_iso fg g_closed g_iso gfp_equality gpp_is_gfp greatest_fixpoint_computation is_gpp_def is_post_fp_def knaster_tarski_gpp)
+
+end
+
+record 'a mult_ord = "'a ord" +
+  mult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<cdot>\<index>" 80)
+  one :: "'a"
+
+lemma set_comp_subset: "{x. P x \<and> x \<in> A} \<subseteq> A"
+  by (smt Collect_def mem_def predicate1I)
+
+locale unital_quantale = fixes Q (structure)
+  assumes quantale_complete_lattice: "complete_lattice Q"
+  and mult_closed: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<cdot> y \<in> carrier Q"
+  and mult_assoc: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> (x \<cdot> y) \<cdot> z = x \<cdot> (y \<cdot> z)"
+  and inf_distl: "\<lbrakk>x \<in> carrier Q; Y \<subseteq> carrier Q\<rbrakk> \<Longrightarrow> x \<cdot> lub Y = lub ((\<lambda>y. x\<cdot>y) ` Y)"
+  and inf_distr: "\<lbrakk>x \<in> carrier Q; Y \<subseteq> carrier Q\<rbrakk> \<Longrightarrow> lub Y \<cdot> x = lub ((\<lambda>y. y\<cdot>x) ` Y)"
+  and one_closed: "one Q \<in> carrier Q"
+  and mult_onel: "x \<in> carrier Q \<Longrightarrow> one Q \<cdot> x = x"
+  and mult_oner: "x \<in> carrier Q \<Longrightarrow> x \<cdot> one Q = x"
+
+sublocale unital_quantale \<subseteq> lat: complete_lattice Q
+  by (metis quantale_complete_lattice)
+
+context unital_quantale
+begin
+
+  abbreviation qone :: "'a" ("1") where
+    "qone \<equiv> one Q"
+
+  abbreviation sum :: "'a set \<Rightarrow> 'a" ("\<Sigma>") where
+    "\<Sigma> X \<equiv> lub X"
+
+  abbreviation qzero :: "'a" ("0") where
+    "qzero \<equiv> bot"
+
+  abbreviation qplus :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "+" 70) where
+    "x + y \<equiv> join x y"
+
+  lemma add_comm: "qplus x y = qplus y x" by (metis join_comm)
+
+  lemma add_assoc: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> (x + y) + z = x + (y + z)" by (metis join_assoc)
+
+  lemma add_idem: "x \<in> carrier Q \<Longrightarrow> x + x = x" by (metis join_idem)
+
+  lemma add_oner: "x \<in> carrier Q \<Longrightarrow> x + 0 = x" by (metis bot_oner)
+
+  lemma add_onel: "x \<in> carrier Q \<Longrightarrow> 0 + x = x" by (metis bot_onel)
+
+  lemma add_closed: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x + y \<in> carrier Q" by (metis join_closed)
+
+  lemma bot_zeror: "x \<in> carrier Q \<Longrightarrow> x \<cdot> 0 = 0"
+    by (metis empty_lub empty_subsetI image_empty inf_distl)
+
+  lemma bot_zerol: "x \<in> carrier Q \<Longrightarrow> 0 \<cdot> x = 0"
+    by (metis empty_lub empty_subsetI image_empty inf_distr)
+
+  lemma distl: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<cdot> (y + z) = (x \<cdot> y) + (x \<cdot> z)"
+  proof -
+    assume xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    hence "{y,z} \<subseteq> carrier Q" by (metis is_lub_def is_ub_def join_ex)
+    hence "x \<cdot> \<Sigma> {y,z} = \<Sigma> ((\<lambda>y. x\<cdot>y) ` {y,z})" by (metis inf_distl xc)
+    thus ?thesis by (simp add: join_def)
+  qed
+
+  lemma distr: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> (y + z) \<cdot> x = (y \<cdot> x) + (z \<cdot> x)"
+  proof -
+    assume xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    hence "{y,z} \<subseteq> carrier Q" by (metis is_lub_def is_ub_def join_ex)
+    hence "\<Sigma> {y,z} \<cdot> x = \<Sigma> ((\<lambda>y. y\<cdot>x) ` {y,z})" by (metis inf_distr xc)
+    thus ?thesis by (simp add: join_def)
+  qed
+
+  definition preimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixr "\<rightharpoondown>" 60) where
+    "preimp x y \<equiv> \<Sigma> {z. x \<cdot> z \<sqsubseteq> y \<and> z \<in> carrier Q}"
+
+  lemma preimp_closed: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<rightharpoondown> y \<in> carrier Q"
+    apply (unfold preimp_def)
+    apply (rule lub_closed)
+    apply (metis (full_types) Collect_conj_eq Collect_disj_eq Int_lower2 Un_absorb Un_def)
+    by (metis (full_types) Collect_conj_eq Collect_disj_eq Int_lower2 Un_absorb Un_def is_lub_lub)
+
+  definition postimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<leftharpoondown>" 60) where
+    "postimp x y \<equiv> \<Sigma> {z. z \<cdot> y \<sqsubseteq> x \<and> z \<in> carrier Q}"
+
+  lemma postimp_closed: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<leftharpoondown> y \<in> carrier Q"
+  proof -
+    let ?S = "{z. z\<cdot>y \<sqsubseteq> x \<and> z \<in> carrier Q}"
+
+    have "?S \<subseteq> carrier Q" by (rule set_comp_subset)
+    moreover hence "\<exists>x\<in>carrier Q. is_lub x ?S" by (smt lub_ex)
+    ultimately have "\<Sigma> ?S \<in> carrier Q" by (smt lub_closed)
+    thus ?thesis by (metis postimp_def)
+  qed
+
+  lemma postimp_trans: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> (x \<rightharpoondown> y) \<cdot> (y \<rightharpoondown> z) \<sqsubseteq> (x \<rightharpoondown> z)"
+
+  lemma act_eq2L: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x\<cdot>(x \<rightharpoondown> y) \<sqsubseteq> y"
+  proof -
+    have "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x\<cdot>(x \<rightharpoondown> y) + y = y"
+
+  lemma act_eq1: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<rightharpoondown> y \<sqsubseteq> x \<rightharpoondown> (y + z)"
+
 
 end

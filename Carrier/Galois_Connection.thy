@@ -192,6 +192,9 @@ lemma set_image_type: "\<lbrakk>X \<subseteq> A; f \<Colon> A \<rightarrow> B\<r
 definition ex_join_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "ex_join_preserving A B f \<equiv> \<forall>X\<subseteq>carrier A. ((\<exists>x\<in>carrier A. order.is_lub A x X) \<longrightarrow> order.lub B (f ` X) = f (order.lub A X))"
 
+definition ex_meet_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "ex_meet_preserving A B f \<equiv> \<forall>X\<subseteq>carrier A. ((\<exists>x\<in>carrier A. order.is_glb A x X) \<longrightarrow> order.glb B (f ` X) = f (order.glb A X))"
+
 lemma lower_ub: "\<lbrakk>X\<subseteq>carrier A; x \<in> carrier A; order.is_lub A x X; lower_adjoint A B f\<rbrakk> \<Longrightarrow> order.is_ub B (f x) (f ` X)"
   apply (simp add: lower_adjoint_def)
   apply (unfold galois_connection_def)
@@ -222,37 +225,57 @@ proof -
   qed
 qed
 
-lemma upper_lb: "\<lbrakk>X\<subseteq>carrier B; x \<in> carrier B; order.is_glb B x X; upper_adjoint A B g\<rbrakk> \<Longrightarrow> order.is_ub A (g x) (g ` X)" nitpick
-  apply (simp add: lower_adjoint_def)
+lemma upper_lb: "\<lbrakk>X\<subseteq>carrier B; x \<in> carrier B; order.is_glb B x X; upper_adjoint A B g\<rbrakk> \<Longrightarrow> order.is_lb A (g x) (g ` X)"
+  apply (simp add: upper_adjoint_def)
   apply (unfold galois_connection_def)
   apply clarify
-  apply (unfold order.is_lub_def order.is_ub_def)
+  apply (unfold order.is_glb_def order.is_lb_def)
   apply safe
   apply (metis in_mono)
   apply metis
   by (smt in_mono order.order_refl order.order_trans)
 
-lemma lower_lub:
-  assumes Xc: "X\<subseteq>carrier A" and xc: "x \<in> carrier A"
-  and il: "order.is_lub A x X" and la: "lower_adjoint A B f"
-  shows "order.is_lub B (f x) (f ` X)"
+lemma upper_glb:
+  assumes Xc: "X\<subseteq>carrier B" and xc: "x \<in> carrier B"
+  and ig: "order.is_glb B x X" and ua: "upper_adjoint A B g"
+  shows "order.is_glb A (g x) (g ` X)"
 proof -
   have ord_B: "order B" and ord_A: "order A"
-    by (metis galois_connection.is_order_B galois_connection.is_order_A la lower_adjoint_def)+
-  thus ?thesis apply (simp add: order.is_lub_def)
+    by (metis galois_connection.is_order_B galois_connection.is_order_A ua upper_adjoint_def)+
+  thus ?thesis apply (simp add: order.is_glb_def)
   proof
-    show "order.is_ub B (f x) (f ` X)"
-      by (metis Xc il la lower_ub xc)
+    show "order.is_lb A (g x) (g ` X)"
+      by (metis Xc ig ua upper_lb xc)
 
-    obtain g where gc: "galois_connection A B f g"
-      by (metis la lower_adjoint_def)
+    obtain f where gc: "galois_connection A B f g"
+      by (metis ua upper_adjoint_def)
 
-    thus "\<forall>y\<in>carrier B. (\<forall>z\<in>X. f z \<sqsubseteq>\<^bsub>B\<^esub> y) \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y"
-      by (smt Xc galois_ump1 gc galois_connection_def set_rev_mp xc il ord_A order.is_lub_def)
+    thus "\<forall>y\<in>carrier A. (\<forall>x\<in>X. y \<sqsubseteq>\<^bsub>A\<^esub> g x) \<longrightarrow> y \<sqsubseteq>\<^bsub>A\<^esub> g x"
+      by (smt Xc galois_ump2 gc galois_connection_def set_rev_mp xc ig ord_A order.is_glb_def)
   qed
 qed
 
-lemma upper_glb: "\<lbrakk>X\<subseteq>carrier A; x \<in> carrier A; order.is_lub B x X; upper_adjoint A B g\<rbrakk> \<Longrightarrow> order.is_lb A (g x) (g ` X)"
+lemma lower_preserves_ex_joins: assumes lower: "lower_adjoint A B f" shows "ex_join_preserving A B f"
+proof (simp add: ex_join_preserving_def, safe)
+  fix X x assume Xc: "X \<subseteq> carrier A" and xc: "x \<in> carrier A" and il: "order.is_lub A x X"
+  have "order B"
+    by (metis assms galois_connection.is_order_B lower_adjoint_def)
+  thus "order.lub B (f ` X) = f (order.lub A X)"
+    by (metis order.lub_is_lub Xc assms galois_connection.is_order_A il lower_adjoint_def lower_lub xc)
+qed
+
+lemma upper_preserves_ex_meets: assumes upper: "upper_adjoint A B g" shows "ex_meet_preserving B A g"
+proof (simp add: ex_meet_preserving_def, safe)
+  fix X x assume Xc: "X \<subseteq> carrier B" and xc: "x \<in> carrier B" and ig: "order.is_glb B x X"
+  have "order A"
+    by (metis assms galois_connection.is_order_A upper_adjoint_def)
+  thus "order.glb A (g ` X) = g (order.glb B X)"
+    by (metis order.glb_is_glb Xc assms galois_connection.is_order_B ig upper_adjoint_def upper_glb xc)
+qed
+
+(* +------------------------------------------------------------------------+
+   | Galois Connections for Complete Lattices                               |
+   +------------------------------------------------------------------------+ *)
 
 locale complete_lattice_connection = galois_connection +
   assumes is_cl_A: "complete_lattice \<alpha>"
@@ -261,33 +284,69 @@ locale complete_lattice_connection = galois_connection +
 definition cl_lower_adjoint :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "cl_lower_adjoint A B f \<equiv> \<exists>g. complete_lattice_connection A B f g"
 
+definition cl_upper_adjoint :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('b \<Rightarrow> 'a) \<Rightarrow> bool" where
+  "cl_upper_adjoint A B g \<equiv> \<exists>f. complete_lattice_connection A B f g"
+
 lemma cl_to_galois: "complete_lattice_connection A B f g \<Longrightarrow> galois_connection A B f g"
   by (simp add: complete_lattice_connection_def)
 
-lemma lower_preserves_joins: "\<lbrakk>cl_lower_adjoint A B f\<rbrakk> \<Longrightarrow> \<forall>X\<subseteq>carrier A. order.lub B (f ` X) = f (order.lub A X)" nitpick
-  apply (simp add: lower_adjoint_def galois_connection_def order.ex_join_preserving_def)
-proof
+lemma cl_is_order: "complete_lattice A \<Longrightarrow> order A"
+  by (simp add: complete_lattice_def complete_join_semilattice_def)
 
+lemma suprema_galois: "complete_lattice_connection A B f g =
+                       (complete_lattice A \<and> complete_lattice B
+                       \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A
+                       \<and> ex_join_preserving A B f
+                       \<and> (\<forall>y\<in>carrier B. order.is_lub A (g y) {x. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<and> x \<in> carrier A}))"
+  apply default
+  apply safe
+  apply (metis complete_lattice_connection.is_cl_A)
+  apply (metis complete_lattice_connection.is_cl_B)
+  apply (metis cl_to_galois galois_connection.lower_closure)
+  apply (metis cl_to_galois galois_connection.lower_closure)
+  apply (metis cl_to_galois galois_connection.upper_closure)
+  apply (metis cl_to_galois galois_connection.upper_closure)
+  apply (metis cl_to_galois lower_adjoint_def lower_preserves_ex_joins)
+proof -
+  fix y
+  assume conn: "complete_lattice_connection A B f g" and yc: "y \<in> carrier B"
+  hence poset_galois: "galois_connection A B f g" by (metis cl_to_galois)
+  hence ord_A: "order A" by (metis galois_connection.is_order_A)
+  thus "order.is_lub A (g y) {x. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<and> x \<in> carrier A}"
+    apply (simp add: order.is_lub_def order.is_ub_def)
+    apply safe
+    apply (metis galois_connection.upper_closure poset_galois yc)
+    apply (metis (full_types) galois_ump1 poset_galois yc)
+    by (metis galois_ump1 poset_galois yc)
+next
+  assume clA: "complete_lattice A" and clB: "complete_lattice B"
+  and f_closed: "\<forall>x. (x \<in> carrier A) = (f x \<in> carrier B)"
+  and g_closed: "\<forall>x. (x \<in> carrier B) = (g x \<in> carrier A)"
+  and ejp: "ex_join_preserving A B f"
+  and lub: "\<forall>y\<in>carrier B. order.is_lub A (g y) {x. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<and> x \<in> carrier A}"
+  thus "complete_lattice_connection A B f g"
+    apply (unfold complete_lattice_connection_def)
+    apply safe
+    defer
+    apply (unfold complete_lattice_connection_axioms_def)
+    apply metis
+    apply (unfold galois_connection_def)
+    apply safe
+    apply (metis cl_is_order)
+    apply (metis cl_is_order)
+    apply (simp add: complete_lattice_def complete_join_semilattice_def complete_meet_semilattice_def)
+    apply (simp add: complete_join_semilattice_axioms_def complete_meet_semilattice_axioms_def)
+    apply (simp add: ex_join_preserving_def)
+    apply safe
+    sorry
 qed
 
- 
+lemma infima_galois: "complete_lattice_connection A B f g =
+                      (complete_lattice A \<and> complete_lattice B
+                      \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> g \<Colon> carrier B \<rightarrow> carrier A
+                      \<and> ex_meet_preserving B A g
+                      \<and> (\<forall>x\<in>carrier A. order.is_glb B (f x) {y. x \<sqsubseteq>\<^bsub>A\<^esub> g y \<and> y \<in> carrier B}))"
+  sorry
 
-(*
-lemma lower_lub: "\<lbrakk>order.is_lub A x X; x \<in> carrier A; X \<subseteq> carrier A; lower_adjoint A B f; f\<rbrakk> \<Longrightarrow> order.is_lub B (f x) (f ` X)" nitpick
+theorem cl_lower_ex_join_preserving: "cl_lower_adjoint A B f = complete_lattice A \<and> complete_lattice B \<and> f \<Colon> carrier A \<rightarrow> carrier B \<and> ex_join_preserving A B f" nitpick
 
-  by (smt galois_ump1 galois_ump2 image_iff is_lub_equiv lower_adjoint_def)
-
-lemma upper_glb: "\<lbrakk>is_glb x X; upper_adjoint g\<rbrakk> \<Longrightarrow> is_glb (g x) (g ` X)"
-  apply (simp add: is_glb_def upper_adjoint_def is_lb_def galois_connection_def)
-  by (metis order_refl order_trans)
-*)
-
-lemma lower_preserves_joins: assumes lower: "lower_adjoint A B f" shows "order.join_preserving A f"
-  using lower apply (simp add: lower_adjoint_def galois_connection_def) apply safe
-  apply (simp add: order.join_preserving_def order.lub_def order.is_lub_def order.is_ub_def) nitpick
-
-  by (metis assms ex_join_preserving_def lower_lub lub_is_lub)
-
-lemma upper_preserves_meets: assumes upper: "upper_adjoint g" shows "ex_meet_preserving g"
-  by (metis assms ex_meet_preserving_def upper_glb glb_is_glb)
-end

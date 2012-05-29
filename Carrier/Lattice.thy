@@ -5,13 +5,16 @@ begin
 record 'a partial_object =
   carrier :: "'a set"
 
-abbreviation closed :: "('a \<Rightarrow> 'b) \<Rightarrow> 'a set \<Rightarrow> 'b set \<Rightarrow> bool" ("_\<Colon>_\<rightarrow>_") where
-  "closed f A B \<equiv> (\<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B)"
-
 abbreviation ftype :: "'a set \<Rightarrow> 'b set \<Rightarrow> ('a \<Rightarrow> 'b) set" (infixr "\<rightarrow>" 60) where
   "ftype A B f \<equiv> (\<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B)"
 
 lemma closed_composition: "\<lbrakk>f \<in> A \<rightarrow> B; g \<in> B \<rightarrow> C\<rbrakk> \<Longrightarrow> g \<circ> f \<in> A \<rightarrow> C"
+  by (simp add: mem_def)
+
+lemma closed_application: "\<lbrakk>x \<in> A; f \<in> A \<rightarrow> B\<rbrakk> \<Longrightarrow> f x \<in> B"
+  by (simp add: mem_def)
+
+lemma id_poly: "id \<in> A \<rightarrow> A"
   by (simp add: mem_def)
 
 locale equivalence = fixes S (structure)
@@ -125,13 +128,20 @@ begin
 
   (* Join and meet preserving functions *)
 
-  definition join_preserving :: "('a \<Rightarrow> 'a) set" where
-    "join_preserving f \<equiv> \<forall>X\<subseteq>carrier A. \<Sigma> (f ` X) = f (\<Sigma> X)"
-
-  definition meet_preserving :: "('a \<Rightarrow> 'a) set" where
-    "meet_preserving g \<equiv> \<forall>X\<subseteq>carrier A. \<Pi> (g ` X) = g (\<Pi> X)"
-
 end
+
+definition ex_join_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "ex_join_preserving A B f \<equiv> \<forall>X\<subseteq>carrier A. ((\<exists>x\<in>carrier A. order.is_lub A x X) \<longrightarrow> order.lub B (f ` X) = f (order.lub A X))"
+
+definition ex_meet_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "ex_meet_preserving A B f \<equiv> \<forall>X\<subseteq>carrier A. ((\<exists>x\<in>carrier A. order.is_glb A x X) \<longrightarrow> order.glb B (f ` X) = f (order.glb A X))"
+
+definition join_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "join_preserving A B f \<equiv> \<forall>X\<subseteq>carrier A. order.lub B (f ` X) = f (order.lub A X)"
+
+definition meet_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "meet_preserving A B g \<equiv> \<forall>X\<subseteq>carrier A. order.glb B (g ` X) = g (order.glb A X)"
+
 
 (* +------------------------------------------------------------------------+
    | Join semilattices                                                      |
@@ -401,11 +411,17 @@ begin
   definition is_lfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
     "is_lfp x f \<equiv> is_fp x f \<and> (\<forall>y\<in>carrier A. is_fp y f \<longrightarrow> x \<sqsubseteq> y)"
 
+  lemma is_lfp_closed: "is_lfp x f \<Longrightarrow> f \<in> carrier A \<rightarrow> carrier A"
+    by (metis (no_types) is_fp_def is_lfp_def)
+
   definition is_gfp :: "'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
     "is_gfp x f \<equiv> is_fp x f \<and> (\<forall>y\<in>carrier A. is_fp y f \<longrightarrow> y \<sqsubseteq> x)"
 
+  lemma is_gfp_closed: "is_gfp x f \<Longrightarrow> f \<in> carrier A \<rightarrow> carrier A"
+    by (metis (no_types) is_fp_def is_gfp_def)
+
   definition least_prefix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^sub>\<le>") where
-    "least_prefix_point f \<equiv> THE x. is_lpp x f"
+    "least_prefix_point f = (THE x. is_lpp x f)"
 
   definition greatest_postfix_point :: "('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^sub>\<le>") where
     "greatest_postfix_point f \<equiv> THE x. is_gpp x f"
@@ -445,6 +461,12 @@ begin
 
   lemma gpp_is_gfp: "\<lbrakk>isotone (truncate A) (truncate A) f; is_gpp x f\<rbrakk> \<Longrightarrow> is_gfp x f"
     by (simp add: isotone_def truncate_def order_def order_axioms_def is_gpp_def is_post_fp_def is_gfp_def is_fp_def mem_def)
+
+  lemma least_fixpoint_set: "\<lbrakk>\<exists>x. is_lfp x f\<rbrakk> \<Longrightarrow> \<mu> f \<in> carrier A"
+    by (simp add: least_fixpoint_def, rule the1I2, metis lfp_equality, metis is_lfp_def is_fp_def)
+
+  lemma greatest_fixpoint_set: "\<lbrakk>\<exists>x. is_gfp x f\<rbrakk> \<Longrightarrow> \<nu> f \<in> carrier A"
+    by (simp add: greatest_fixpoint_def, rule the1I2, metis gfp_equality, metis is_fp_def is_gfp_def)
 
   lemma use_iso: "\<lbrakk>isotone (truncate A) (truncate A) f; x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq> f y"
     by (simp add: isotone_def truncate_def)

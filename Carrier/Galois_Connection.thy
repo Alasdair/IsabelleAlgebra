@@ -462,7 +462,7 @@ lemma use_iso2: "\<lbrakk>isotone A A f; x \<in> carrier A; y \<in> carrier A; x
 
 lemma fixpoint_computation_var:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> f (\<mu>\<^bsub>A\<^esub>f) = \<mu>\<^bsub>A\<^esub>f"
-  apply (rule complete_lattice.fixpoint_computation, auto+)
+  by (rule complete_lattice.fixpoint_computation, auto+)
 
 theorem fixpoint_fusion [simp]:
   assumes upper_ex: "cl_lower_adjoint A B f"

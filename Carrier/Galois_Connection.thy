@@ -245,8 +245,16 @@ proof -
   qed
 qed
 
-(*
-lemma upper_lb: "\<lbrakk>X\<subseteq>carrier B; x \<in> carrier B; order.is_glb B x X; upper_adjoint A B g\<rbrakk> \<Longrightarrow> order.is_lb A (g x) (g ` X)"
+lemma upper_glb:
+  assumes Xc: "X\<subseteq>carrier B" and xc: "x \<in> carrier B"
+  and il: "order.is_glb B x X" and la: "lower_adjoint A B g"
+  shows "order.is_glb A (g x) (g ` X)"
+proof -
+  have "order.is_lub (A\<sharp>) (g x) (g ` X)"
+    apply (rule_tac ?A = "B\<sharp>" in lower_lub, simp_all add: Xc xc)
+    
+
+
   apply (simp add: upper_adjoint_def)
   apply (unfold galois_connection_def)
   apply clarify

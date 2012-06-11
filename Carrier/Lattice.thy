@@ -217,8 +217,14 @@ definition meet_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<R
 lemma dual_is_lub [simp]: "order A \<Longrightarrow> order.is_lub (A\<sharp>) x X = order.is_glb A x X"
   by (simp add: order.is_glb_simp order.is_lub_simp)
 
+lemma dual_is_ub [simp]: "order A \<Longrightarrow> order.is_ub (A\<sharp>) x X = order.is_lb A x X"
+  by (simp add: order.is_lb_def order.is_ub_def)
+
 lemma dual_is_glb [simp]: "order A \<Longrightarrow> order.is_glb (A\<sharp>) x X = order.is_lub A x X"
   by (simp add: order.is_glb_simp order.is_lub_simp)
+
+lemma dual_is_lb [simp]: "order A \<Longrightarrow> order.is_lb (A\<sharp>) x X = order.is_ub A x X"
+  by (simp add: order.is_lb_def order.is_ub_def)
 
 lemma dual_lub [simp]: "order A \<Longrightarrow> \<Sigma>\<^bsub>A\<sharp>\<^esub>X = \<Pi>\<^bsub>A\<^esub>X"
   by (simp add: order.glb_simp order.lub_simp)
@@ -849,3 +855,4 @@ lemma greatest_fixpoint_mono:
   by (smt f_closed f_iso fg g_closed g_iso gfp_equality gpp_is_gfp greatest_fixpoint_computation is_gpp_def is_post_fp_def knaster_tarski_gpp cl_A)
 
 end
+

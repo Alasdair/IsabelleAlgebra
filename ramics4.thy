@@ -1379,8 +1379,7 @@ by (metis empty_lub image_empty inf_distr)
     apply (rule the_lub_leq)
     apply (metis Collect_conj_eq Z_def is_lub_lub)
     apply clarify
-    apply (rule the_lub_geq)
-    apply (metis Collect_conj_eq Z_def lub_ex)
+    apply (rule the_lub_geq)    apply (metis Collect_conj_eq Z_def lub_ex)
     apply (simp add: is_lub_def is_ub_def)
     apply (metis Collect_conj_eq Int_absorb Int_def Z_def c_def c_deflationary order_trans)
     apply (rule the_lub_geq)
@@ -1397,16 +1396,6 @@ by (metis empty_lub image_empty inf_distr)
 *)
 
   
-
-end
-
-class girard_quantale = quantale +
-  fixes qgir :: 'a ("\<dagger>")
-  assumes qdualising: "dualising \<dagger>"
-  assumes qcyclic: "cyclic \<dagger>"
-
-begin
-
 
 end
 

@@ -6,9 +6,9 @@ record 'a partial_object =
   carrier :: "'a set"
 
 definition ftype :: "'a set \<Rightarrow> 'b set \<Rightarrow> ('a \<Rightarrow> 'b) set" (infixr "\<rightarrow>" 60) where
-  "ftype A B \<equiv> {f. \<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B}"
+  "ftype A B \<equiv> {f. \<forall>x. x \<in> A \<longrightarrow> f x \<in> B}"
 
-lemma ftype_pred: "(f \<in> A \<rightarrow> B) = (\<forall>x. x \<in> A \<longleftrightarrow> f x \<in> B)"
+lemma ftype_pred: "(f \<in> A \<rightarrow> B) = (\<forall>x. x \<in> A \<longrightarrow> f x \<in> B)"
   by (simp add: ftype_def)
 
 lemma closed_composition: "\<lbrakk>f \<in> A \<rightarrow> B; g \<in> B \<rightarrow> C\<rbrakk> \<Longrightarrow> g \<circ> f \<in> A \<rightarrow> C"
@@ -35,8 +35,8 @@ locale order = equivalence A for A (structure) +
 
 (* Inverse orders *)
 
-definition ord_inv :: "'a ord \<Rightarrow> 'a ord" ("_\<sharp>" [1000] 100) where
-  "ord_inv ordr \<equiv> \<lparr>carrier = carrier ordr, le = \<lambda>x y. le ordr y x\<rparr>"
+definition ord_inv :: "('a, 'b) ord_scheme \<Rightarrow> ('a, 'b) ord_scheme" ("_\<sharp>" [1000] 100) where
+  "ord_inv ordr \<equiv> \<lparr>carrier = carrier ordr, le = \<lambda>x y. le ordr y x, \<dots> = ord.more ordr\<rparr>"
 
 lemma inv_carrier_id [simp]: "carrier (ord_inv A) = carrier A"
   by (metis ord_inv_def partial_object.simps(1))
@@ -56,11 +56,17 @@ lemma ord_is_inv [simp]: "order (ord_inv A) = order A"
 lemma inv_flip [simp]: "(x \<sqsubseteq>\<^bsub>ord_inv A\<^esub> y) = (y \<sqsubseteq>\<^bsub>A\<^esub> x)"
   by (simp add: ord_inv_def)
 
-definition isotone :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+definition isotone :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "isotone A B f \<equiv> order A \<and> order B \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> y \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> f y)"
 
 lemma use_iso1: "\<lbrakk>isotone A A f; x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq>\<^bsub>A\<^esub> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq>\<^bsub>A\<^esub> f y"
   by (simp add: isotone_def)
+
+lemma use_iso2: "\<lbrakk>isotone A B f; x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq>\<^bsub>A\<^esub> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> f y"
+  by (simp add: isotone_def)
+
+lemma iso_compose: "\<lbrakk>f \<in> carrier A \<rightarrow> carrier B; isotone A B f; g \<in> carrier B \<rightarrow> carrier C; isotone B C g\<rbrakk> \<Longrightarrow> isotone A C (g \<circ> f)"
+  by (simp add: isotone_def, safe, metis (full_types) closed_application)
 
 lemma inv_isotone [simp]: "isotone (A\<sharp>) (B\<sharp>) f = isotone A B f"
   by (simp add: isotone_def, auto)
@@ -191,28 +197,39 @@ begin
   lemma less_imp_triv: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; x \<sqsubset> y\<rbrakk> \<Longrightarrow> (y \<sqsubset> x \<longrightarrow> P) \<longleftrightarrow> True"
     by (metis less_asym)
 
+  definition coclosure :: "('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+    "coclosure m \<equiv> (m \<in> carrier A \<rightarrow> carrier A) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier A. x \<sqsubseteq> y \<longrightarrow> m x \<sqsubseteq> m y)
+                 \<and> (\<forall>x\<in>carrier A. m x \<sqsubseteq> x)
+                 \<and> (\<forall>x\<in>carrier A. m x \<sqsubseteq> m (m x))"
+
 end
 
-abbreviation less_ext :: "'a \<Rightarrow> 'a ord \<Rightarrow> 'a \<Rightarrow> bool" ("_\<sqsubset>\<^bsub>_\<^esub>_" [51,0,51] 50) where
+abbreviation less_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> bool" ("_\<sqsubset>\<^bsub>_\<^esub>_" [51,0,51] 50) where
   "x \<sqsubset>\<^bsub>A\<^esub> y \<equiv> order.less A x y"
 
-abbreviation lub_ext :: "'a ord \<Rightarrow> 'a set \<Rightarrow> 'a" ("\<Sigma>\<^bsub>_\<^esub>_" [0,1000] 100) where
+abbreviation lub_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a set \<Rightarrow> 'a" ("\<Sigma>\<^bsub>_\<^esub>_" [0,1000] 100) where
   "\<Sigma>\<^bsub>A\<^esub>X \<equiv> order.lub A X"
 
-abbreviation glb_ext :: "'a ord \<Rightarrow> 'a set \<Rightarrow> 'a" ("\<Pi>\<^bsub>_\<^esub>_" [0,1000] 100) where
+abbreviation glb_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a set \<Rightarrow> 'a" ("\<Pi>\<^bsub>_\<^esub>_" [0,1000] 100) where
   "\<Pi>\<^bsub>A\<^esub>X \<equiv> order.glb A X"
 
-definition ex_join_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+definition ex_join_preserving :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "ex_join_preserving A B f \<equiv> order A \<and> order B \<and> (\<forall>X\<subseteq>carrier A. ((\<exists>x\<in>carrier A. order.is_lub A x X) \<longrightarrow> order.lub B (f ` X) = f (order.lub A X)))"
 
-definition ex_meet_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+definition ex_meet_preserving :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "ex_meet_preserving A B f \<equiv> order A \<and> order B \<and> (\<forall>X\<subseteq>carrier A. ((\<exists>x\<in>carrier A. order.is_glb A x X) \<longrightarrow> order.glb B (f ` X) = f (order.glb A X)))"
 
-definition join_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+definition join_preserving :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "join_preserving A B f \<equiv> order A \<and> order B \<and> (\<forall>X\<subseteq>carrier A. order.lub B (f ` X) = f (order.lub A X))"
 
-definition meet_preserving :: "'a ord \<Rightarrow> 'b ord \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+definition meet_preserving :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "meet_preserving A B g \<equiv> order A \<and> order B \<and> (\<forall>X\<subseteq>carrier A. order.glb B (g ` X) = g (order.glb A X))"
+
+definition directed :: "('a, 'b) ord_scheme \<Rightarrow> bool" where
+  "directed A \<equiv> order A \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier A. \<exists>z\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> z \<and> y \<sqsubseteq>\<^bsub>A\<^esub> z)"
+
+definition scott_continuous :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
+  "scott_continuous A B f \<equiv> (\<forall>D\<subseteq>carrier A. ((directed \<lparr>carrier = D, le = op \<sqsubseteq>\<^bsub>A\<^esub>\<rparr>) \<longrightarrow> order.lub B (f ` D) = f (order.lub A D)))"
 
 lemma dual_is_lub [simp]: "order A \<Longrightarrow> order.is_lub (A\<sharp>) x X = order.is_glb A x X"
   by (simp add: order.is_glb_simp order.is_lub_simp)
@@ -247,6 +264,14 @@ lemma dual_meet_preserving [simp]: "meet_preserving (A\<sharp>) (B\<sharp>) f = 
   by (simp add: meet_preserving_def join_preserving_def, (rule common)+, simp)
 
 hide_fact common
+
+locale total_order = order +
+  assumes totality: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqsubseteq> y \<or> y \<sqsubseteq> x"
+
+lemma total_order_is_directed: "total_order A \<Longrightarrow> directed A"
+  apply (simp add: directed_def, safe)
+  apply (simp add: total_order_def)
+  by (metis total_order.totality)
 
 (* +------------------------------------------------------------------------+
    | Join semilattices                                                      |
@@ -489,7 +514,7 @@ begin
     by (metis is_lub_def is_lub_lub is_ub_def)
 
   lemma empty_lub [simp]: "\<Sigma> {} = \<bottom>"
-    by (metis antisym bot_closed bot_least lub_ex lub_is_lub lub_subset prop_bot surjective_lub)
+    by (metis bot_closed empty_iff empty_subsetI is_lub_def is_ub_def lub_is_lub prop_bot)
 
   lemma bot_oner [simp]: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> \<bottom> = x"
     by (metis join_comm bot_closed leq_def prop_bot)
@@ -498,6 +523,9 @@ begin
     by (metis join_comm bot_oner)
 
 end
+
+definition bot_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a" ("\<bottom>\<^bsub>_\<^esub>") where
+  "\<bottom>\<^bsub>A\<^esub> = complete_join_semilattice.bot A"
 
 (* +------------------------------------------------------------------------+
    | Complete meet semilattices                                             |
@@ -603,10 +631,10 @@ begin
 
 end
 
-definition is_pre_fp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_pre_fp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_pre_fp A x f \<equiv> order A \<and> f \<in> carrier A \<rightarrow> carrier A \<and> x \<in> carrier A \<and> f x \<sqsubseteq>\<^bsub>A\<^esub> x"
 
-definition is_post_fp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_post_fp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_post_fp A x f \<equiv> order A \<and> f \<in> carrier A \<rightarrow> carrier A \<and> x \<in> carrier A \<and> x \<sqsubseteq>\<^bsub>A\<^esub> f x"
 
 lemma is_pre_fp_dual [simp]: "is_pre_fp (A\<sharp>) x f = is_post_fp A x f"
@@ -615,7 +643,7 @@ lemma is_pre_fp_dual [simp]: "is_pre_fp (A\<sharp>) x f = is_post_fp A x f"
 lemma is_post_fp_dual [simp]: "is_post_fp (A\<sharp>) x f = is_pre_fp A x f"
   by (simp add: is_pre_fp_def is_post_fp_def)
 
-definition is_fp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_fp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_fp A x f \<equiv> order A \<and> f \<in> carrier A \<rightarrow> carrier A \<and> x \<in> carrier A \<and> f x = x"
 
 lemma is_fp_dual [simp]: "is_fp (A\<sharp>) x f = is_fp A x f"
@@ -624,10 +652,10 @@ lemma is_fp_dual [simp]: "is_fp (A\<sharp>) x f = is_fp A x f"
 lemma is_fp_def_var: "is_fp A x f = (is_pre_fp A x f \<and> is_post_fp A x f)"
   by (simp add: is_fp_def is_pre_fp_def is_post_fp_def, metis Lattice.order.antisym closed_application order.order_refl)
 
-definition is_lpp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_lpp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_lpp A x f \<equiv> (is_pre_fp A x f) \<and> (\<forall>y\<in>carrier A. f y \<sqsubseteq>\<^bsub>A\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> y)"
 
-definition is_gpp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_gpp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_gpp A x f \<equiv> (is_post_fp A x f) \<and> (\<forall>y\<in>carrier A. y \<sqsubseteq>\<^bsub>A\<^esub> f y \<longrightarrow> y \<sqsubseteq>\<^bsub>A\<^esub> x)"
 
 lemma is_lpp_dual [simp]: "is_lpp (A\<sharp>) x f = is_gpp A x f"
@@ -636,13 +664,13 @@ lemma is_lpp_dual [simp]: "is_lpp (A\<sharp>) x f = is_gpp A x f"
 lemma is_gpp_dual [simp]: "is_gpp (A\<sharp>) x f = is_lpp A x f"
   by (simp add: is_lpp_def is_gpp_def)
 
-definition is_lfp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_lfp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_lfp A x f \<equiv> is_fp A x f \<and> (\<forall>y\<in>carrier A. is_fp A y f \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> y)"
 
 lemma is_lfp_closed: "is_lfp A x f \<Longrightarrow> f \<in> carrier A \<rightarrow> carrier A"
   by (metis (no_types) is_fp_def is_lfp_def)
 
-definition is_gfp :: "'a ord \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
+definition is_gfp :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> bool" where
   "is_gfp A x f \<equiv> is_fp A x f \<and> (\<forall>y\<in>carrier A. is_fp A y f \<longrightarrow> y \<sqsubseteq>\<^bsub>A\<^esub> x)"
 
 lemma is_gfp_closed: "is_gfp A x f \<Longrightarrow> f \<in> carrier A \<rightarrow> carrier A"
@@ -666,10 +694,10 @@ lemma least_prefix_point_dual [simp]: "\<mu>\<^bsub>\<le>(A\<sharp>)\<^esub>f = 
 lemma greatest_postfix_point_dual [simp]: "\<nu>\<^bsub>\<le>(A\<sharp>)\<^esub>f = \<mu>\<^bsub>\<le>A\<^esub>f"
   by (simp add: least_prefix_point_def greatest_postfix_point_def)
 
-definition least_fixpoint :: "'a ord \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^bsub>_\<^esub>_" [0,1000] 100) where
+definition least_fixpoint :: "('a, 'b) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<mu>\<^bsub>_\<^esub>_" [0,1000] 100) where
   "least_fixpoint A f \<equiv> THE x. is_lfp A x f"
 
-definition greatest_fixpoint :: "'a ord \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^bsub>_\<^esub>_" [0,1000] 100) where
+definition greatest_fixpoint :: "('a, 'b) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> 'a" ("\<nu>\<^bsub>_\<^esub>_" [0,1000] 100) where
   "greatest_fixpoint A f \<equiv> THE x. is_gfp A x f"
 
 lemma least_fixpoint_dual [simp]: "\<mu>\<^bsub>(A\<sharp>)\<^esub>f = \<nu>\<^bsub>A\<^esub>f"
@@ -750,7 +778,7 @@ corollary is_lpp_lpp [intro?]:
 
 theorem knaster_tarski:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> \<exists>!x. is_lfp A x f"
-  by (smt is_lpp_lpp lfp_equality lpp_is_lfp)
+  by (metis knaster_tarski_lpp lfp_equality lpp_is_lfp)
 
 corollary is_lfp_lfp [intro?]:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> is_lfp A (\<mu>\<^bsub>A\<^esub> f) f"
@@ -776,7 +804,7 @@ corollary is_gpp_gpp [intro?]:
 
 theorem knaster_tarski_greatest:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> \<exists>!x. is_gfp A x f"
-  by (smt is_gpp_gpp gfp_equality gpp_is_gfp)
+  by (metis gfp_equality gpp_is_gfp knaster_tarski_gpp)
 
 corollary is_gfp_gfp [intro?]:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> is_gfp A (\<nu>\<^bsub>A\<^esub> f) f"
@@ -792,7 +820,7 @@ lemma prefix_point_computation [simp]:
 
 lemma fixpoint_computation [simp]:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> f (\<mu>\<^bsub>A\<^esub> f) = \<mu>\<^bsub>A\<^esub> f"
-  by (smt is_lpp_lpp lfp_equality lpp_is_lfp prefix_point_computation)
+  by (metis is_fp_def is_lfp_def is_lfp_lfp)
 
 lemma greatest_postfix_point_computation [simp]:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> f (\<nu>\<^bsub>\<le>A\<^esub> f) = \<nu>\<^bsub>\<le>A\<^esub> f"
@@ -800,7 +828,7 @@ lemma greatest_postfix_point_computation [simp]:
 
 lemma greatest_fixpoint_computation [simp]:
   "\<lbrakk>complete_lattice A; f \<in> carrier A \<rightarrow> carrier A; isotone A A f\<rbrakk> \<Longrightarrow> f (\<nu>\<^bsub>A\<^esub> f) = \<nu>\<^bsub>A\<^esub> f"
-  by (smt is_gpp_gpp gfp_equality gpp_is_gfp greatest_postfix_point_computation)
+  by (metis is_fp_def is_gfp_def is_gfp_gfp)
 
 (* +------------------------------------------------------------------------+
    | Fixpoint Induction                                                     |
@@ -816,7 +844,7 @@ lemma fixpoint_induction [intro?]:
   assumes cl_A: "complete_lattice A" and f_closed: "f \<in> carrier A \<rightarrow> carrier A"
   and x_carrier: "x \<in> carrier A" and f_iso: "isotone A A f"
   and fp: "f x \<sqsubseteq>\<^bsub>A\<^esub> x" shows "\<mu>\<^bsub>A\<^esub> f \<sqsubseteq>\<^bsub>A\<^esub> x"
-  by (smt f_closed f_iso fp is_lpp_def is_lpp_lpp lfp_equality lpp_is_lfp x_carrier cl_A)
+  by (metis cl_A f_closed f_iso fp is_lpp_def knaster_tarski_lpp lfp_equality lpp_is_lfp x_carrier)
 
 lemma greatest_postfix_point_induction [intro?]:
   assumes cl_A: "complete_lattice A" and f_closed: "f \<in> carrier A \<rightarrow> carrier A"
@@ -854,5 +882,155 @@ lemma greatest_fixpoint_mono:
   and fg: "\<forall>x\<in>carrier A. f x \<sqsubseteq>\<^bsub>A\<^esub> g x" shows "\<nu>\<^bsub>A\<^esub> f \<sqsubseteq>\<^bsub>A\<^esub> \<nu>\<^bsub>A\<^esub> g"
   by (smt f_closed f_iso fg g_closed g_iso gfp_equality gpp_is_gfp greatest_fixpoint_computation is_gpp_def is_post_fp_def knaster_tarski_gpp cl_A)
 
-end
+primrec iter :: "nat \<Rightarrow> ('a \<Rightarrow> 'a) \<Rightarrow> 'a \<Rightarrow> 'a" where
+  "iter 0 f x = x"
+| "iter (Suc n) f x = f (iter n f x)"
 
+lemma iter_closed: "f \<in> A \<rightarrow> A \<Longrightarrow> iter n f \<in> A \<rightarrow> A"
+proof (induct n)
+  case 0 show ?case
+    by (metis (lifting) Lattice.iter.simps(1) ftype_pred)
+  case (Suc m) show ?case
+    by (metis (lifting, full_types) "0" Lattice.iter.simps(2) Suc.hyps ftype_pred)
+qed
+
+lemma iter_pointfree: "iter (Suc n) f = f \<circ> iter n f"
+  by (simp add: o_def, metis Lattice.iter.simps(2))
+
+lemma iter_iso:
+  assumes f_type: "f \<in> carrier A \<rightarrow> carrier A" and f_iso: "isotone A A f"
+  shows "isotone A A (iter n f)"
+  apply (induct n)
+  apply (metis (lifting) Lattice.iter.simps(1) isotone_def f_iso)
+  apply (simp only: iter_pointfree)
+  apply (rule_tac B = A in iso_compose)
+  apply (metis f_type iter_closed)
+  apply metis
+  apply (metis f_type)
+  by (metis f_iso)
+
+lemma iter_inc:
+  assumes cl_A: "complete_lattice A"
+  and f_closed: "f \<in> carrier A \<rightarrow> carrier A"
+  and f_iso: "isotone A A f"
+  shows "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc n) f \<bottom>\<^bsub>A\<^esub>"
+proof (induct n)
+  case 0 show ?case
+    by (simp add: iter_def, metis bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed complete_join_semilattice.prop_bot f_closed ftype_pred)
+  case (Suc m) fix n assume ind_hyp: "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc n) f \<bottom>\<^bsub>A\<^esub>"
+  hence "f (iter n f \<bottom>\<^bsub>A\<^esub>) \<sqsubseteq>\<^bsub>A\<^esub> f (iter (Suc n) f \<bottom>\<^bsub>A\<^esub>)"
+    by (metis (full_types) bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed f_closed f_iso ftype_pred isotone_def iter_closed)
+  thus "iter (Suc n) f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc (Suc n)) f \<bottom>\<^bsub>A\<^esub>"
+    by (metis Lattice.iter.simps(2))
+qed
+
+lemma iter_zero_pointfree [simp]: "iter 0 f = id"
+  by (simp add: iter_def id_def)
+
+lemma iter_add: "iter (n+m) f = iter n f \<circ> iter m f"
+proof (induct n)
+  case 0 show ?case by simp
+next
+  fix n assume ind_hyp: "iter (n + m) f = iter n f \<circ> iter m f"
+  thus "iter (Suc n + m) f = iter (Suc n) f \<circ> iter m f"
+    by (simp add: iter_pointfree ind_hyp o_assoc)
+qed
+
+lemma iter_add_point: "\<forall>x. iter (n+m) f x = iter n f (iter m f x)"
+  by (metis iter_add o_apply)
+
+lemma iter_chain:
+  assumes cl_A: "complete_lattice A"
+  and f_closed: "f \<in> carrier A \<rightarrow> carrier A"
+  and f_iso: "isotone A A f"
+  and nm: "n \<le> m" shows "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter m f \<bottom>\<^bsub>A\<^esub>"
+proof -
+  let ?k = "m - n"
+  have "iter n f (iter 0 f \<bottom>\<^bsub>A\<^esub>) \<sqsubseteq>\<^bsub>A\<^esub> iter n f (iter ?k f \<bottom>\<^bsub>A\<^esub>)"
+  proof (rule_tac f = "iter n f" in use_iso1)
+    show "isotone A A (iter n f)"
+      by (metis f_closed f_iso iter_iso)
+    show "iter 0 f \<bottom>\<^bsub>A\<^esub> \<in> carrier A"
+      by (metis Lattice.iter.simps(1) bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed)
+    show "iter ?k f \<bottom>\<^bsub>A\<^esub> \<in> carrier A"
+      by (metis Lattice.iter.simps(1) `iter 0 f \<bottom>\<^bsub>A\<^esub> \<in> carrier A` f_closed ftype_pred iter_closed)
+    show "iter 0 f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter ?k f \<bottom>\<^bsub>A\<^esub>"
+      by (metis Lattice.iter.simps(1) bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed complete_join_semilattice.prop_bot f_closed ftype_pred iter_closed)
+  qed
+  hence "iter (n+0) f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (n+?k) f \<bottom>\<^bsub>A\<^esub>"
+    by (metis iter_add_point)
+  thus ?thesis by (smt nm)
+qed
+
+theorem kleene_fixed_point:
+  assumes cl_A: "complete_lattice A"
+  and f_closed: "f \<in> carrier A \<rightarrow> carrier A"
+  and f_scott_continuous: "scott_continuous A A f"
+  shows "\<mu>\<^bsub>A\<^esub>f = \<Sigma>\<^bsub>A\<^esub>{x. (\<exists>i. x = iter i f \<bottom>\<^bsub>A\<^esub>) \<and> x \<in> carrier A}"
+proof -
+  let ?M = "{x. (\<exists>i. x = iter i f \<bottom>\<^bsub>A\<^esub>) \<and> x \<in> carrier A}"
+
+  have f_iso: "isotone A A f"
+    sorry
+
+  have asc_chain: "\<forall>n. iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc n) f \<bottom>\<^bsub>A\<^esub>"
+  proof
+    fix n
+    show "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc n) f \<bottom>\<^bsub>A\<^esub>"
+  proof (induct n)
+    case 0 show ?case
+      by (simp add: iter_def, metis bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed complete_join_semilattice.prop_bot f_closed ftype_pred)
+    case (Suc m) fix n assume ind_hyp: "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc n) f \<bottom>\<^bsub>A\<^esub>"
+    hence "f (iter n f \<bottom>\<^bsub>A\<^esub>) \<sqsubseteq>\<^bsub>A\<^esub> f (iter (Suc n) f \<bottom>\<^bsub>A\<^esub>)"
+      by (metis (full_types) bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed f_closed f_iso ftype_pred isotone_def iter_closed)
+    thus "iter (Suc n) f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc (Suc n)) f \<bottom>\<^bsub>A\<^esub>"
+      by (metis Lattice.iter.simps(2))
+  qed
+  qed
+
+  have asc_chain_2: "n \<le> m \<Longrightarrow> iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter m f \<bottom>\<^bsub>A\<^esub>"
+  proof (induct n)
+    case 0 show ?case
+      by (metis Lattice.iter.simps(1) bot_ext_def cl_A cl_to_cjs complete_join_semilattice.bot_closed complete_join_semilattice.prop_bot f_closed ftype_pred iter_closed)
+  next
+    fix n assume ind_hyp: "n \<le> m \<Longrightarrow> iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter m f \<bottom>\<^bsub>A\<^esub>" and snm: "Suc n \<le> m"
+    hence "n \<le> m" by smt
+    hence "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter m f \<bottom>\<^bsub>A\<^esub>" by (metis ind_hyp)
+    have "iter m f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc m) f \<bottom>\<^bsub>A\<^esub>" sledgehammer
+      by (metis asc_chain)
+      
+      apply (rule asc_chain)
+      
+      
+      
+    thus "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter (Suc m) f \<bottom>\<^bsub>A\<^esub>"
+      
+
+  have chain_order: "order \<lparr>carrier = ?M, le = op \<sqsubseteq>\<^bsub>A\<^esub>\<rparr>"
+    sorry
+
+  have total_order: "total_order \<lparr>carrier = ?M, le = op \<sqsubseteq>\<^bsub>A\<^esub>\<rparr>"
+    apply (simp add: total_order_def total_order_axioms_def)
+    apply safe
+    apply (metis chain_order)
+    apply (rule asc_chain_2)
+  proof -
+    fix x y n m
+    assume i1: "iter n f \<bottom>\<^bsub>A\<^esub> \<in> carrier A" and i2: "iter m f \<bottom>\<^bsub>A\<^esub> \<in> carrier A" and i3: "\<not> iter m f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter n f \<bottom>\<^bsub>A\<^esub>"
+    thus "iter n f \<bottom>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> iter m f \<bottom>\<^bsub>A\<^esub>"
+      apply (cases "n \<le> m")
+      apply (rule asc_chain_2)
+      
+      
+    
+    
+    
+    
+
+  have "join_semilattice ?CHAIN"
+    apply (simp add: join_semilattice_def join_semilattice_axioms_def, safe, metis chain_order)
+    using chain_order
+    apply (simp add: order.is_lub_def order.is_ub_def)
+*)
+
+end

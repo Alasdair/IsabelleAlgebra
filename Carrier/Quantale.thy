@@ -206,6 +206,8 @@ begin
        by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
    qed
 
+   lemma "ne_join_preserving Q Q (\<lambda>y. 1 + y)" nitpick
+
    lemma star_scott_continuous: "scott_continuous Q Q star"
      unfolding scott_continuous_def
    proof clarify

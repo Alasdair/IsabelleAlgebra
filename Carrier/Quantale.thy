@@ -2,6 +2,8 @@ theory Quantale
   imports Lattice Galois_Connection
 begin
 
+section {* Quantales *}
+
 record 'a mult_ord = "'a ord" +
   mult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<cdot>\<index>" 80)
   one :: "'a"
@@ -26,7 +28,7 @@ context unital_quantale
 begin
 
   lemma mult_closed: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x \<cdot> y \<in> carrier Q"
-    by (metis closed_application mult_type)
+    by (metis typed_application mult_type)
 
   lemma quantale_order: "order Q"
     by (metis cl_to_order quantale_complete_lattice)
@@ -91,10 +93,10 @@ begin
     shows "complete_lattice_connection Q Q (\<lambda>y. x\<cdot>y) (\<lambda>y. x \<rightharpoondown> y)"
   proof (rule suprema_galois_left, (metis quantale_complete_lattice)+)
     show "(\<lambda>y. x\<cdot>y) \<in> carrier Q \<rightarrow> carrier Q"
-      by (metis mult_type xc closed_application)
+      by (metis mult_type xc typed_application)
 
     show "(\<lambda>y. x \<rightharpoondown> y) \<in> carrier Q \<rightarrow> carrier Q"
-      by (metis preimp_type xc closed_application)
+      by (metis preimp_type xc typed_application)
 
     show "ex_join_preserving Q Q (\<lambda>y. x\<cdot>y)"
       by (metis assms ex_join_preserving_def inf_distl quantale_order)
@@ -189,54 +191,80 @@ begin
       by (metis mult_closed postimp_closed postimp_conn_prop xc yc zc)
   qed
 
+  subsection {* Defining the star operation *}
+
   definition star :: "'a \<Rightarrow> 'a"  ("_\<^sup>*" [101] 100) where
     "x\<^sup>* = \<mu>\<^bsub>Q\<^esub>(\<lambda>y. 1 + x\<cdot>y)"
 
-   lemma star_closed: assumes xc: "x \<in> carrier Q" shows "x\<^sup>* \<in> carrier Q"
-     unfolding star_def
-   proof (rule least_fixpoint_closed)
-     show "complete_lattice Q"
-       by (metis quantale_complete_lattice)
+  lemma star_closed: assumes xc: "x \<in> carrier Q" shows "x\<^sup>* \<in> carrier Q"
+    unfolding star_def
+  proof (rule least_fixpoint_closed)
+    show "complete_lattice Q"
+      by (metis quantale_complete_lattice)
 
-     show "(\<lambda>y. 1 + x \<cdot> y) \<in> carrier Q \<rightarrow> carrier Q"
-       by (metis (no_types) assms ftype_pred join_closed mult_type one_closed)
+    show "(\<lambda>y. 1 + x \<cdot> y) \<in> carrier Q \<rightarrow> carrier Q"
+      by (metis (no_types) assms ftype_pred join_closed mult_type one_closed)
 
-     show "isotone Q Q (\<lambda>y. 1 + x \<cdot> y)"
-       apply (simp add: isotone_def, safe, metis quantale_order)
-       by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
-   qed
+    show "isotone Q Q (\<lambda>y. 1 + x \<cdot> y)"
+      apply (simp add: isotone_def, safe, metis quantale_order)
+      by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
+  qed
 
-   lemma "ne_join_preserving Q Q (\<lambda>y. 1 + y)" nitpick
+  subsection {* Continuity of the star operation *}
 
-   lemma star_scott_continuous: "scott_continuous Q Q star"
-     unfolding scott_continuous_def
-   proof clarify
-     fix D assume D_set: "D \<subseteq> carrier Q" and D_directed: "directed \<lparr>carrier = D, le = op \<sqsubseteq>\<rparr>"
+  lemma star_scott_ne_continuous:
+    assumes xc: "x \<in> carrier Q"
+    and D_subset: "D \<subseteq> carrier Q"
+    and D_directed: "directed \<lparr>carrier = D, le = op \<sqsubseteq>, \<dots> = ord.more Q\<rparr>"
+    and D_non_empty: "D \<noteq> {}"
+    shows "1 + x \<cdot> \<Sigma> D = \<Sigma> ((\<lambda>y. 1 + x\<cdot>y) ` D)"
+  proof -
+    have "\<Sigma> ((\<lambda>y. 1 + x\<cdot>y) ` D) = \<Sigma> (((\<lambda>y. 1+y) \<circ> (\<lambda>y. x\<cdot>y)) ` D)"
+      by (simp add: o_def)
+    moreover have "... = \<Sigma> ((\<lambda>y. 1+y) ` (\<lambda>y. x\<cdot>y) ` D)"
+      by (metis image_compose)
+    moreover have "... = \<Sigma> ((\<Sigma> \<circ> (\<lambda>y. {1,y})) ` (\<lambda>y. x\<cdot>y) ` D)"
+      by (simp add: join_def o_def)
+    moreover have "... = \<Sigma> (\<Sigma> ` (\<lambda>y. {1,y}) ` (\<lambda>y. x\<cdot>y) ` D)"
+      by (metis image_compose)
+    moreover have "... = \<Sigma> (\<Union> ((\<lambda>y. {1,y}) ` (\<lambda>y. x\<cdot>y) ` D))"
+      apply (rule lub_inf_idem)
+      apply (rule_tac ?A = "carrier Q" in set_image_type)+
+      apply (metis D_subset)
+      apply (metis ftype_pred mult_type xc)
+      apply (simp add: ftype_pred)
+      by (metis one_closed)
+    moreover have "... = \<Sigma> ({1} \<union> ((\<lambda>y. x\<cdot>y) ` D))"
+      by (simp, metis D_non_empty)
+    moreover have "... = \<Sigma> {1} + \<Sigma> ((\<lambda>y. x\<cdot>y) ` D)"
+      apply (rule lub_union, simp_all add: one_closed)
+      apply (rule_tac ?A = "carrier Q" in set_image_type, simp add: D_subset)
+      by (metis ftype_pred mult_type xc)
+    moreover have "... = 1 + \<Sigma> ((\<lambda>y. x\<cdot>y) ` D)"
+      by (metis one_closed singleton_lub)
+    moreover have "... = 1 + x \<cdot> \<Sigma> D"
+      by (metis (lifting) D_subset inf_distl xc)
+    ultimately show ?thesis by metis
+  qed
 
-     let ?DIR = "\<lparr>carrier = D, le = op \<sqsubseteq>\<rparr>"
+  subsection {* Powers *}
 
-     
+  primrec power :: "'a \<Rightarrow> nat \<Rightarrow> 'a"  ("_\<^bsup>_\<^esup>" [101,50] 100) where
+    "x\<^bsup>0\<^esup>  = 1"
+  | "x\<^bsup>Suc n\<^esup> = x\<cdot>x\<^bsup>n\<^esup>"
 
-     have "\<forall>x\<in>D. \<forall>y\<in>D. \<exists>z\<in>D. x \<sqsubseteq>\<^bsub>?DIR\<^esub> z \<and> y \<sqsubseteq>\<^bsub>?DIR\<^esub> z"
-     proof safe
-       
+  lemma power_closed: "x \<in> carrier Q \<Longrightarrow> x\<^bsup>n\<^esup> \<in> carrier Q"
+  proof (induct n)
+    case 0 show ?case by (simp, metis one_closed)
+    case (Suc m) show ?case
+      by (metis "0" Suc.hyps mult_closed power.simps(2))
+  qed
 
-   primrec power :: "'a \<Rightarrow> nat \<Rightarrow> 'a"  ("_\<^bsup>_\<^esup>" [101,50] 100) where
-     "x\<^bsup>0\<^esup>  = 1"
-   | "x\<^bsup>Suc n\<^esup> = x\<cdot>x\<^bsup>n\<^esup>"
-
-   lemma power_closed: "x \<in> carrier Q \<Longrightarrow> x\<^bsup>n\<^esup> \<in> carrier Q"
-   proof (induct n)
-     case 0 show ?case by (simp, metis one_closed)
-     case (Suc m) show ?case
-       by (metis "0" Suc.hyps mult_closed power.simps(2))
-   qed
-
-   lemma power_add: assumes xc: "x \<in> carrier Q" shows "x\<^bsup>m\<^esup>\<cdot>x\<^bsup>n\<^esup> = x\<^bsup>m+n\<^esup>"
-   proof (induct m)
-     case 0 show ?case by (metis add_0 assms mult_onel power.simps(1) power_closed)
-     case (Suc m) show ?case by (smt Suc assms mult_assoc power.simps(2) power_closed)
-   qed
+  lemma power_add: assumes xc: "x \<in> carrier Q" shows "x\<^bsup>m\<^esup>\<cdot>x\<^bsup>n\<^esup> = x\<^bsup>m+n\<^esup>"
+  proof (induct m)
+    case 0 show ?case by (metis add_0 assms mult_onel power.simps(1) power_closed)
+    case (Suc m) show ?case by (smt Suc assms mult_assoc power.simps(2) power_closed)
+  qed
 
   lemma power_commutes: "x \<in> carrier Q \<Longrightarrow> x\<^bsup>n\<^esup>\<cdot>x = x\<cdot>x\<^bsup>n\<^esup>"
     by (smt power_add mult_oner power.simps)
@@ -244,33 +272,91 @@ begin
   definition powers :: "'a \<Rightarrow> 'a set" where
     "powers x  = {y. (\<exists>i. y = x\<^bsup>i\<^esup>)}"
 
-  lemma power_is_iter: assumes xc: "x \<in> carrier Q"
-    shows "x\<^bsup>i\<^esup> = iter (Suc i) (\<lambda>y. 1 + x\<cdot>y) 0"
-  proof (induct i)
-    case 0 show ?case apply simp
-      by (metis (lifting) "0" bot_oner bot_zeror one_closed xc)
-    case (Suc m)
-    fix i assume "x\<^bsup>i\<^esup> = iter (Suc i) (\<lambda>y. 1 + x \<cdot> y) 0"
-    have "x\<cdot>x\<^bsup>i\<^esup> = 1 + x\<cdot>(iter (Suc i) (\<lambda>y. 1 + x\<cdot>y) 0)
-    thus "x\<^bsup>Suc i\<^esup> = iter (Suc (Suc i)) (\<lambda>y. 1 + x \<cdot> y) 0"
-      
+  definition powersUpTo :: "nat \<Rightarrow> 'a \<Rightarrow> 'a set" where
+    "powersUpTo n x \<equiv> {x\<^bsup>i\<^esup> |i. Suc i \<le> n}"
 
-  lemma star_power: "x \<in> carrier Q \<Longrightarrow> x\<^sup>* = \<Sigma> (powers x)"
-    unfolding star_def powers_def
-    apply (rule kleene_fixed_point)
-    
+  subsection {* The star as a sum of powers *}
 
-    definition omega :: "'a \<Rightarrow> 'a" ("_\<^sup>\<omega>" [101] 100) where
-     "x\<^sup>\<omega> = \<nu>\<^bsub>Q\<^esub>(\<lambda>y. x\<cdot>y)"
+  text {* We can now show that $x^*$ in a quantale can be defined as
+    the sum of the powers of $x$. *}
 
-   lemma omega_unfoldl: assumes xc: "x \<in> carrier Q" shows "x\<cdot>x\<^sup>\<omega> = x\<^sup>\<omega>"
-     unfolding omega_def
+  lemma star_power: assumes xc: "x \<in> carrier Q" shows "x\<^sup>* = \<Sigma> (powers x)"
+  proof -
+    let ?STAR_FUN = "\<lambda>y. 1 + x\<cdot>y"
+
+    have star_chain: "\<mu>\<^bsub>Q\<^esub>?STAR_FUN = \<Sigma> (carrier (kleene_chain Q ?STAR_FUN))"
+    proof (rule kleene_fixed_point, unfold_locales)
+      show "?STAR_FUN \<in> carrier Q \<rightarrow> carrier Q"
+        by (smt ftype_pred one_closed mult_closed join_closed xc)
+    next
+      show "isotone Q Q ?STAR_FUN"
+        apply (simp add: isotone_def, safe, metis quantale_order)
+        by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
+    next
+      fix D assume "D \<subseteq> carrier Q" and "directed \<lparr>carrier = D, le = op \<sqsubseteq>, \<dots> = ord.more Q\<rparr>" and "D \<noteq> {}"
+      thus "1 + x \<cdot> \<Sigma> D = \<Sigma> ((\<lambda>y. 1 + x \<cdot> y) ` D)"
+        by (metis assms star_scott_ne_continuous)
+    qed
+
+    have iter_powersUpTo: "\<forall>n. iter n ?STAR_FUN 0 = \<Sigma> (powersUpTo n x)"
+    proof
+      fix n show "iter n ?STAR_FUN 0 = \<Sigma> (powersUpTo n x)"
+      proof (induct n)
+        case 0 show ?case
+          by (simp add: iter_def powersUpTo_def)
+        case (Suc n)
+        have "iter (Suc n) ?STAR_FUN 0 = 1 + x \<cdot> iter n ?STAR_FUN 0"
+          by (metis Lattice.iter.simps(2) Suc)
+        moreover have "... = 1 + x \<cdot> \<Sigma> (powersUpTo n x)"
+          by (metis Suc)
+        moreover have "... = 1 + x \<cdot> \<Sigma> {x\<^bsup>i\<^esup> |i. Suc i \<le> n}"
+          by (simp add: powersUpTo_def)
+        moreover have "... = 1 + \<Sigma> ((\<lambda>y. x\<cdot>y) ` {x\<^bsup>i\<^esup> |i. Suc i \<le> n})"
+          by (smt assms inf_distl mem_Collect_eq power_closed subsetI)
+        moreover have "... = 1 + \<Sigma> {x \<cdot> x\<^bsup>i\<^esup> |i. Suc i \<le> n}"
+          by (simp add: image_def, rule_tac ?f = "\<lambda>Y. 1 + \<Sigma> Y" in arg_cong, safe, auto+)
+        moreover have "... = 1 + \<Sigma> {x\<^bsup>Suc i\<^esup> |i. Suc i \<le> n}"
+          by simp
+        moreover have "... = \<Sigma> {1} + \<Sigma> {x\<^bsup>Suc i\<^esup> |i. Suc i \<le> n}"
+          by (metis (lifting) one_closed singleton_lub)
+        moreover have "... = \<Sigma> ({1} \<union> {x\<^bsup>Suc i\<^esup> |i. Suc i \<le> n})"
+          apply (rule HOL.sym, rule lub_union)
+          apply (metis empty_subsetI insert_subset one_closed)
+          apply (safe, auto)
+          by (metis assms power.simps(2) power_closed)
+        moreover have "... = \<Sigma> (powersUpTo (Suc n) x)"
+          apply (rule_tac ?f = "\<lambda>Y. \<Sigma> Y" in arg_cong)
+          apply (simp add: powersUpTo_def, safe, auto+, (metis le0 power.simps)+)
+          by (metis not0_implies_Suc power.simps(1) power.simps(2))
+        ultimately show ?case by metis
+      qed
+    qed
+
+    have "\<mu>\<^bsub>Q\<^esub>?STAR_FUN = \<Sigma> {z. \<exists>i. z = \<Sigma> (powersUpTo i x)}"
+      by (simp add: star_chain kleene_chain_def iter_powersUpTo)
+    moreover have "... = \<Sigma> (\<Sigma> ` {z. \<exists>i. z = powersUpTo i x})"
+      by (rule_tac ?f = "\<lambda>Y. \<Sigma> Y" in arg_cong, safe, auto+)
+    moreover have "... = \<Sigma> (\<Union> {z. \<exists>i. z = powersUpTo i x})"
+      by (rule lub_inf_idem, safe, auto, simp add: powersUpTo_def, safe, metis assms power_closed)
+    moreover have "... = \<Sigma> (powers x)"
+      apply (rule_tac ?f = "\<lambda>Y. \<Sigma> Y" in arg_cong, safe, auto+)
+      apply (simp_all add: powersUpTo_def powers_def, metis)
+      by (metis (lifting, full_types) le_add2 mem_Collect_eq)
+    ultimately show ?thesis
+      by (metis star_def)
+  qed
+
+  definition omega :: "'a \<Rightarrow> 'a" ("_\<^sup>\<omega>" [101] 100) where
+    "x\<^sup>\<omega> = \<nu>\<^bsub>Q\<^esub>(\<lambda>y. x\<cdot>y)"
+
+  lemma omega_unfoldl: assumes xc: "x \<in> carrier Q" shows "x\<cdot>x\<^sup>\<omega> = x\<^sup>\<omega>"
+    unfolding omega_def
    proof (rule greatest_fixpoint_computation)
      show "complete_lattice Q"
        by (metis quantale_complete_lattice)
 
      show "op \<cdot> x \<in> carrier Q \<rightarrow> carrier Q"
-       by (metis (lifting) assms closed_application mult_type)
+       by (metis (lifting) assms typed_application mult_type)
 
      show "isotone Q Q (op \<cdot> x)"
        by (metis assms mult_left_iso)
@@ -290,81 +376,6 @@ begin
        by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
    qed
 
-   primrec power :: "'a \<Rightarrow> nat \<Rightarrow> 'a"  ("_\<^bsup>_\<^esup>" [101,50] 100) where
-     "x\<^bsup>0\<^esup>  = 1"
-   | "x\<^bsup>Suc n\<^esup> = x\<cdot>x\<^bsup>n\<^esup>"
-
-   lemma power_closed: "x \<in> carrier Q \<Longrightarrow> x\<^bsup>n\<^esup> \<in> carrier Q"
-   proof (induct n)
-     case 0 show ?case by (simp, metis one_closed)
-     case (Suc m) show ?case
-       by (metis "0" Suc.hyps mult_closed power.simps(2))
-   qed
-
-   lemma power_add: assumes xc: "x \<in> carrier Q" shows "x\<^bsup>m\<^esup>\<cdot>x\<^bsup>n\<^esup> = x\<^bsup>m+n\<^esup>"
-   proof (induct m)
-     case 0 show ?case by (metis add_0 assms mult_onel power.simps(1) power_closed)
-     case (Suc m) show ?case by (smt Suc assms mult_assoc power.simps(2) power_closed)
-   qed
-
-  lemma power_commutes: "x \<in> carrier Q \<Longrightarrow> x\<^bsup>n\<^esup>\<cdot>x = x\<cdot>x\<^bsup>n\<^esup>"
-    by (smt power_add mult_oner power.simps)
-
-  definition powers :: "'a \<Rightarrow> 'a set" where
-    "powers x  = {y. (\<exists>i. y = x\<^bsup>i\<^esup>)}"
-
-  lemma set_image_comp: "f ` {z. P z} = {f z | z. P z}"
-    by (simp add: image_def, smt Collect_cong)
-
-  lemma set_closure_condition [simp]: "X \<subseteq> Y \<Longrightarrow> {x. x \<in> X \<and> x \<in> Y} = X"
-    by (metis Int_absorb1 Int_commute Int_def)
-
-  lemma powers_subset: "x \<in> carrier Q \<Longrightarrow> powers x \<subseteq> carrier Q"
-    by (simp add: powers_def, default, smt CollectD power_closed)
-
-  lemma inf_distl_comp: assumes xc: "x \<in> carrier Q"
-    shows "x \<cdot> \<Sigma> {z. P z \<and> z \<in> carrier Q} = \<Sigma> {x\<cdot>z | z. P z \<and> z \<in> carrier Q}"
-  proof -
-    have "x \<cdot> \<Sigma> {z. P z \<and> z \<in> carrier Q} = \<Sigma> ((\<lambda>y. x\<cdot>y) ` {z. P z \<and> z \<in> carrier Q})"
-      by (metis (lifting) CollectE assms inf_distl subsetI)
-    moreover have "... = \<Sigma> {x\<cdot>z | z. P z \<and> z \<in> carrier Q}"
-      by (metis set_image_comp)
-    ultimately show ?thesis by metis
-  qed
-
-  lemma inf_distr_comp: assumes xc: "x \<in> carrier Q"
-    shows "\<Sigma> {z. P z \<and> z \<in> carrier Q} \<cdot> x = \<Sigma> {z\<cdot>x | z. P z \<and> z \<in> carrier Q}"
-  proof -
-    have "\<Sigma> {z. P z \<and> z \<in> carrier Q} \<cdot> x = \<Sigma> ((\<lambda>y. y\<cdot>x) ` {z. P z \<and> z \<in> carrier Q})"
-      by (metis (lifting) CollectE assms inf_distr subsetI)
-    moreover have "... = \<Sigma> {z\<cdot>x | z. P z \<and> z \<in> carrier Q}"
-      by (metis set_image_comp)
-    ultimately show ?thesis by metis
-  qed
-
-  lemma star_power: "\<Sigma> (powers x) = x\<^sup>*"
-    unfolding star_def
-  proof
-
-   lemma star_unfoldr: assumes xc: "x \<in> carrier Q" shows "1 + x\<cdot>x\<^sup>* = x\<^sup>*"
-     sorry
-   lemma assumes xc: "x \<in> carrier Q" shows "x\<cdot>x\<^sup>* = x\<^sup>*\<cdot>x"
-   proof -
-     have "x\<cdot>x\<^sup>* = x\<cdot>(1 + x\<^sup>*\<cdot>x)"
-       by (metis assms star_unfoldr)
-     moreover have "... = (1 + x\<cdot>x\<^sup>*)\<cdot>x"
-       by (smt assms distl distr mult_assoc mult_closed mult_onel mult_oner one_closed star_closed)
-     moreover have "... = x\<^sup>*\<cdot>x"
-       by (metis assms star_unfoldl)
-     ultimately show ?thesis by metis
-   qed
-
-   lemma star_def_var: assumes xc: "x \<in> carrier Q" shows "\<mu>\<^bsub>Q\<^esub>(\<lambda>y. 1 + y\<cdot>x)"
-     unfolding star_def
-   proof -
-     have "\<mu>\<^bsub>Q\<^esub>(\<lambda>y. 1 + x \<cdot> y) \<sqsubseteq> \<mu>\<^bsub>Q\<^esub>(\<lambda>y. 1 + y \<cdot> x)"
-       apply (rule fixpoint_induction)
-       prefer 5
-       
+end
 
 end

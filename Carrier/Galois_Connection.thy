@@ -2,6 +2,10 @@ theory Galois_Connection
   imports Lattice
 begin
 
+section {* Galois connections *}
+
+subsection {* Definition and basic properties *}
+
 locale galois_connection =
   fixes orderA :: "('a, 'c) ord_scheme" ("\<alpha>")
   and orderB :: "('b, 'd) ord_scheme" ("\<beta>")
@@ -21,22 +25,22 @@ begin
     by (metis galois_property)
 
   lemma deflation: "y \<in> carrier \<beta> \<Longrightarrow> \<pi>\<^sup>* (\<pi>\<^sub>* y) \<sqsubseteq>\<^bsub>\<beta>\<^esub> y"
-    by (metis closed_application is_order_A left lower_closure order.order_refl upper_closure)
+    by (metis typed_application is_order_A left lower_closure order.order_refl upper_closure)
 
   lemma inflation: "x \<in> carrier \<alpha> \<Longrightarrow> x \<sqsubseteq>\<^bsub>\<alpha>\<^esub> \<pi>\<^sub>* (\<pi>\<^sup>* x)"
-    by (metis closed_application is_order_B lower_closure order.eq_refl right upper_closure)
+    by (metis typed_application is_order_B lower_closure order.eq_refl right upper_closure)
 
   lemma lower_iso: "isotone \<alpha> \<beta> \<pi>\<^sup>*"
-    by (smt closed_application inflation is_order_A is_order_B isotone_def left lower_closure order.order_trans upper_closure)
+    by (smt typed_application inflation is_order_A is_order_B isotone_def left lower_closure order.order_trans upper_closure)
 
   lemma upper_iso: "isotone \<beta> \<alpha> \<pi>\<^sub>*"
-    by (smt closed_application deflation is_order_A is_order_B isotone_def right lower_closure order.order_trans upper_closure)
+    by (smt typed_application deflation is_order_A is_order_B isotone_def right lower_closure order.order_trans upper_closure)
 
   lemma lower_comp: "x \<in> carrier \<alpha> \<Longrightarrow> (\<pi>\<^sup>* \<circ> \<pi>\<^sub>* \<circ> \<pi>\<^sup>*) x = \<pi>\<^sup>* x"
-    by (smt Lattice.order.antisym closed_application deflation inflation isotone_def lower_closure lower_iso o_apply upper_closure)
+    by (smt order.order_antisym typed_application deflation inflation isotone_def lower_closure lower_iso o_apply upper_closure)
 
   lemma upper_comp: "y \<in> carrier \<beta> \<Longrightarrow> (\<pi>\<^sub>* \<circ> \<pi>\<^sup>* \<circ> \<pi>\<^sub>*) y = \<pi>\<^sub>* y"
-    by (smt Lattice.order.antisym closed_application deflation is_order_A lower_closure lower_comp o_def right upper_closure)
+    by (smt order.order_antisym typed_application deflation is_order_A lower_closure lower_comp o_def right upper_closure)
 
   lemma adjoint_idem1: "idempotent (carrier \<beta>) (\<pi>\<^sup>* \<circ> \<pi>\<^sub>*)"
     by (smt idempotent_def o_apply o_assoc upper_comp)
@@ -48,11 +52,11 @@ end
 
 lemma fg_iso: "galois_connection A B f g \<Longrightarrow> isotone B B (f \<circ> g)"
   apply (simp add: isotone_def)
-  by (metis (full_types) closed_application galois_connection.lower_iso galois_connection.upper_closure galois_connection.upper_iso isotone_def)
+  by (metis (full_types) typed_application galois_connection.lower_iso galois_connection.upper_closure galois_connection.upper_iso isotone_def)
 
 lemma gf_iso: "galois_connection A B f g \<Longrightarrow> isotone A A (g \<circ> f)"
   apply (simp add: isotone_def)
-  by (metis (full_types) closed_application galois_connection.lower_closure galois_connection.lower_iso galois_connection.upper_iso isotone_def)
+  by (metis (full_types) typed_application galois_connection.lower_closure galois_connection.lower_iso galois_connection.upper_iso isotone_def)
 
 lemma galois_dual [simp]: "galois_connection (B\<sharp>) (A\<sharp>) g f = galois_connection A B f g"
   by (simp add: galois_connection_def, auto)
@@ -76,7 +80,7 @@ lemma upper_type: "upper_adjoint A B g \<Longrightarrow> g \<in> carrier B \<rig
   by (metis galois_connection.upper_closure upper_adjoint_def)
 
 lemma id_galois: "order A \<Longrightarrow> galois_connection A A id id"
-  by (unfold galois_connection_def, metis id_apply id_poly)
+  by (unfold galois_connection_def, metis id_apply id_type)
 
 lemma semi_inverse1: "\<lbrakk>x \<in> carrier A; galois_connection A B f g\<rbrakk> \<Longrightarrow> f x = f (g (f x))"
   by (metis galois_connection.lower_comp o_apply)
@@ -91,12 +95,12 @@ proof
   assume "galois_connection A B f g"
   thus "f \<in> carrier A \<rightarrow> carrier B \<and> g \<in> carrier B \<rightarrow> carrier A \<and> isotone A B f
         \<and> (\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> g y)"
-    by (smt closed_application galois_connection.deflation galois_connection.galois_property galois_connection.lower_closure galois_connection.lower_iso galois_connection.upper_closure)
+    by (smt typed_application galois_connection.deflation galois_connection.galois_property galois_connection.lower_closure galois_connection.lower_iso galois_connection.upper_closure)
 next
   assume "f \<in> carrier A \<rightarrow> carrier B \<and> g \<in> carrier B \<rightarrow> carrier A \<and> isotone A B f
           \<and> (\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y) \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier B. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<longrightarrow> x \<sqsubseteq>\<^bsub>A\<^esub> g y)"
   thus "galois_connection A B f g"
-    by (unfold galois_connection_def, safe, (smt closed_application isotone_def order.order_trans)+)
+    by (unfold galois_connection_def, safe, (smt typed_application isotone_def order.order_trans)+)
 qed
 
 lemma galois_ump2: "galois_connection A B f g = (f \<in> carrier A \<rightarrow> carrier B \<and> g \<in> carrier B \<rightarrow> carrier A
@@ -119,7 +123,7 @@ lemma ore_galois:
   and a: "\<forall>x\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> g (f x)" and b: "\<forall>y\<in>carrier B. f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y"
   and c: "isotone A B f" and d: "isotone B A g"
   shows "galois_connection A B f g"
-  by (unfold galois_connection_def, safe, (smt closed_application a b c d gclosed fclosed isotone_def order.order_trans)+)
+  by (unfold galois_connection_def, safe, (smt typed_application a b c d gclosed fclosed isotone_def order.order_trans)+)
 
 (* +------------------------------------------------------------------------+
    | Theorems 4.20(a) and 4.20(b)                                           |
@@ -165,9 +169,9 @@ proof -
     apply safe
     apply (metis conn galois_connection.deflation yc)
     apply (metis conn ftype_pred galois_ump1 yc)
-    apply (metis closed_application conn galois_ump2 yc)
+    apply (metis typed_application conn galois_ump2 yc)
     apply (metis conn galois_ump1 yc)
-    by (metis closed_application conn galois_connection.deflation galois_ump2 yc)
+    by (metis typed_application conn galois_connection.deflation galois_ump2 yc)
 qed
 
 lemma galois_min:
@@ -219,7 +223,7 @@ qed
    +------------------------------------------------------------------------+ *)
 
 lemma set_image_type: "\<lbrakk>X \<subseteq> A; f \<in> A \<rightarrow> B\<rbrakk> \<Longrightarrow> f ` X \<subseteq> B"
-  by (metis closed_application image_subsetI set_rev_mp)
+  by (metis typed_application image_subsetI set_rev_mp)
 
 lemma lower_ub:
   assumes Xc: "X \<subseteq> carrier A" and xc: "x \<in> carrier A"
@@ -227,7 +231,7 @@ lemma lower_ub:
   shows "order.is_ub B (f x) (f ` X)"
 proof -
   have fxc: "f x \<in> carrier B"
-    by (metis lower lower_type closed_application xc)
+    by (metis lower lower_type typed_application xc)
 
   have fXc: "f ` X \<subseteq> carrier B"
     by (metis Xc lower lower_type set_image_type)
@@ -262,7 +266,7 @@ proof -
       by (metis la lower_adjoint_def)
 
     thus "\<forall>y\<in>carrier B. (\<forall>z\<in>X. f z \<sqsubseteq>\<^bsub>B\<^esub> y) \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> y"
-      by (smt closed_application Xc galois_ump1 gc galois_connection_def set_rev_mp xc il ord_A order.is_lub_def)
+      by (smt typed_application Xc galois_ump1 gc galois_connection_def set_rev_mp xc il ord_A order.is_lub_def)
   qed
 qed
 
@@ -461,6 +465,7 @@ proof -
   thus ?thesis by simp
 qed
 
+(*
 lemma infima_galois_right:
   assumes conn: "complete_lattice_connection A B f g"
   shows"\<forall>y\<in>carrier A. order.is_glb B (f y) {x. y \<sqsubseteq>\<^bsub>A \<^esub>g x \<and> x \<in> carrier B}"
@@ -482,6 +487,7 @@ lemma infima_galois:
   apply (metis cl_conn_dual dual_ex_join_preserving suprema_galois_right(5))
   apply (simp add: infima_galois_right)
   by (simp add: infima_galois_left)
+*)
 *)
 
 lemma cl_lower_join_preserving:
@@ -541,16 +547,16 @@ proof (rule lfp_equality_var)
     by (metis assms complete_lattice_connection.is_cl_B)
 
   show closure1: "f \<circ> g \<in> carrier B \<rightarrow> carrier B"
-    by (metis assms cl_to_galois closed_composition galois_connection.lower_closure galois_connection.upper_closure)
+    by (metis assms cl_to_galois typed_composition galois_connection.lower_closure galois_connection.upper_closure)
 
   have closure2: "g \<circ> f \<in> carrier A \<rightarrow> carrier A"
-    by (metis assms cl_to_galois closed_composition galois_connection.lower_closure galois_connection.upper_closure)
+    by (metis assms cl_to_galois typed_composition galois_connection.lower_closure galois_connection.upper_closure)
 
   have closure3: "\<mu>\<^bsub>A \<^esub>(g \<circ> f) \<in> carrier A" using cl_A closure2
     by (rule least_fixpoint_closed, metis assms cl_to_galois gf_iso)
 
   thus closure4: "(f (\<mu>\<^bsub>A \<^esub>(g \<circ> f))) \<in> carrier B"
-    by (metis assms cl_to_galois closed_application galois_connection.lower_closure)
+    by (metis assms cl_to_galois typed_application galois_connection.lower_closure)
 
   have "f (g (f (\<mu>\<^bsub>A\<^esub>(g \<circ> f)))) = f (\<mu>\<^bsub>A\<^esub>(g \<circ> f))"
     by (rule_tac f = f and A = A and B = B in semi_inverse1[symmetric], metis closure3, metis conn cl_to_galois)
@@ -565,9 +571,9 @@ proof (rule lfp_equality_var)
     hence "\<mu>\<^bsub>A\<^esub>(g \<circ> f) \<sqsubseteq>\<^bsub>A\<^esub> g y"
       apply (rule fixpoint_induction)
       apply (metis closure2)
-      apply (metis assms cl_to_galois closed_application upper_adjoint_def upper_type yc)
+      apply (metis assms cl_to_galois typed_application upper_adjoint_def upper_type yc)
       apply (metis assms cl_to_galois gf_iso)
-      by (metis assms cl_A cl_to_galois cl_to_order closed_application fgy galois_ump1 o_def order.eq_refl yc)
+      by (metis assms cl_A cl_to_galois cl_to_order typed_application fgy galois_ump1 o_def order.eq_refl yc)
     thus "f (\<mu>\<^bsub>A\<^esub>(g \<circ> f)) \<sqsubseteq>\<^bsub>B\<^esub> y"
       by (metis assms cl_to_galois closure3 galois_ump2 yc)
   qed
@@ -580,6 +586,10 @@ proof -
     by (rule fixpoint_rolling, auto)
   thus ?thesis by (simp, metis conn)
 qed
+
+(* +------------------------------------------------------------------------+ *)
+subsection {* Fixpoint fusion *}
+(* +------------------------------------------------------------------------+ *)
 
 theorem fixpoint_fusion [simp]:
   assumes upper_ex: "cl_lower_adjoint A B f"
@@ -605,7 +615,7 @@ proof (rule lfp_equality_var)
     by (rule least_fixpoint_closed)
 
   thus closure2: "f (\<mu>\<^bsub>A\<^esub>h) \<in> carrier B"
-    by (metis closed_application ft)
+    by (metis typed_application ft)
 
   have comm_var: "\<And>x. k (f x) = f (h x)"
     by (metis comm o_apply)
@@ -618,18 +628,18 @@ proof (rule lfp_equality_var)
     fix y assume yc: "y \<in> carrier B" and ky: "k y = y"
 
     have gy: "g y \<in> carrier A"
-      by (metis cl_to_galois closed_application conn galois_ump2 yc)
+      by (metis cl_to_galois typed_application conn galois_ump2 yc)
     hence hgy: "h (g y) \<in> carrier A"
-      by (metis closed_application ht)
+      by (metis typed_application ht)
     hence fhgy: "f (h (g y)) \<in> carrier B"
-      by (metis closed_application ft)
+      by (metis typed_application ft)
 
     have "\<mu>\<^bsub>A\<^esub> h \<sqsubseteq>\<^bsub>A\<^esub> g y" using cl_A ht gy hiso
     proof (rule fixpoint_induction)
       have "f (g y) \<sqsubseteq>\<^bsub>B\<^esub> y"
         by (metis cl_to_galois conn galois_connection.deflation yc)
       hence "k (f (g y)) \<sqsubseteq>\<^bsub>B\<^esub> k y"
-        by (metis closed_application ft gy kiso use_iso1 yc)
+        by (metis typed_application ft gy kiso use_iso1 yc)
       hence "f (h (g y)) \<sqsubseteq>\<^bsub>B\<^esub> y"
         by (simp only: comm_var[symmetric] ky)
       thus "h (g y) \<sqsubseteq>\<^bsub>A\<^esub> g y" using gy hgy fhgy yc

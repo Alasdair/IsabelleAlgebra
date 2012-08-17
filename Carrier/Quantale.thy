@@ -5,8 +5,8 @@ begin
 section {* Quantales *}
 
 record 'a mult_ord = "'a ord" +
-  mult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<cdot>\<index>" 80)
   one :: "'a"
+  mult :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<cdot>\<index>" 80)
 
 lemma set_comp_subset: "{x. P x \<and> x \<in> A} \<subseteq> A"
   by (metis (lifting) mem_Collect_eq subsetI)
@@ -44,6 +44,9 @@ begin
 
   abbreviation qplus :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "+" 70) where
     "x + y \<equiv> order.join Q x y"
+
+  abbreviation qmeet :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<sqinter>" 70) where
+    "x \<sqinter> y \<equiv> order.meet Q x y"
 
   lemma bot_zeror: "x \<in> carrier Q \<Longrightarrow> x \<cdot> 0 = 0"
     by (metis empty_lub empty_subsetI image_empty inf_distl)
@@ -269,8 +272,25 @@ begin
   lemma power_commutes: "x \<in> carrier Q \<Longrightarrow> x\<^bsup>n\<^esup>\<cdot>x = x\<cdot>x\<^bsup>n\<^esup>"
     by (smt power_add mult_oner power.simps)
 
+  lemma power_inductl_var:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^bsup>n\<^esup>\<cdot>y \<sqsubseteq> y"
+    apply (induct n)
+    apply (metis eq_refl mult_onel power.simps(1) yc)
+    by (smt distl join_assoc leq_def mult_assoc mult_closed power.simps(2) power_closed xc yc)
+
+  lemma power_inductr_var:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "y\<cdot>x \<sqsubseteq> y \<longrightarrow> y\<cdot>x\<^bsup>n\<^esup> \<sqsubseteq> y"
+    apply (induct n)
+    apply (metis eq_refl mult_oner power.simps(1) yc)
+    by (smt distr join_assoc leq_def mult_assoc mult_closed power.simps(2) power_closed xc yc)
+
   definition powers :: "'a \<Rightarrow> 'a set" where
     "powers x  = {y. (\<exists>i. y = x\<^bsup>i\<^esup>)}"
+
+  lemma powers_closed: "x \<in> carrier Q \<Longrightarrow> powers x \<subseteq> carrier Q"
+    by (simp add: powers_def, auto, metis power_closed)
 
   definition powersUpTo :: "nat \<Rightarrow> 'a \<Rightarrow> 'a set" where
     "powersUpTo n x \<equiv> {x\<^bsup>i\<^esup> |i. Suc i \<le> n}"
@@ -351,31 +371,480 @@ begin
 
   lemma omega_unfoldl: assumes xc: "x \<in> carrier Q" shows "x\<cdot>x\<^sup>\<omega> = x\<^sup>\<omega>"
     unfolding omega_def
-   proof (rule greatest_fixpoint_computation)
-     show "complete_lattice Q"
-       by (metis quantale_complete_lattice)
+  proof (rule greatest_fixpoint_computation)
+    show "complete_lattice Q"
+      by (metis quantale_complete_lattice)
 
-     show "op \<cdot> x \<in> carrier Q \<rightarrow> carrier Q"
-       by (metis (lifting) assms typed_application mult_type)
+    show "op \<cdot> x \<in> carrier Q \<rightarrow> carrier Q"
+      by (metis (lifting) assms typed_application mult_type)
 
-     show "isotone Q Q (op \<cdot> x)"
-       by (metis assms mult_left_iso)
-   qed
+    show "isotone Q Q (op \<cdot> x)"
+      by (metis assms mult_left_iso)
+  qed
 
-   lemma star_unfoldl: assumes xc: "x \<in> carrier Q" shows "1 + x\<cdot>x\<^sup>* = x\<^sup>*"
-     unfolding star_def
-   proof (rule fixpoint_computation)
-     show "complete_lattice Q"
-       by (metis quantale_complete_lattice)
+  lemma star_unfoldl: assumes xc: "x \<in> carrier Q" shows "1 + x\<cdot>x\<^sup>* = x\<^sup>*"
+    unfolding star_def
+  proof (rule fixpoint_computation)
+    show "complete_lattice Q"
+      by (metis quantale_complete_lattice)
 
-     show "(\<lambda>y. 1 + x \<cdot> y) \<in> carrier Q \<rightarrow> carrier Q"
-       by (metis (no_types) assms ftype_pred join_closed mult_type one_closed)
+    show "(\<lambda>y. 1 + x \<cdot> y) \<in> carrier Q \<rightarrow> carrier Q"
+      by (metis (no_types) assms ftype_pred join_closed mult_type one_closed)
 
-     show "isotone Q Q (\<lambda>y. 1 + x \<cdot> y)"
-       apply (simp add: isotone_def, safe, metis quantale_order)
-       by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
-   qed
+    show "isotone Q Q (\<lambda>y. 1 + x \<cdot> y)"
+      apply (simp add: isotone_def, safe, metis quantale_order)
+      by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
+  qed
+
+  lemma star_unfoldr: assumes xc: "x \<in> carrier Q" shows "1 + x\<^sup>*\<cdot>x = x\<^sup>*"
+  proof (insert xc, unfold star_power)
+    have power_unfold: "({1} \<union> ((\<lambda>y. y\<cdot>x) ` powers x)) = (powers x)"
+      apply (simp add: image_def powers_def, auto)
+      by (metis assms nat.exhaust power.simps(1) power.simps(2) power_commutes)+
+    hence "\<Sigma> (powers x) = \<Sigma> ({1} \<union> ((\<lambda>y. y\<cdot>x) ` powers x))"
+      by auto
+    moreover have "... = \<Sigma> {1} + \<Sigma> ((\<lambda>y. y\<cdot>x) ` powers x)"
+      by (rule lub_union, simp_all, metis one_closed, metis power_unfold assms le_supE powers_closed)
+    moreover have "... = 1 + \<Sigma> ((\<lambda>y. y\<cdot>x) ` powers x)"
+      by (metis one_closed singleton_lub)
+    moreover have "... = 1 + \<Sigma> (powers x) \<cdot> x"
+      by (metis assms inf_distr powers_closed)
+    ultimately show "1 + \<Sigma> (powers x) \<cdot> x = \<Sigma> (powers x)"
+      by auto
+  qed
+
+  lemma star_continuity:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "x\<cdot>y\<^sup>*\<cdot>z = \<Sigma> {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>}"
+  proof (insert yc, unfold star_power powers_def)
+    have closure_xu: "{x\<cdot>u |u. \<exists>i. u = y\<^bsup>i\<^esup>} \<subseteq> carrier Q"
+      by (safe, metis mult_closed power_closed xc yc)
+
+    have "x \<cdot> \<Sigma> {u. \<exists>i. u = y\<^bsup>i\<^esup>} \<cdot> z = \<Sigma> (op \<cdot> x ` {u. \<exists>i. u = y\<^bsup>i\<^esup>}) \<cdot> z"
+      by (metis inf_distl powers_closed powers_def xc yc)
+    moreover have "... = \<Sigma> {x\<cdot>u |u. \<exists>i. u = y\<^bsup>i\<^esup>} \<cdot> z"
+      by (simp add: image_def, rule_tac f = "\<lambda>X. \<Sigma> X \<cdot> z" in arg_cong, safe, metis+)
+    moreover have "... = \<Sigma> ((\<lambda>a. a\<cdot>z) ` {x\<cdot>u |u. \<exists>i. u = y\<^bsup>i\<^esup>})"
+      by (metis (lifting) closure_xu inf_distr zc)
+    moreover have "... = \<Sigma> {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>}"
+      by (simp add: image_def, rule_tac f = "\<lambda>X. \<Sigma> X" in arg_cong, safe, metis+)
+    ultimately show "x \<cdot> \<Sigma> {u. \<exists>i. u = y\<^bsup>i\<^esup>} \<cdot> z = \<Sigma> {x \<cdot> u \<cdot> z |u. \<exists>i. u = y\<^bsup>i\<^esup>}"
+      by auto
+  qed
+
+  lemma prod_cstar_unique:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "is_lub w {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>} \<Longrightarrow> x\<cdot>y\<^sup>*\<cdot>z = w"
+    by (simp add: star_continuity[OF xc yc zc], smt lub_is_lub)
+
+  lemma star_unique: "x \<in> carrier Q \<Longrightarrow> is_lub w (powers x) \<Longrightarrow> x\<^sup>* = w"
+    by (metis lub_is_lub star_power)
+
+  lemma ex_star: "\<forall>x\<in>carrier Q. \<exists>y\<in>carrier Q. is_lub y (powers x)"
+    by (metis (lifting) lub_ex powers_closed)
+
+  lemma star_is_lub: "x \<in> carrier Q \<Longrightarrow> is_lub (x\<^sup>*) (powers x)"
+    by (metis ex_star star_unique)
+
+  lemma star_lub:
+    assumes xc: "x \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "(\<forall>y\<in>(powers x). y \<sqsubseteq> z) \<longleftrightarrow> (x\<^sup>* \<sqsubseteq> z)"
+    by (insert star_is_lub[OF xc], simp add: is_lub_simp, metis (hide_lams, no_types) in_mono order_trans zc)
+
+  lemma star_lub_var:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "(\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y) \<longleftrightarrow> (x\<^sup>* \<sqsubseteq> y)"
+    apply (insert star_is_lub[OF xc])
+    apply (simp add: is_lub_simp powers_def, clarify)
+    by (metis (lifting) order_trans power_closed xc yc)
+
+  lemma star_inductl_var:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^sup>*\<cdot>y \<sqsubseteq> y"
+  proof
+    have yy_c: "y \<leftharpoondown> y \<in> carrier Q"
+      by (metis postimp_closed yc)
+
+    assume "x\<cdot>y \<sqsubseteq> y"
+    hence "x \<sqsubseteq> y \<leftharpoondown> y"
+      by (metis postimp_conn_prop xc yc)
+    hence "\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y \<leftharpoondown> y"
+      by (metis postimp_conn_prop power_closed power_inductl_var xc yc)
+    hence "x\<^sup>* \<sqsubseteq> y \<leftharpoondown> y"
+      by (insert star_lub_var[OF xc yy_c], auto)
+    thus "x\<^sup>*\<cdot>y \<sqsubseteq> y"
+      by (metis postimp_conn_prop star_closed xc yc)
+  qed
+
+  lemma star_inductl:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "z+x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^sup>*\<cdot>z \<sqsubseteq> y"
+  proof
+    assume hyp: "z+x\<cdot>y \<sqsubseteq> y"
+    hence "z \<sqsubseteq> y" and "x\<cdot>y \<sqsubseteq> y"
+      apply (metis bin_lub_var mult_closed xc yc zc)
+      by (metis bin_lub_var hyp mult_closed xc yc zc)
+    hence "x\<^sup>*\<cdot>y \<sqsubseteq> y"
+      by (metis star_inductl_var xc yc)
+    thus "x\<^sup>*\<cdot>z \<sqsubseteq> y"
+      by (smt `z \<sqsubseteq> y` distl join_assoc leq_def mult_closed star_closed xc yc zc)
+  qed
+
+  lemma star_inductr_var:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "y\<cdot>x \<sqsubseteq> y \<longrightarrow> y\<cdot>x\<^sup>* \<sqsubseteq> y"
+  proof
+    have yy_c: "y \<rightharpoondown> y \<in> carrier Q"
+      by (metis preimp_closed yc)
+
+    assume "y\<cdot>x \<sqsubseteq> y"
+    hence "x \<sqsubseteq> y \<rightharpoondown> y"
+      by (metis preimp_conn_prop xc yc)
+    hence "\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y \<rightharpoondown> y"
+      by (metis preimp_conn_prop power_closed power_inductr_var xc yc)
+    hence "x\<^sup>* \<sqsubseteq> y \<rightharpoondown> y"
+      by (insert star_lub_var[OF xc yy_c], auto)
+    thus "y\<cdot>x\<^sup>* \<sqsubseteq> y"
+      by (metis preimp_conn_prop star_closed xc yc)
+  qed
+
+  lemma star_inductr:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "z+y\<cdot>x \<sqsubseteq> y \<longrightarrow> z\<cdot>x\<^sup>* \<sqsubseteq> y"
+  proof
+    assume hyp: "z+y\<cdot>x \<sqsubseteq> y"
+    hence "z \<sqsubseteq> y" and "y\<cdot>x \<sqsubseteq> y"
+      apply (metis bin_lub_var mult_closed xc yc zc)
+      by (metis bin_lub_var hyp mult_closed xc yc zc)
+    hence "y\<cdot>x\<^sup>* \<sqsubseteq> y"
+      by (metis star_inductr_var xc yc)
+    thus "z\<cdot>x\<^sup>* \<sqsubseteq> y"
+      by (smt `z \<sqsubseteq> y` distr join_assoc leq_def mult_closed star_closed xc yc zc)
+  qed
+
+  lemma star_subid:
+    assumes xc: "x \<in> carrier Q" shows "x \<sqsubseteq> 1 \<longrightarrow> x\<^sup>* = 1"
+  proof
+    assume "x \<sqsubseteq> 1"
+    hence "x\<^sup>* \<sqsubseteq> 1"
+      by (metis assms mult_oner one_closed star_closed star_inductl_var)
+    moreover have "1 \<sqsubseteq> x\<^sup>*"
+      by (metis assms eq_refl power.simps(1) star_closed star_lub_var)
+    ultimately show "x\<^sup>* = 1"
+      by (metis assms one_closed order_antisym star_closed)
+  qed
 
 end
+
+record 'a test_ord = "'a mult_ord" +
+  test :: "'a bounded_ord"
+
+abbreviation tests :: "('a, 'b) test_ord_scheme \<Rightarrow> 'a set" where
+    "tests A \<equiv> carrier (test A)"
+
+locale kat = fixes Q (structure)
+  assumes tquantale: "unital_quantale Q"
+  and test_ba: "boolean_algebra (test Q)"
+  and test_subset: "tests Q \<subseteq> carrier Q"
+  and test_one: "1 = \<top>\<^bsub>test Q\<^esub>"
+  and test_zero: "0 = \<bottom>\<^bsub>test Q\<^esub>"
+  and test_le: "x \<sqsubseteq> y \<longleftrightarrow> x \<sqsubseteq>\<^bsub>test Q\<^esub> y"
+  and test_join: "x + y = order.join (test Q) x y"
+  and test_meet: "order.meet Q x y = order.meet (test Q) x y"
+
+sublocale kat \<subseteq> unital_quantale by (metis tquantale)
+
+lemma helper: "\<lbrakk>\<forall>x. Q x = P x; \<exists>!x. P x\<rbrakk> \<Longrightarrow> \<exists>!x. Q x" by auto
+
+context kat
+begin
+
+
+
+  definition complement :: "'a \<Rightarrow> 'a" ("_\<^sup>\<bottom>" [101] 100) where
+    "complement x = (THE y. y \<in> tests Q \<and> qplus x y = qone \<and> x \<sqinter> y = qzero)"
+
+  lemma complement_closed: assumes xc: "x \<in> tests Q" shows "x\<^sup>\<bottom> \<in> tests Q"
+    apply (simp add: complement_def)
+    apply (rule the1I2)
+    apply (insert boolean_algebra.compl_uniq[OF test_ba xc])
+    apply (rule helper)
+    
+    by auto
+
+  lemma complement1: "p \<in> tests Q \<Longrightarrow> qplus p p\<^sup>\<bottom> = 0"
+    by (metis bot_zeror complement_closed join_idem mult_oner set_rev_mp test_subset test_zero)
+
+  lemma complement2: "p \<in> tests Q \<Longrightarrow> p \<sqinter> p\<^sup>\<bottom> = 1"
+    by (smt bot_zerol complement1 mult_onel set_mp star_subid star_unfoldl test_one test_subset top_ax top_oner)
+
+  lemma test_under_one: "p \<in> tests Q \<Longrightarrow> p \<sqsubseteq> 1"
+    by (metis set_mp test_one test_subset top_ax)
+
+  lemma test_star: "p \<in> tests Q \<Longrightarrow> p\<^sup>* = 1"
+    by (metis (lifting) set_rev_mp star_subid test_subset test_under_one)
+
+end
+
+record 'a dom_ord = "'a test_ord" +
+  dom :: "'a \<Rightarrow> 'a" ("\<delta>\<index>_" [1000] 100)
+
+locale modal_quantale = fixes Q (structure)
+  assumes mkat: "kat Q"
+  and dom_type: "dom Q \<in> carrier Q \<rightarrow> tests Q"
+  and dom1: "x \<in> carrier Q \<Longrightarrow> x \<sqsubseteq> \<delta>(x)\<cdot>x"
+  and dom2_var: "\<lbrakk>x \<in> carrier Q; p \<in> tests Q\<rbrakk> \<Longrightarrow> \<delta>(p\<cdot>x) \<sqsubseteq> p"
+
+sublocale modal_quantale \<subseteq> kat by (metis mkat)
+
+context modal_quantale
+begin
+
+
+  lemma dom_closed: "\<lbrakk>x \<in> carrier Q\<rbrakk> \<Longrightarrow> \<delta>(x) \<in> tests Q"
+    by (metis (lifting) dom_type typed_application)
+
+  lemma dom_under_one: "x \<in> carrier Q \<Longrightarrow> \<delta>(x) \<sqsubseteq> 1"
+    by (metis dom_closed test_under_one)
+
+  lemma dom_strictness: assumes xc: "x \<in> carrier Q" shows "\<delta>(x) = 0 \<longleftrightarrow> x = 0"
+    by (metis (lifting) assms bot_zeror dom_closed kat.test_one mkat mult_oner set_rev_mp test_subset)
+
+  lemma dom_additivity:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "\<delta>(qplus x y) = qplus (\<delta>(x)) (\<delta>(y))"
+    by (metis (lifting) bot_oner dom_strictness kat.test_one mkat order_change top_closed top_onel xc yc)
+    
+  proof (rule order_antisym)
+    have "\<delta>(x + y) \<sqsubseteq> p \<longleftrightarrow> p\<^sup>\<bottom>\<cdot>(x + y) \<sqsubseteq> 0"
+      
+      
+
+  definition fdiamond :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("| _ \<rangle> _" [50,90] 95) where
+    "|a\<rangle>p = \<delta>(a\<cdot>p)"
+
+
+end
+
+record 'a con_ord = "'a mult_ord" +
+  con :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixl "\<bar>\<index>" 79)
+
+locale concurrent_ka = fixes Q (structure)
+  assumes con_quantale: "unital_quantale \<lparr>carrier = carrier Q, le = op \<sqsubseteq>, one = one Q, mult = op \<bar>\<rparr>"
+  and seq_quantale: "unital_quantale \<lparr>carrier = carrier Q, le = op \<sqsubseteq>, one = one Q, mult = op \<cdot>\<rparr>"
+  and exchange: "\<lbrakk>a \<in> carrier Q; b \<in> carrier Q; c \<in> carrier Q; d \<in> carrier Q\<rbrakk> \<Longrightarrow> (a \<bar> b ) \<cdot> (c \<bar> d) \<sqsubseteq> (b \<cdot> c) \<bar> (a \<cdot> d)"
+
+begin
+
+  definition CON :: "'a mult_ord" where
+    "CON \<equiv> \<lparr>carrier = carrier Q, le = op \<sqsubseteq>, one = one Q, mult = op \<bar>\<rparr>"
+
+  lemma con_quantale_var: "unital_quantale CON"
+    by (insert con_quantale, simp add: CON_def)
+
+  lemma con_cl: "complete_lattice CON"
+    by (metis con_quantale unital_quantale.quantale_complete_lattice CON_def)
+
+  lemma con_ord: "order CON"
+    by (metis cl_to_order con_cl)
+
+  lemma con_carrier: "carrier Q = carrier CON"
+    by (simp add: CON_def)
+
+  lemma con_le: "(x \<sqsubseteq> y) = (x \<sqsubseteq>\<^bsub>CON\<^esub> y)"
+    by (simp add: CON_def)
+
+  definition SEQ :: "'a mult_ord" where
+    "SEQ \<equiv> \<lparr>carrier = carrier Q, le = op \<sqsubseteq>, one = one Q, mult = op \<cdot>\<rparr>"
+
+  lemma seq_quantale_var: "unital_quantale SEQ"
+    by (insert seq_quantale, simp add: SEQ_def)
+
+  lemma seq_cl: "complete_lattice SEQ"
+    by (metis seq_quantale unital_quantale.quantale_complete_lattice SEQ_def)
+
+  lemma seq_ord: "order SEQ"
+    by (metis cl_to_order seq_cl)
+
+  lemma seq_con_ord_eq: "order SEQ = order CON"
+    by (metis cl_to_order con_cl seq_ord)
+
+  lemma seq_con_cl_eq: "complete_lattice SEQ = complete_lattice CON"
+    by (metis con_cl seq_cl)
+
+  lemma seq_carrier: "carrier Q = carrier SEQ"
+    by (simp add: SEQ_def)
+
+  lemma seq_le: "(x \<sqsubseteq> y) = (x \<sqsubseteq>\<^bsub>SEQ\<^esub> y)"
+    by (simp add: SEQ_def)
+
+  lemma cka_ord: "order Q"
+    apply default
+    apply (simp_all only: seq_carrier seq_le)
+    apply (metis order.eq_refl seq_ord)
+    apply (metis order.order_trans seq_ord)
+    by (metis order.order_antisym seq_ord)
+
+  lemma cka_ord_is_seq: "order Q = order SEQ"
+    by (metis cka_ord seq_ord)
+
+  lemma cka_ord_is_con: "order Q = order CON"
+    by (metis cka_ord seq_con_ord_eq seq_ord)
+
+  lemma cka_lub_is_seq_lub: "order.is_lub Q x X = order.is_lub SEQ x X"
+    apply (insert seq_ord cka_ord)
+    apply (simp add: order.is_lub_simp)
+    by (simp add: seq_carrier seq_le)
+
+  lemma cka_glb_is_seq_glb: "order.is_glb Q x X = order.is_glb SEQ x X"
+    apply (insert seq_ord cka_ord)
+    apply (simp add: order.is_glb_simp)
+    by (simp add: seq_carrier seq_le)
+
+  lemma cka_lub_to_seq: "\<Sigma>\<^bsub>Q\<^esub>X = \<Sigma>\<^bsub>SEQ\<^esub>X"
+    apply (insert seq_ord cka_ord)
+    by (simp add: order.lub_def cka_lub_is_seq_lub)
+
+  lemma cka_cl: "complete_lattice Q"
+    apply default
+    apply (insert cka_ord)
+    apply (simp_all only: seq_carrier seq_le)
+    apply (metis order.order_refl seq_ord)
+    apply (metis order.order_trans seq_carrier seq_le)
+    apply (metis order.order_antisym seq_ord)
+    apply (simp add: cka_lub_is_seq_lub)
+    apply (metis (lifting) cl_to_cjs complete_join_semilattice.lub_ex seq_cl)
+    apply (simp add: cka_glb_is_seq_glb)
+    by (metis cl_to_cms complete_meet_semilattice.glb_ex seq_cl)
+
+  lemma cka_one_is_seq_one: "one Q = one SEQ"
+    by (simp add: SEQ_def)
+
+  lemma cka_one_is_con_one: "one Q = one CON"
+    by (simp add: CON_def)
+
+  lemma cka_cl_is_seq_cl: "complete_lattice Q = complete_lattice SEQ"
+    by (metis cka_cl seq_cl)
+
+  lemma default_quantale: "unital_quantale Q"
+    apply (insert seq_quantale_var)
+    apply (unfold unital_quantale_def)
+    apply safe
+    apply (metis cka_cl)
+    apply (simp_all add: seq_carrier seq_le cka_lub_to_seq cka_one_is_seq_one)
+    by (simp add: SEQ_def)+
+
+end
+
+sublocale concurrent_ka \<subseteq> unital_quantale
+  by (metis default_quantale)
+
+context concurrent_ka
+begin
+
+  lemma con_mult: "op \<bar> = op \<cdot>\<^bsub>CON\<^esub>"
+    by (simp add: CON_def)
+
+  lemma con_type: "op \<bar> \<in> carrier Q \<rightarrow> carrier Q \<rightarrow> carrier Q"
+    apply (simp add: con_carrier con_mult)
+    by (metis con_quantale_var unital_quantale.mult_type)
+
+  lemma con_closed: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> x\<bar>y \<in> carrier Q"
+    by (metis con_type typed_application)
+
+  lemma con_assoc: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q\<rbrakk> \<Longrightarrow> (x \<bar> y) \<bar> z = x \<bar> (y \<bar> z)"
+    apply (simp add: con_carrier con_mult)
+    by (metis con_quantale_var unital_quantale.mult_assoc)
+
+  lemma con_oner [simp]: "x \<in> carrier Q \<Longrightarrow> x \<bar> 1 = x"
+    apply (simp add: con_mult con_carrier cka_one_is_con_one)
+    by (metis con_quantale_var unital_quantale.mult_oner)
+
+  lemma con_commutative:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "x\<bar>y = y\<bar>x"
+  proof -
+    have "x\<bar>y \<sqsubseteq> y\<bar>x"
+      apply (insert exchange[OF xc yc one_closed one_closed])
+      by (metis con_closed con_oner mult_oner one_closed xc yc)
+    moreover have "y\<bar>x \<sqsubseteq> x\<bar>y"
+      apply (insert exchange[OF yc xc one_closed one_closed])
+      by (metis con_closed con_oner mult_oner one_closed xc yc)
+    ultimately show ?thesis
+      by (metis con_closed order_antisym xc yc)
+  qed
+
+  lemma con_onel [simp]: "x \<in> carrier Q \<Longrightarrow> 1 \<bar> x = x"
+    by (metis con_commutative con_oner one_closed)
+
+  lemma exchange_var:
+    "\<lbrakk>a \<in> carrier Q; b \<in> carrier Q; c \<in> carrier Q; d \<in> carrier Q\<rbrakk> \<Longrightarrow> (a \<bar> b ) \<cdot> (c \<bar> d) \<sqsubseteq> (a \<cdot> c) \<bar> (b \<cdot> d)"
+    by (metis (lifting) con_commutative exchange)
+
+  lemma seq_le_con:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
+    shows "x\<cdot>y \<sqsubseteq> x\<bar>y"
+    by (metis con_onel con_oner exchange_var mult_onel mult_oner one_closed xc yc)
+
+  lemma con_seq_slide1:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "(x \<bar> y) \<cdot> z \<sqsubseteq> x \<bar> (y \<cdot> z)"
+    sorry
+
+  lemma con_seq_slide2:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "x \<cdot> (y \<bar> z) \<sqsubseteq> (x \<cdot> y) \<bar> z"
+    sorry
+
+  abbreviation conimp :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" (infixr "\<mapsto>" 60) where
+    "x \<mapsto> y \<equiv> unital_quantale.preimp CON x y"
+
+  abbreviation constar :: "'a \<Rightarrow> 'a"  ("_\<^sup>\<triangle>" [101] 100) where
+    "x\<^sup>\<triangle> \<equiv> unital_quantale.star CON x"
+
+  lemma con_plus: "x + y = order.join CON x y"
+    apply (simp add: order.join_def[OF con_ord, of x y] order.lub_simp[OF con_ord, of "{x,y}"])
+    by (simp add: CON_def join_def lub_simp)
+
+  lemma constar_unfold: assumes xc: "x \<in> carrier Q " shows "1 + x\<bar>x\<^sup>\<triangle> = x\<^sup>\<triangle>"
+    apply (simp add: con_mult cka_one_is_con_one con_plus)
+    by (metis (lifting) assms con_carrier con_quantale_var unital_quantale.star_unfoldl)
+
+  lemma constar_induct:
+    assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q" and zc: "z \<in> carrier Q"
+    shows "z+x\<bar>y \<sqsubseteq> y \<longrightarrow> x\<^sup>\<triangle>\<bar>z \<sqsubseteq> y"
+    apply (simp add: con_mult con_plus con_le)
+    apply (insert unital_quantale.star_inductl[of CON x y z, OF con_quantale_var])
+    apply (simp add: con_carrier[symmetric])
+    by (metis xc yc zc)
+
+end
+
+record 'a invar_ord = "'a con_ord" +
+  iota :: "'a \<Rightarrow> 'a" ("\<iota>\<index>_" [1000] 100)
+
+locale cka_with_invariants = fixes Q (structure)
+  assumes cka: "concurrent_ka Q"
+  and invar_unit: "x \<in> carrier Q \<Longrightarrow> x \<sqsubseteq> \<iota> x"
+  and invar_iso: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> \<iota> x \<sqsubseteq> \<iota> y"
+  and invar_idem: "x \<in> carrier Q \<Longrightarrow> \<iota> x \<sqsubseteq> \<iota> (\<iota> x)"
+  and invar_i1: "x \<in> carrier Q \<Longrightarrow> 1 \<sqsubseteq> \<iota> x"
+  and invar_i2: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q\<rbrakk> \<Longrightarrow> \<iota> (x \<bar> y) \<sqsubseteq> \<iota> (x + y)"
+
+sublocale cka_with_invariants \<subseteq> concurrent_ka by (metis cka)
+
+context cka_with_invariants
+begin
+
+  definition invariant :: "'a \<Rightarrow> bool" where
+    "invariant s \<equiv> s \<in> carrier Q \<and> \<iota> s = s"
+
+  lemma invariant_closed: "invariant s \<Longrightarrow> s \<in> carrier Q"
+    by (metis invariant_def)
+
+  lemma invariant_fix: "invariant s \<Longrightarrow> \<iota> s = s"
+    by (metis invariant_def)
+
+  
 
 end

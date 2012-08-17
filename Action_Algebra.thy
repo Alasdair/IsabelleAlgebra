@@ -1,5 +1,5 @@
 theory Action_Algebra
-  imports Dioid My_Kleene_Algebra Galois_Connection
+  imports Dioid My_Kleene_Algebra
 begin
 
 declare [[ smt_solver = remote_z3 ]]
@@ -12,11 +12,13 @@ class action_algebra = dioid_one_zero + star_op + postimp_op + preimp_op +
   and act2: "1 + x\<^sup>\<star>\<cdot>x\<^sup>\<star> + x \<le> x\<^sup>\<star>"
   and act3: "(1 + y\<cdot>y + x \<le> y) \<longrightarrow> (x\<^sup>\<star> \<le> y)"
 
+(*
 lemma "\<And>x::'a::action_algebra. galois_connection (op \<cdot> x) (op \<rightarrow> x)"
   by (unfold_locales, metis act1R)
 
 lemma "\<And>y::'a::action_algebra. galois_connection (\<lambda>x. x\<cdot>y) (\<lambda>z. z \<leftarrow> y)"
   by (unfold_locales, metis act1L)
+*)
 
 context action_algebra
 begin

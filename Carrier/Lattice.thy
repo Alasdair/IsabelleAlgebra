@@ -588,6 +588,67 @@ begin
 end
 
 (* +------------------------------------------------------------------------+ *)
+subsection {* Distributive Lattices *}
+(* +------------------------------------------------------------------------+ *)
+
+locale distributive_lattice = lattice +
+  assumes dist1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqinter> (y \<squnion> z) = (x \<sqinter> y) \<squnion> (x \<sqinter> z)"
+  and dist2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> (y \<sqinter> z) = (x \<squnion> y) \<sqinter> (x \<squnion> z)"
+
+(* +------------------------------------------------------------------------+ *)
+subsection {* Bounded Lattices *}
+(* +------------------------------------------------------------------------+ *)
+
+record 'a bounded_ord = "'a ord" +
+  topf :: "'a" ("\<top>\<index>")
+  botf :: "'a" ("\<bottom>\<index>")
+
+locale bounded_lattice = fixes A (structure)
+  assumes bounded_is_lattice: "lattice A"
+  and bot_closed: "botf A \<in> carrier A"
+  and top_closed: "topf A \<in> carrier A"
+  and bot_id: "x \<in> carrier A \<Longrightarrow> order.join A x (botf A) = x"
+  and top_id: "x \<in> carrier A \<Longrightarrow> order.meet A x (topf A) = x"
+
+sublocale bounded_lattice \<subseteq> lattice
+  by (metis bounded_is_lattice)
+
+context bounded_lattice
+begin
+
+  lemma bot_least: "x \<in> carrier A \<Longrightarrow> \<bottom> \<sqsubseteq> x"
+    by (metis assms join_comm leq_def bot_closed bot_id)
+
+  lemma top_greatest: "x \<in> carrier A \<Longrightarrow> x \<sqsubseteq> \<top>"
+    by (metis leq_meet_def top_closed top_id)
+
+end
+
+(* +------------------------------------------------------------------------+ *)
+subsection {* Complemented Lattices *}
+(* +------------------------------------------------------------------------+ *)
+
+locale complemented_lattice = bounded_lattice +
+  assumes compl: "x \<in> carrier A \<Longrightarrow> \<exists>y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
+
+(* +------------------------------------------------------------------------+ *)
+subsection {* Complemented Lattices *}
+(* +------------------------------------------------------------------------+ *)
+
+locale boolean_algebra = complemented_lattice + distributive_lattice
+
+begin
+
+  lemma compl_uniq:
+    assumes xc: "x \<in> carrier A"
+    shows "\<exists>!y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
+    apply safe
+    apply (metis assms compl)
+    by (metis (lifting) assms bot_id dist2 join_comm)
+
+end
+
+(* +------------------------------------------------------------------------+ *)
 subsection {* Complete join semilattices *}
 (* +------------------------------------------------------------------------+ *)
 

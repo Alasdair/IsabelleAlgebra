@@ -8,6 +8,34 @@ section {* Orders and lattices *}
 record 'a partial_object =
   carrier :: "'a set"
 
+(* From HOL/SenSocialChoice/FSect.thy in AFP. By Peter Gammie *)
+lemma finite_subset_induct_var [consumes 2, case_names empty insert]:
+  assumes "finite F" and "F \<subseteq> A"
+    and empty: "P {}"
+    and insert: "\<And>a F. \<lbrakk>finite F; a \<in> A; F \<subseteq> A; a \<notin> F; P F\<rbrakk> \<Longrightarrow> P (insert a F)"
+  shows "P F"
+proof -
+  from `finite F`
+  have "F \<subseteq> A \<Longrightarrow> ?thesis"
+  proof induct
+    show "P {}" by fact
+  next
+    fix x F
+    assume "finite F" and "x \<notin> F" and
+      P: "F \<subseteq> A \<Longrightarrow> P F" and i: "insert x F \<subseteq> A"
+    show "P (insert x F)"
+    proof (rule insert)
+      from i show "x \<in> A" by blast
+      from i have "F \<subseteq> A" by blast
+      with P show "P F" .
+      show "finite F" by fact
+      show "x \<notin> F" by fact
+      show "F \<subseteq> A" by fact
+    qed
+  qed
+  with `F \<subseteq> A` show ?thesis by blast
+qed
+
 text {* To talk about functions between structures with carrier sets,
 we need some notion of a function's \emph {type}. *}
 
@@ -28,6 +56,12 @@ lemma typed_composition: "\<lbrakk>f \<in> A \<rightarrow> B; g \<in> B \<righta
 
 lemma typed_application: "\<lbrakk>x \<in> A; f \<in> A \<rightarrow> B\<rbrakk> \<Longrightarrow> f x \<in> B"
   by (simp add: ftype_def)
+
+lemma typed_abstraction: "\<forall>x. f x \<in> A \<Longrightarrow> f \<in> UNIV \<rightarrow> A"
+  by (simp add: ftype_def)
+
+lemma typed_mapping: "\<lbrakk>f \<in> A \<rightarrow> B; X \<subseteq> A\<rbrakk> \<Longrightarrow> f ` X \<subseteq> B"
+  by (metis ftype_pred image_subsetI set_mp)
 
 lemma id_type: "id \<in> A \<rightarrow> A"
   by (simp add: ftype_def)
@@ -64,6 +98,9 @@ lemma ord_is_inv [simp]: "order (A\<sharp>) = order A"
 
 lemma inv_flip [simp]: "(x \<sqsubseteq>\<^bsub>A\<sharp>\<^esub> y) = (y \<sqsubseteq>\<^bsub>A\<^esub> x)"
   by (simp add: ord_inv_def)
+
+lemma dual_carrier_subset: "X \<subseteq> carrier A \<longleftrightarrow> X \<subseteq> carrier (A\<sharp>)"
+  by (metis inv_carrier_id)
 
 subsubsection {* Isotone functions *}
 
@@ -213,7 +250,60 @@ begin
                  \<and> (\<forall>x\<in>carrier A. m x \<sqsubseteq> x)
                  \<and> (\<forall>x\<in>carrier A. m x \<sqsubseteq> m (m x))"
 
+
+  definition is_max :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
+    "is_max x X \<equiv> x \<in> X \<and> (\<forall>y\<in>X. y \<sqsubseteq> x)"
+
+  definition is_min :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
+    "is_min x X \<equiv> x \<in> X \<and> (\<forall>y\<in>X. x \<sqsubseteq> y)"
+
+  definition way_below :: "'a \<Rightarrow> 'a \<Rightarrow> prop" (infixl "\<guillemotleft>" 50) where
+     "x \<guillemotleft> y \<equiv> (\<And>D. \<lbrakk>D \<subseteq> carrier A; \<forall>a\<in>D. \<forall>b\<in>D. \<exists>c\<in>D. a \<sqsubseteq> c \<and> b \<sqsubseteq> c; \<exists>z. is_lub z D; y \<sqsubseteq> \<Sigma> D\<rbrakk> \<Longrightarrow> \<exists>z\<in>D. x \<sqsubseteq> z)"
+
+  lemma way_below_leq:
+    assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and x_below_y: "x \<guillemotleft> y"
+    shows "x \<sqsubseteq> y"
+  proof -
+    have "\<And>D. \<lbrakk>D \<subseteq> carrier A; \<forall>a\<in>D. \<forall>b\<in>D. \<exists>c\<in>D. a \<sqsubseteq> c \<and> b \<sqsubseteq> c; \<exists>z. is_lub z D; y \<sqsubseteq> \<Sigma> D\<rbrakk> \<Longrightarrow> \<exists>z\<in>D. x \<sqsubseteq> z"
+      by (insert x_below_y, simp add: way_below_def)
+    hence "\<lbrakk>{y} \<subseteq> carrier A; \<forall>a\<in>{y}. \<forall>b\<in>{y}. \<exists>c\<in>{y}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c; \<exists>z. is_lub z {y}; y \<sqsubseteq> \<Sigma> {y}\<rbrakk> \<Longrightarrow> \<exists>z\<in>{y}. x \<sqsubseteq> z"
+      by auto
+    moreover have "{y} \<subseteq> carrier A"
+      by (metis empty_subsetI insert_subset yc)
+    moreover have "\<forall>a\<in>{y}. \<forall>b\<in>{y}. \<exists>c\<in>{y}. a \<sqsubseteq> c \<and> b \<sqsubseteq> c"
+      by (metis order_refl singletonE yc)
+    moreover have "\<exists>z. is_lub z {y}"
+      by (rule_tac x = y in exI, simp add: is_lub_simp, metis order_refl yc)
+    moreover have "y \<sqsubseteq> \<Sigma> {y}"
+      by (metis eq_refl singleton_lub yc)
+    ultimately show "x \<sqsubseteq> y"
+      by (metis singleton_iff)
+  qed
+
+  definition compact :: "'a \<Rightarrow> prop" where
+    "compact x \<equiv> x \<guillemotleft> x"
+
 end
+
+definition pointwise_extension :: "'a ord \<Rightarrow> ('b \<Rightarrow> 'a) ord" ("\<up>") where
+  "pointwise_extension ord = \<lparr>carrier = UNIV \<rightarrow> carrier ord, le = \<lambda>f g. \<forall>x. le ord (f x) (g x)\<rparr>"
+
+lemma extend_ord: "order A \<Longrightarrow> order (\<up> A)"
+  apply default
+  apply (simp_all add: pointwise_extension_def)
+  apply (metis UNIV_I ftype_pred order.order_refl)
+  apply (metis UNIV_I ftype_pred order.order_trans)
+  apply default
+  by (metis UNIV_I ftype_pred order.order_antisym)
+
+lemma extend_dual: "\<up> (A\<sharp>) = (\<up> A)\<sharp>"
+  by (simp add: pointwise_extension_def ord_inv_def)
+
+lemma dual_is_max: "order A \<Longrightarrow> order.is_max (A\<sharp>) x X = order.is_min A x X"
+  by (simp add: order.is_max_def order.is_min_def)
+
+lemma dual_is_min: "order A \<Longrightarrow> order.is_min (A\<sharp>) x X = order.is_max A x X"
+  by (simp add: order.is_max_def order.is_min_def)
 
 abbreviation less_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> bool" ("_\<sqsubset>\<^bsub>_\<^esub>_" [51,0,51] 50) where
   "x \<sqsubset>\<^bsub>A\<^esub> y \<equiv> order.less A x y"
@@ -223,6 +313,12 @@ abbreviation lub_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a set \<Rightarrow> 
 
 abbreviation glb_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a set \<Rightarrow> 'a" ("\<Pi>\<^bsub>_\<^esub>_" [0,1000] 100) where
   "\<Pi>\<^bsub>A\<^esub>X \<equiv> order.glb A X"
+
+abbreviation join_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> 'a" ("_ \<squnion>\<^bsub>_\<^esub> _" [70,0,70] 70) where
+  "x \<squnion>\<^bsub>A\<^esub> y \<equiv> order.join A x y"
+
+abbreviation meet_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> 'a" ("_ \<sqinter>\<^bsub>_\<^esub> _" [70,0,70] 70) where
+  "x \<sqinter>\<^bsub>A\<^esub> y \<equiv> order.meet A x y"
 
 subsection {* Join and meet preserving functions *}
 
@@ -281,7 +377,9 @@ lemma dual_meet_preserving [simp]: "meet_preserving (A\<sharp>) (B\<sharp>) f = 
 
 hide_fact common
 
+(* +------------------------------------------------------------------------+ *)
 subsection {* Total orders *}
+(* +------------------------------------------------------------------------+ *)
 
 locale total_order = order +
   assumes totality: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqsubseteq> y \<or> y \<sqsubseteq> x"
@@ -290,6 +388,63 @@ lemma total_order_is_directed: "total_order A \<Longrightarrow> directed A"
   apply (simp add: directed_def, safe)
   apply (simp add: total_order_def)
   by (metis total_order.totality)
+
+lemma dual_total_order: "total_order A \<longleftrightarrow> total_order (A\<sharp>)"
+  by (simp add: total_order_def total_order_axioms_def, auto)
+
+context total_order
+begin
+
+  lemma is_max_unique: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; X \<subseteq> carrier A; is_max x X; is_max y X\<rbrakk> \<Longrightarrow> x = y"
+    by (metis is_max_def order_antisym)
+
+  lemma is_min_unique: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; X \<subseteq> carrier A; is_min x X; is_min y X\<rbrakk> \<Longrightarrow> x = y"
+    by (metis is_min_def order_antisym)
+
+  lemma no_max_equiv: "X \<subseteq> carrier A \<Longrightarrow> (\<forall>x\<in>X. \<exists>y\<in>X. x \<sqsubset> y) \<longleftrightarrow> (\<forall>x\<in>carrier A. \<not> is_max x X)"
+    by (smt in_mono is_max_def less_def order_antisym totality)
+
+  lemma no_min_equiv: "X \<subseteq> carrier A \<Longrightarrow> (\<forall>x\<in>X. \<exists>y\<in>X. y \<sqsubset> x) \<longleftrightarrow> (\<forall>x\<in>carrier A. \<not> is_min x X)"
+    by (smt is_min_def less_def order_antisym subsetD totality)
+
+  lemma finite_max_var: "\<lbrakk>X \<subseteq> carrier A; finite X; y \<in> carrier A\<rbrakk> \<Longrightarrow> (\<exists>x\<in>(insert y X). is_max x (insert y X))"
+    apply (rule finite_subset_induct_var[of X "carrier A"])
+    apply (metis, metis)
+    apply (rule_tac x = y in bexI)
+    apply (simp add: is_max_def)
+    apply (metis singleton_iff)
+  proof -
+    fix a F assume ac: "a \<in> carrier A" and F_subset: "F \<subseteq> carrier A" and yc: "y \<in> carrier A"
+      and "\<exists>x\<in>insert y F. is_max x (insert y F)"
+    then obtain x where f: "is_max x (insert y F)" by auto
+    thus "\<exists>x\<in>insert y (insert a F). is_max x (insert y (insert a F))"
+      apply (cases "x \<sqsubseteq> a")
+      apply (rule_tac x = a in bexI)
+      apply (smt ac F_subset yc insert_iff is_max_def order_refl order_trans set_rev_mp)
+      apply (simp add: is_max_def)
+      apply (rule_tac x = x in bexI)
+      apply (smt ac F_subset yc insert_iff is_max_def set_rev_mp totality)
+      by (simp add: is_max_def, auto)
+  qed
+
+  lemma finite_max: "\<lbrakk>X \<subseteq> carrier A; finite X; X \<noteq> {}\<rbrakk> \<Longrightarrow> \<exists>x. is_max x X"
+    by (metis finite_max_var insert_absorb2 insert_subset nonempty_iff)
+
+  lemma finite_min:
+    assumes subset: "X \<subseteq> carrier A" and finite: "finite X" and non_empty: "X \<noteq> {}"
+    shows "\<exists>x. is_min x X"
+  proof -
+    have "total_order A"
+      by unfold_locales
+    hence "total_order (A\<sharp>)"
+      by (metis (lifting) dual_total_order)
+    hence "\<exists>x. order.is_max (A\<sharp>) x X"
+      by (metis finite inv_carrier_id non_empty subset total_order.finite_max)
+    thus "\<exists>x. is_min x X"
+      by (metis `total_order (A\<sharp>)` directed_def dual_is_min inv_inv_id total_order_is_directed)
+  qed
+
+end
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Join semilattices *}
@@ -398,6 +553,47 @@ proof -
   thus ?thesis by (metis isotone_def ord_A ord_B)
 qed
 
+lemma helper: "\<lbrakk>\<And>x. P x \<and> Q x\<rbrakk> \<Longrightarrow> (\<forall>x. P x) \<and> (\<forall>x. Q x)" by fast
+
+lemma extend_js:
+  assumes js_A: "join_semilattice A"
+  shows "join_semilattice (\<up> A)"
+proof (simp add: join_semilattice_def join_semilattice_axioms_def, intro conjI, safe)
+  have ord_A: "order A"
+    by (metis js_A join_semilattice_def)
+  thus ord_A_ex: "order (\<up> A)" by (rule extend_ord)
+
+  fix f g :: "'b \<Rightarrow> 'a" assume fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
+
+  let ?L = "\<lambda>x. f x \<squnion>\<^bsub>A\<^esub> g x"
+  have Lc: "?L \<in> carrier (\<up> A)"
+    apply (simp add: pointwise_extension_def, rule typed_abstraction)
+    by (smt UNIV_I assms fc gc join_semilattice.join_closed partial_object.simps(1) pointwise_extension_def typed_application)
+
+  have "f \<sqsubseteq>\<^bsub>\<up> A\<^esub> ?L \<and> g \<sqsubseteq>\<^bsub>\<up> A\<^esub> ?L"
+  proof (simp add: pointwise_extension_def, rule helper)
+    fix x
+    have fx: "f x \<in> carrier A" and gx: "g x \<in> carrier A"
+      by (smt UNIV_I fc gc partial_object.simps(1) pointwise_extension_def typed_application)+
+    hence Lx: "?L x \<in> carrier A"
+      by (metis assms join_semilattice.join_closed)
+    show "f x \<sqsubseteq>\<^bsub>A\<^esub> ?L x \<and> g x \<sqsubseteq>\<^bsub>A\<^esub> ?L x"
+      apply (simp add: join_semilattice.leq_def[OF js_A fx Lx] join_semilattice.leq_def[OF js_A gx Lx])
+      apply (intro conjI)
+      by (smt assms fx gx join_semilattice.join_assoc join_semilattice.join_idem join_semilattice.join_comm)+
+  qed
+
+  moreover hence "\<forall>h\<in>carrier (\<up> A). f \<sqsubseteq>\<^bsub>\<up> A\<^esub> h \<and> g \<sqsubseteq>\<^bsub>\<up> A\<^esub> h \<longrightarrow> ?L \<sqsubseteq>\<^bsub>\<up> A\<^esub> h"
+    apply (simp add: pointwise_extension_def)
+    by (smt UNIV_I assms fc gc join_semilattice.bin_lub_var partial_object.simps(1) pointwise_extension_def typed_application)
+
+  ultimately have "order.is_lub (\<up> A) ?L {f, g}"
+    by (simp add: order.is_lub_simp[OF ord_A_ex], safe, (metis fc gc Lc)+)
+
+  thus "\<exists>h\<in>carrier (\<up> A). order.is_lub (\<up> A) h {f, g}"
+    by (metis Lc)
+qed
+
 (* +------------------------------------------------------------------------+ *)
 subsection {* Meet semilattices *}
 (* +------------------------------------------------------------------------+ *)
@@ -476,6 +672,11 @@ proof -
     by (rule ex_join_preserving_is_iso, simp_all add: f_closed js_A js_B join_pres)
   thus "isotone A B f" by simp
 qed
+
+lemma extend_ms:
+  assumes ms_A: "meet_semilattice A"
+  shows "meet_semilattice (\<up> A)"
+  by (metis (lifting) assms extend_dual extend_js inv_join_semilattice_is_meet)
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Lattices *}
@@ -587,6 +788,9 @@ begin
 
 end
 
+lemma extend_lattice: "lattice A \<Longrightarrow> lattice (\<up> A)"
+  by (simp add: lattice_def extend_js extend_ms)
+
 (* +------------------------------------------------------------------------+ *)
 subsection {* Distributive Lattices *}
 (* +------------------------------------------------------------------------+ *)
@@ -632,7 +836,7 @@ locale complemented_lattice = bounded_lattice +
   assumes compl: "x \<in> carrier A \<Longrightarrow> \<exists>y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
 
 (* +------------------------------------------------------------------------+ *)
-subsection {* Complemented Lattices *}
+subsection {* Boolean algebra *}
 (* +------------------------------------------------------------------------+ *)
 
 locale boolean_algebra = complemented_lattice + distributive_lattice
@@ -673,6 +877,12 @@ begin
 
   lemma is_lub_lub [intro?]: "X \<subseteq> carrier A \<Longrightarrow> is_lub (\<Sigma> X) X"
     by (metis lub_ex lub_is_lub)
+
+  lemma lub_ex_var: "X \<subseteq> carrier A \<Longrightarrow> \<exists>!x. is_lub x X"
+    by (metis is_lub_lub lub_is_lub)
+
+  lemma lub_ex_var2: "X \<subseteq> carrier A \<Longrightarrow> \<exists>x. is_lub x X"
+    by (metis lub_ex)
 
   lemma lub_greatest [intro?]: "\<lbrakk>x \<in> carrier A; X \<subseteq> carrier A; \<forall>y\<in>X. y \<sqsubseteq> x\<rbrakk> \<Longrightarrow> \<Sigma> X \<sqsubseteq> x"
     by (metis is_lub_def is_lub_lub)
@@ -728,6 +938,52 @@ end
 
 abbreviation bot_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a" ("\<bottom>\<^bsub>_\<^esub>") where
   "\<bottom>\<^bsub>A\<^esub> \<equiv> complete_join_semilattice.bot A"
+
+lemma extend_cjs:
+  assumes cjs_A: "complete_join_semilattice A"
+  shows "complete_join_semilattice (\<up> A)"
+proof (simp add: complete_join_semilattice_def complete_join_semilattice_axioms_def, safe)
+  have ord_A: "order A"
+    by (metis cjs_A complete_join_semilattice_def)
+  thus ord_A_ex: "order (\<up> A)" by (rule extend_ord)
+
+  fix X assume X_subset: "X \<subseteq> carrier (\<up> A)"
+
+  let ?L = "\<lambda>x. \<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X)"
+
+  have X_map: "\<forall>x. ((\<lambda>f. f x) ` X) \<subseteq> carrier A"
+    apply (default, rule typed_mapping[of _ "carrier (\<up> A)"])
+    apply (simp add: ftype_pred, simp add: pointwise_extension_def)
+    by (metis UNIV_I typed_application, metis X_subset)
+
+  have Lc: "?L \<in> carrier (\<up> A)"
+  proof (simp add: pointwise_extension_def, rule typed_abstraction, safe)
+    fix x show "\<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X) \<in> carrier A"
+      by (metis assms X_map complete_join_semilattice.lub_ex ord_A order.lub_closed)
+  qed
+
+  have "\<forall>h\<in>X. h \<sqsubseteq>\<^bsub>\<up> A\<^esub> ?L"
+    apply (simp add: pointwise_extension_def)
+    apply (simp add: order.lub_def[OF ord_A])
+    apply safe
+    apply (rule the1I2)
+    apply auto
+    apply (rule complete_join_semilattice.lub_ex_var2[OF cjs_A])
+    apply (metis X_map)
+    apply (metis ord_A order.is_lub_unique)
+    by (metis image_eqI ord_A order.is_lub_simp)
+
+  moreover hence "order.is_lub (\<up> A) ?L X"
+    apply (simp add: order.is_lub_simp[OF ord_A_ex])
+    apply safe
+    apply (metis X_subset set_mp)
+    apply (metis Lc)
+    apply (simp add: pointwise_extension_def)
+    by (smt UNIV_I X_map assms complete_join_semilattice.lub_greatest ftype_pred imageE)
+
+  thus "\<exists>x\<in>carrier (\<up> A). order.is_lub (\<up> A) x X"
+    by (metis Lc)
+qed
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Complete meet semilattices *}
@@ -795,6 +1051,9 @@ lemma inv_cms_is_cjs [simp]: "complete_meet_semilattice (A\<sharp>) = complete_j
 
 lemma inv_cjs_is_cms [simp]: "complete_join_semilattice (A\<sharp>) = complete_meet_semilattice A"
   by (simp add: complete_meet_semilattice_def complete_join_semilattice_def complete_meet_semilattice_axioms_def complete_join_semilattice_axioms_def, safe, simp_all)
+
+lemma extend_cms: "complete_meet_semilattice A \<Longrightarrow> complete_meet_semilattice (\<up> A)"
+  by (metis extend_cjs extend_dual inv_cms_is_cjs inv_inv_id)
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Complete lattices *}
@@ -946,6 +1205,99 @@ lemma finite_lattice_is_complete: "\<lbrakk>finite (carrier A); carrier A \<note
   apply (rule glb_in)
   apply (simp add: lattice_def join_semilattice_def)
   by (metis lattice.finite_glb_carrier)
+
+lemma extend_cl: "complete_lattice A \<Longrightarrow> complete_lattice (\<up> A)"
+  by (simp add: complete_lattice_def extend_cjs extend_cms)
+
+
+locale complete_boolean_lattice = complete_lattice + distributive_lattice +
+  assumes compl_ex: "x \<in> carrier A \<Longrightarrow> \<exists>y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
+
+
+(* +------------------------------------------------------------------------+ *)
+subsection {* Boolean algebra of booleans *}
+(* +------------------------------------------------------------------------+ *)
+
+definition BOOL :: "bool ord" where
+  "BOOL = \<lparr>carrier = {True, False}, le = op \<longrightarrow>\<rparr>"
+
+lemma bool_ord: "order BOOL"
+  by (default, simp_all add: BOOL_def, auto)
+
+lemma bool_js: "join_semilattice BOOL"
+  apply (simp add: join_semilattice_def join_semilattice_axioms_def)
+  apply safe
+  apply (metis bool_ord)
+  apply (simp add: order.is_lub_simp[OF bool_ord])
+  apply (simp add: BOOL_def)
+  by metis
+
+lemma bool_ms: "meet_semilattice BOOL"
+  apply (simp add: meet_semilattice_def meet_semilattice_axioms_def)
+  apply safe
+  apply (metis bool_ord)
+  apply (simp add: order.is_glb_simp[OF bool_ord])
+  apply (simp add: BOOL_def)
+  by metis
+
+lemma bool_lattice: "lattice BOOL"
+  by (simp add: lattice_def bool_ms bool_js)
+
+lemma bool_cl: "complete_lattice BOOL"
+  apply (rule finite_lattice_is_complete)
+  apply (metis finite_code)
+  apply (simp add: BOOL_def)
+  by (metis bool_lattice)
+
+lemma bool_cjs: "complete_join_semilattice BOOL"
+  by (metis bool_cl cl_to_cjs)
+
+lemma bool_cms: "complete_meet_semilattice BOOL"
+  by (metis bool_cl cl_to_cms)
+
+lemma bool_meet: "x \<squnion>\<^bsub>BOOL\<^esub> y \<longleftrightarrow> x \<or> y"
+  apply (simp add: order.join_def[OF bool_ord] order.lub_simp[OF bool_ord])
+  apply (simp add: BOOL_def)
+  by (smt the_equality)
+
+lemma bool_join: "x \<sqinter>\<^bsub>BOOL\<^esub> y \<longleftrightarrow> x \<and> y"
+  apply (simp add: order.meet_def[OF bool_ord] order.glb_simp[OF bool_ord])
+  apply (simp add: BOOL_def)
+  by (smt the_equality)
+
+lemma bool_distributive: "distributive_lattice BOOL"
+  apply (simp add: distributive_lattice_def distributive_lattice_axioms_def)
+  apply safe
+  apply (metis bool_lattice)
+  apply (simp_all add: bool_join bool_meet)
+  by auto+
+
+lemma bool_total: "total_order BOOL"
+  apply (simp add: total_order_def total_order_axioms_def)
+  apply safe
+  apply (metis bool_ord)
+  by (simp add: BOOL_def)
+
+lemma bool_top: "complete_meet_semilattice.top BOOL = True"
+  apply (simp add: complete_meet_semilattice.top_def[OF bool_cms])
+  apply (simp add: BOOL_def)
+  apply (rule the1I2)
+  by auto+
+
+lemma bool_bot: "complete_join_semilattice.bot BOOL = False"
+  apply (simp add: complete_join_semilattice.bot_def[OF bool_cjs])
+  apply (simp add: BOOL_def)
+  apply (rule the1I2)
+  by auto+
+
+lemma bool_cbl: "complete_boolean_lattice BOOL"
+  apply (simp add: complete_boolean_lattice_def complete_boolean_lattice_axioms_def)
+  apply safe
+  apply (metis bool_cl)
+  apply (metis bool_distributive)
+  apply (simp add: bool_top bool_bot bool_join bool_meet)
+  apply (simp add: BOOL_def)
+  by auto
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Fixed points *}

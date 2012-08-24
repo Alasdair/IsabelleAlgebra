@@ -534,6 +534,20 @@ begin
       by (metis assms one_closed order_antisym star_closed)
   qed
 
+  lemma mult_isol:
+    "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> z\<cdot>x \<sqsubseteq> z\<cdot>y"
+    by (metis (lifting) distl leq_def mult_closed)
+
+  lemma mult_isor:
+    "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; z \<in> carrier Q; x \<sqsubseteq> y\<rbrakk> \<Longrightarrow> x\<cdot>z \<sqsubseteq> y\<cdot>z"
+    by (metis (lifting) distr leq_def mult_closed)
+
+  lemma leq_one_multl: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; y \<sqsubseteq> 1; x \<sqsubseteq> y\<cdot>x\<rbrakk> \<Longrightarrow> x = y\<cdot>x"
+    by (metis mult_closed mult_isor mult_onel one_closed order_antisym)
+
+  lemma leq_one_multr: "\<lbrakk>x \<in> carrier Q; y \<in> carrier Q; y \<sqsubseteq> 1; x \<sqsubseteq> x\<cdot>y\<rbrakk> \<Longrightarrow> x = x\<cdot>y"
+    by (metis mult_closed mult_isol mult_oner one_closed order_antisym)
+
 end
 
 record 'a test_ord = "'a mult_ord" +
@@ -546,20 +560,26 @@ locale kat = fixes Q (structure)
   assumes tquantale: "unital_quantale Q"
   and test_ba: "boolean_algebra (test Q)"
   and test_subset: "tests Q \<subseteq> carrier Q"
-  and test_one: "1 = \<top>\<^bsub>test Q\<^esub>"
-  and test_zero: "0 = \<bottom>\<^bsub>test Q\<^esub>"
+  and test_one: "unital_quantale.qone Q = \<top>\<^bsub>test Q\<^esub>"
+  and test_zero: "unital_quantale.qzero Q = botf (test Q)"
   and test_le: "x \<sqsubseteq> y \<longleftrightarrow> x \<sqsubseteq>\<^bsub>test Q\<^esub> y"
-  and test_join: "x + y = order.join (test Q) x y"
+  and test_join: "order.join Q x y = order.join (test Q) x y"
   and test_meet: "order.meet Q x y = order.meet (test Q) x y"
 
 sublocale kat \<subseteq> unital_quantale by (metis tquantale)
 
-lemma helper: "\<lbrakk>\<forall>x. Q x = P x; \<exists>!x. P x\<rbrakk> \<Longrightarrow> \<exists>!x. Q x" by auto
-
 context kat
 begin
 
+  lemma test_subset_var: "p \<in> tests Q \<Longrightarrow> p \<in> carrier Q"
+    by (metis insert_absorb insert_subset test_subset)
 
+  lemma test_ord: "order (test Q)"
+    apply (insert test_ba)
+    by (simp add: boolean_algebra_def distributive_lattice_def lattice_def join_semilattice_def)
+
+  lemma test_bl: "bounded_lattice (test Q)"
+    by (insert test_ba, simp add: boolean_algebra_def complemented_lattice_def)
 
   definition complement :: "'a \<Rightarrow> 'a" ("_\<^sup>\<bottom>" [101] 100) where
     "complement x = (THE y. y \<in> tests Q \<and> qplus x y = qone \<and> x \<sqinter> y = qzero)"
@@ -568,18 +588,23 @@ begin
     apply (simp add: complement_def)
     apply (rule the1I2)
     apply (insert boolean_algebra.compl_uniq[OF test_ba xc])
-    apply (rule helper)
-    
+    apply (metis test_join test_meet test_one test_zero)
+    by metis
+
+  lemma complement1: "p \<in> tests Q \<Longrightarrow> p + p\<^sup>\<bottom> = 1"
+    apply (simp add: complement_def)
+    apply (rule the1I2)
+    apply (metis boolean_algebra.compl_uniq test_ba test_join test_meet test_one test_zero)
     by auto
 
-  lemma complement1: "p \<in> tests Q \<Longrightarrow> qplus p p\<^sup>\<bottom> = 0"
-    by (metis bot_zeror complement_closed join_idem mult_oner set_rev_mp test_subset test_zero)
-
-  lemma complement2: "p \<in> tests Q \<Longrightarrow> p \<sqinter> p\<^sup>\<bottom> = 1"
-    by (smt bot_zerol complement1 mult_onel set_mp star_subid star_unfoldl test_one test_subset top_ax top_oner)
+  lemma complement2: "p \<in> tests Q \<Longrightarrow> p \<sqinter> p\<^sup>\<bottom> = 0"
+    apply (simp add: complement_def)
+    apply (rule the1I2)
+    apply (metis boolean_algebra.compl_uniq test_ba test_join test_meet test_one test_zero)
+    by auto
 
   lemma test_under_one: "p \<in> tests Q \<Longrightarrow> p \<sqsubseteq> 1"
-    by (metis set_mp test_one test_subset top_ax)
+    by (metis test_one test_le bounded_lattice.top_greatest test_bl)
 
   lemma test_star: "p \<in> tests Q \<Longrightarrow> p\<^sup>* = 1"
     by (metis (lifting) set_rev_mp star_subid test_subset test_under_one)
@@ -593,13 +618,16 @@ locale modal_quantale = fixes Q (structure)
   assumes mkat: "kat Q"
   and dom_type: "dom Q \<in> carrier Q \<rightarrow> tests Q"
   and dom1: "x \<in> carrier Q \<Longrightarrow> x \<sqsubseteq> \<delta>(x)\<cdot>x"
-  and dom2_var: "\<lbrakk>x \<in> carrier Q; p \<in> tests Q\<rbrakk> \<Longrightarrow> \<delta>(p\<cdot>x) \<sqsubseteq> p"
+  and dom2: "\<lbrakk>x \<in> carrier Q; p \<in> tests Q\<rbrakk> \<Longrightarrow> \<delta>(p\<cdot>x) \<sqsubseteq> p"
 
 sublocale modal_quantale \<subseteq> kat by (metis mkat)
 
 context modal_quantale
 begin
 
+
+  abbreviation qtop :: "'a" ("\<top>") where
+    "\<top> \<equiv> complete_meet_semilattice.top Q"
 
   lemma dom_closed: "\<lbrakk>x \<in> carrier Q\<rbrakk> \<Longrightarrow> \<delta>(x) \<in> tests Q"
     by (metis (lifting) dom_type typed_application)
@@ -608,11 +636,96 @@ begin
     by (metis dom_closed test_under_one)
 
   lemma dom_strictness: assumes xc: "x \<in> carrier Q" shows "\<delta>(x) = 0 \<longleftrightarrow> x = 0"
-    by (metis (lifting) assms bot_zeror dom_closed kat.test_one mkat mult_oner set_rev_mp test_subset)
+    apply default
+    apply (metis assms bot_closed bot_zerol dom1 less_def less_le_trans prop_bot)
+    by (metis bot_onel bot_zerol bounded_lattice.bot_closed dom2 dom_closed in_mono join_comm leq_def_right test_bl test_subset test_zero)
+
+  lemma dom_llp:
+    assumes xc: "x \<in> carrier Q" and pc: "p \<in> tests Q"
+    shows "\<delta>(x) \<sqsubseteq> p \<longleftrightarrow> x \<sqsubseteq> p\<cdot>x"
+  proof
+    assume asm: "\<delta>(x) \<sqsubseteq> p"
+    have "x \<sqsubseteq> \<delta>(x)\<cdot>x"
+      by (metis dom1 xc)
+    moreover have "... \<sqsubseteq> p\<cdot>x"
+      by (metis dom_closed mult_isor pc test_subset_var xc asm)
+    ultimately show "x \<sqsubseteq> p\<cdot>x"
+      by (metis dom_closed mult_closed order_trans pc test_subset_var xc)
+  next
+    assume "x \<sqsubseteq> p\<cdot>x"
+    thus "\<delta>(x) \<sqsubseteq> p"
+      by (metis bounded_lattice.top_greatest dom2 leq_one_multl pc test_bl test_le test_one test_subset_var xc)
+  qed
+
+  lemma
+    assumes xc: "x \<in> carrier Q" and pc: "p \<in> tests Q"
+    shows "x \<sqsubseteq> p\<cdot>\<top> \<longleftrightarrow> x \<sqsubseteq> p\<cdot>x"
+  proof
+    assume asm: "x \<sqsubseteq> p\<cdot>\<top>"
+    hence "x = x \<sqinter> p\<cdot>\<top>"
+      by (metis leq_meet_def mult_closed pc test_subset_var top_closed xc)
+    then obtain y where yc: "y \<in> carrier Q" and "... = x \<sqinter> (x + y)"
+      by (metis absorb2 xc)
+    hence "... = (x \<sqinter> p\<cdot>x) + (x \<sqinter> p\<cdot>y)"
+      sorry
+    hence "... \<sqsubseteq> (x \<sqinter> p\<cdot>x) + (x \<sqinter> 1\<cdot>y)"
+      sorry
+    hence
+      
+      
+    
+
+  lemma dom_conn_prop:
+    assumes xc: "x \<in> carrier Q" and pc: "p \<in> tests Q"
+    shows "\<delta>(x) \<sqsubseteq> p \<longleftrightarrow> x \<sqsubseteq> p\<cdot>\<top>"
+  proof
+    assume asm: "\<delta>(x) \<sqsubseteq> p"
+    have "x \<sqsubseteq> \<delta>(x)\<cdot>x"
+      by (metis dom1 xc)
+    moreover have "... \<sqsubseteq> \<delta>(x)\<cdot>\<top>"
+      by (metis dom_closed mult_isol prop_top test_subset_var top_closed xc)
+    moreover have "... \<sqsubseteq> p\<cdot>\<top>"
+      by (metis asm dom_closed mult_isor pc test_subset_var top_closed xc)
+  next
+    assume asm: "x \<sqsubseteq> p\<cdot>\<top>"
+    
+
+  lemma
+    assumes xc: "x \<in> carrier Q"
+    shows "x \<sqsubseteq> \<delta>(x)\<cdot>\<top>"
+  proof -
+    have "x\<cdot>\<top> \<sqsubseteq> \<delta>(x\<cdot>\<top>)\<cdot>(x\<cdot>\<top>)"
+      by (metis assms dom1 mult_closed top_closed)
+    hence "x \<sqsubseteq> \<delta>(x\<cdot>\<top>)\<cdot>(x\<cdot>\<top>) \<leftharpoondown> \<top>"
+      apply (insert postimp_conn_prop[of x "\<top>" "\<delta>(x\<cdot>\<top>)\<cdot>(x\<cdot>\<top>)"])
+      
+      
+      
+
+  lemma
+    assumes xc: "x \<in> carrier Q" and pc: "p \<in> tests Q"
+    shows "\<delta>(x) \<sqsubseteq> p \<longleftrightarrow> x \<sqsubseteq> p\<cdot>(complete_meet_semilattice.top Q)"
+    nitpick
+    apply default
+    
+    
+    
+
+  lemma dom_lower_adjoint: "lower_adjoint Q Q (\<lambda>x. \<delta>(x))"
+    
+
+  lemma dom_join_preserving:
+    assumes X_subset: "X \<subseteq> carrier Q"
+    shows "\<delta>(\<Sigma> X) = \<Sigma> ((\<lambda>x. \<delta>(x)) ` X)"
+  proof -
 
   lemma dom_additivity:
     assumes xc: "x \<in> carrier Q" and yc: "y \<in> carrier Q"
-    shows "\<delta>(qplus x y) = qplus (\<delta>(x)) (\<delta>(y))"
+    shows "\<delta>(x + y) = \<delta>(x) + \<delta>(y)"
+    apply (simp add: join_def)
+    apply (rule order_antisym)
+    defer
+    
     by (metis (lifting) bot_oner dom_strictness kat.test_one mkat order_change top_closed top_onel xc yc)
     
   proof (rule order_antisym)

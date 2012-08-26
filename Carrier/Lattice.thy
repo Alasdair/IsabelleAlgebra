@@ -1147,6 +1147,9 @@ lemma inv_cms_is_cjs [simp]: "complete_meet_semilattice (A\<sharp>) = complete_j
 lemma inv_cjs_is_cms [simp]: "complete_join_semilattice (A\<sharp>) = complete_meet_semilattice A"
   by (simp add: complete_meet_semilattice_def complete_join_semilattice_def complete_meet_semilattice_axioms_def complete_join_semilattice_axioms_def, safe, simp_all)
 
+abbreviation top_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a" ("\<top>\<^bsub>_\<^esub>") where
+  "\<top>\<^bsub>A\<^esub> \<equiv> complete_meet_semilattice.top A"
+
 lemma extend_cms: "complete_meet_semilattice A \<Longrightarrow> complete_meet_semilattice (\<up> A)"
   by (metis extend_cjs extend_dual inv_cms_is_cjs inv_inv_id)
 
@@ -1304,10 +1307,27 @@ lemma finite_lattice_is_complete: "\<lbrakk>finite (carrier A); carrier A \<note
 lemma extend_cl: "complete_lattice A \<Longrightarrow> complete_lattice (\<up> A)"
   by (simp add: complete_lattice_def extend_cjs extend_cms)
 
-
 locale complete_boolean_lattice = complete_lattice + distributive_lattice +
   assumes compl_ex: "x \<in> carrier A \<Longrightarrow> \<exists>y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
 
+lemma extend_cbl:
+  assumes cbl_A: "complete_boolean_lattice A"
+  shows "complete_boolean_lattice (\<up> A)"
+proof (simp add: complete_boolean_lattice_def complete_boolean_lattice_axioms_def, safe)
+  have "complete_lattice A"
+    by (insert cbl_A, simp add: complete_boolean_lattice_def)
+  thus "complete_lattice (\<up> A)"
+    by (metis extend_cl)
+  have "distributive_lattice A"
+    by (insert cbl_A, simp add: complete_boolean_lattice_def)
+  thus "distributive_lattice (\<up> A)"
+    by (metis extend_distributive)
+
+  fix f assume fc: "x \<in> carrier (\<up> A)"
+
+  show "\<exists>y. y \<in> carrier (\<up> A) \<and> x
+  
+qed
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Boolean algebra of booleans *}

@@ -314,7 +314,7 @@ abbreviation lub_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a set \<Rightarrow> 
 abbreviation glb_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a set \<Rightarrow> 'a" ("\<Pi>\<^bsub>_\<^esub>_" [0,1000] 100) where
   "\<Pi>\<^bsub>A\<^esub>X \<equiv> order.glb A X"
 
-abbreviation join_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> 'a" ("_ \<squnion>\<^bsub>_\<^esub> _" [70,0,70] 70) where
+abbreviation join_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> 'a" ("_ \<squnion>\<^bsub>_\<^esub> _" [71,0,70] 70) where
   "x \<squnion>\<^bsub>A\<^esub> y \<equiv> order.join A x y"
 
 abbreviation meet_ext :: "'a \<Rightarrow> ('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> 'a" ("_ \<sqinter>\<^bsub>_\<^esub> _" [70,0,70] 70) where
@@ -555,15 +555,13 @@ qed
 
 lemma helper: "\<lbrakk>\<And>x. P x \<and> Q x\<rbrakk> \<Longrightarrow> (\<forall>x. P x) \<and> (\<forall>x. Q x)" by fast
 
-lemma extend_js:
+lemma extend_binlub:
   assumes js_A: "join_semilattice A"
-  shows "join_semilattice (\<up> A)"
-proof (simp add: join_semilattice_def join_semilattice_axioms_def, intro conjI, safe)
-  have ord_A: "order A"
-    by (metis js_A join_semilattice_def)
-  thus ord_A_ex: "order (\<up> A)" by (rule extend_ord)
-
-  fix f g :: "'b \<Rightarrow> 'a" assume fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
+  and fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
+  shows "order.is_lub (\<up> A) (\<lambda>x. f x \<squnion>\<^bsub>A\<^esub> g x) {f, g}"
+proof -
+  have ord_A_ex: "order (\<up> A)"
+    by (insert js_A, simp add: join_semilattice_def, metis extend_ord)
 
   let ?L = "\<lambda>x. f x \<squnion>\<^bsub>A\<^esub> g x"
   have Lc: "?L \<in> carrier (\<up> A)"
@@ -587,11 +585,34 @@ proof (simp add: join_semilattice_def join_semilattice_axioms_def, intro conjI, 
     apply (simp add: pointwise_extension_def)
     by (smt UNIV_I assms fc gc join_semilattice.bin_lub_var partial_object.simps(1) pointwise_extension_def typed_application)
 
-  ultimately have "order.is_lub (\<up> A) ?L {f, g}"
+  ultimately show ?thesis
     by (simp add: order.is_lub_simp[OF ord_A_ex], safe, (metis fc gc Lc)+)
+qed
+
+lemma extend_join:
+  assumes js_A: "join_semilattice A"
+  and fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
+  shows "f \<squnion>\<^bsub>\<up> A\<^esub> g = (\<lambda>x. f x \<squnion>\<^bsub>A\<^esub> g x)"
+proof -
+  have ord_A_ex: "order (\<up> A)"
+    by (insert js_A, simp add: join_semilattice_def, metis extend_ord)
+
+  show ?thesis
+    apply (insert extend_binlub[OF js_A fc gc])
+    by (simp add: order.join_def[OF ord_A_ex], metis ord_A_ex order.lub_is_lub)
+qed
+
+lemma extend_js:
+  assumes js_A: "join_semilattice A"
+  shows "join_semilattice (\<up> A)"
+proof (simp add: join_semilattice_def join_semilattice_axioms_def, safe)
+  show ord_A_ex: "order (\<up> A)"
+    by (insert js_A, simp add: join_semilattice_def, metis extend_ord)
+
+  fix f g :: "'b \<Rightarrow> 'a" assume fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
 
   thus "\<exists>h\<in>carrier (\<up> A). order.is_lub (\<up> A) h {f, g}"
-    by (metis Lc)
+    by (smt assms extend_binlub ord_A_ex order.is_lub_simp)
 qed
 
 (* +------------------------------------------------------------------------+ *)
@@ -677,6 +698,37 @@ lemma extend_ms:
   assumes ms_A: "meet_semilattice A"
   shows "meet_semilattice (\<up> A)"
   by (metis (lifting) assms extend_dual extend_js inv_join_semilattice_is_meet)
+
+lemma extend_binglb:
+  assumes ms_A: "meet_semilattice A"
+  and fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
+  shows "order.is_glb (\<up> A) (\<lambda>x. f x \<sqinter>\<^bsub>A\<^esub> g x) {f, g}"
+proof -
+  have ord_A: "order A"
+    by (insert ms_A, simp add: meet_semilattice_def)
+  hence ord_A_ex: "order (\<up> A)"
+    by (metis extend_ord)
+  have "order.is_lub (\<up> (A\<sharp>)) (\<lambda>x. f x \<squnion>\<^bsub>A\<sharp>\<^esub> g x) {f, g}"
+    apply (rule extend_binlub)
+    apply (metis assms(1) inv_join_semilattice_is_meet)
+    apply (metis extend_dual fc inv_carrier_id)
+    by (metis extend_dual gc inv_carrier_id)
+  thus ?thesis using ord_A ord_A_ex
+    by (simp add: extend_dual order.join_def order.meet_def dual_is_lub[OF ord_A_ex])
+qed
+
+lemma extend_meet:
+  assumes ms_A: "meet_semilattice A"
+  and fc: "f \<in> carrier (\<up> A)" and gc: "g \<in> carrier (\<up> A)"
+  shows "f \<sqinter>\<^bsub>\<up> A\<^esub> g = (\<lambda>x. f x \<sqinter>\<^bsub>A\<^esub> g x)"
+proof -
+  have ord_A_ex: "order (\<up> A)"
+    by (insert ms_A, simp add: meet_semilattice_def, metis extend_ord)
+  thus ?thesis
+    apply (insert extend_binglb[OF ms_A fc gc])
+    apply (simp add: order.meet_def[OF ord_A_ex])
+    by (metis ord_A_ex order.glb_is_glb)
+qed
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Lattices *}
@@ -798,6 +850,49 @@ subsection {* Distributive Lattices *}
 locale distributive_lattice = lattice +
   assumes dist1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqinter> (y \<squnion> z) = (x \<sqinter> y) \<squnion> (x \<sqinter> z)"
   and dist2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> (y \<sqinter> z) = (x \<squnion> y) \<sqinter> (x \<squnion> z)"
+
+lemma extend_distributive:
+  assumes dl_A: "distributive_lattice A"
+  shows "distributive_lattice (\<up> A)"
+proof (simp add: distributive_lattice_def distributive_lattice_axioms_def, safe)
+  have "lattice A"
+    by (insert dl_A, simp add: distributive_lattice_def)
+  thus "lattice (\<up> A)"
+    by (metis extend_lattice)
+  hence ord_A_ex: "order (\<up> A)"
+    by (simp add: lattice_def join_semilattice_def, auto)
+  from `lattice A` have js_A: "join_semilattice A" and ms_A: "meet_semilattice A"
+    by (simp add: lattice_def)+
+
+  fix x y z :: "'d \<Rightarrow> 'a"
+  assume xc: "x \<in> carrier (\<up> A)" and yc: "y \<in> carrier (\<up> A)" and zc: "z \<in> carrier (\<up> A)"
+
+  hence yzj: "y \<squnion>\<^bsub>\<up>A\<^esub> z \<in> carrier (\<up> A)"
+    by (metis extend_js join_semilattice.join_closed js_A)
+  have xym: "x \<sqinter>\<^bsub>\<up>A\<^esub> y \<in> carrier (\<up> A)"
+    by (metis extend_ms meet_semilattice.meet_closed ms_A xc yc)
+  have xzm: "x \<sqinter>\<^bsub>\<up>A\<^esub> z \<in> carrier (\<up> A)"
+    by (metis extend_ms meet_semilattice.meet_closed ms_A xc zc)
+
+  from xc yc zc yzj xym xzm
+  show "x \<sqinter>\<^bsub>\<up> A\<^esub> (y \<squnion>\<^bsub>\<up> A\<^esub> z) = (x \<sqinter>\<^bsub>\<up> A\<^esub> y) \<squnion>\<^bsub>\<up> A\<^esub> (x \<sqinter>\<^bsub>\<up> A\<^esub> z)"
+    apply (simp add: extend_join[OF js_A] extend_meet[OF ms_A])
+    apply (simp add: pointwise_extension_def)
+    by (metis (hide_lams, no_types) UNIV_I assms distributive_lattice.dist1 typed_application)
+
+  hence yzm: "y \<sqinter>\<^bsub>\<up>A\<^esub> z \<in> carrier (\<up> A)"
+    by (metis extend_ms meet_semilattice.meet_closed ms_A yc zc)
+  have xyj: "x \<squnion>\<^bsub>\<up>A\<^esub> y \<in> carrier (\<up> A)"
+    by (metis extend_js join_semilattice.join_closed js_A xc yc)
+  have xzj: "x \<squnion>\<^bsub>\<up>A\<^esub> z \<in> carrier (\<up> A)"
+    by (metis extend_js join_semilattice.join_closed js_A xc zc)
+
+  from xc yc zc yzm xyj xzj
+  show "x \<squnion>\<^bsub>\<up> A\<^esub> (y \<sqinter>\<^bsub>\<up> A\<^esub> z) = (x \<squnion>\<^bsub>\<up> A\<^esub> y) \<sqinter>\<^bsub>\<up> A\<^esub> (x \<squnion>\<^bsub>\<up> A\<^esub> z)"
+    apply (simp add: extend_join[OF js_A] extend_meet[OF ms_A])
+    apply (simp add: pointwise_extension_def)
+    by (metis (hide_lams, no_types) UNIV_I assms distributive_lattice.dist2 typed_application)
+qed
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Bounded Lattices *}

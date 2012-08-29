@@ -1034,15 +1034,32 @@ end
 abbreviation bot_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a" ("\<bottom>\<^bsub>_\<^esub>") where
   "\<bottom>\<^bsub>A\<^esub> \<equiv> complete_join_semilattice.bot A"
 
-lemma extend_cjs:
-  assumes cjs_A: "complete_join_semilattice A"
-  shows "complete_join_semilattice (\<up> A)"
-proof (simp add: complete_join_semilattice_def complete_join_semilattice_axioms_def, safe)
+lemma extend_lub_closed:
+  assumes cjs_A: "complete_join_semilattice A" and X_subset: "X \<subseteq> carrier (\<up> A)"
+  shows "(\<lambda>x. \<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X)) \<in> carrier (\<up> A)"
+proof -
   have ord_A: "order A"
     by (metis cjs_A complete_join_semilattice_def)
-  thus ord_A_ex: "order (\<up> A)" by (rule extend_ord)
 
-  fix X assume X_subset: "X \<subseteq> carrier (\<up> A)"
+  have X_map: "\<forall>x. ((\<lambda>f. f x) ` X) \<subseteq> carrier A"
+    apply (default, rule typed_mapping[of _ "carrier (\<up> A)"])
+    apply (simp add: ftype_pred, simp add: pointwise_extension_def)
+    by (metis UNIV_I typed_application, metis X_subset)
+
+  show ?thesis
+  proof (simp add: pointwise_extension_def, rule typed_abstraction, safe)
+    fix x show "\<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X) \<in> carrier A"
+      by (metis assms X_map complete_join_semilattice.lub_ex ord_A order.lub_closed)
+  qed
+qed
+
+lemma extend_lub:
+  assumes cjs_A: "complete_join_semilattice A" and X_subset: "X \<subseteq> carrier (\<up> A)"
+  shows "order.is_lub (\<up> A) (\<lambda>x. \<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X)) X"
+proof -
+  have ord_A: "order A"
+    by (metis cjs_A complete_join_semilattice_def)
+  hence ord_A_ex: "order (\<up> A)" by (rule extend_ord)
 
   let ?L = "\<lambda>x. \<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X)"
 
@@ -1052,10 +1069,7 @@ proof (simp add: complete_join_semilattice_def complete_join_semilattice_axioms_
     by (metis UNIV_I typed_application, metis X_subset)
 
   have Lc: "?L \<in> carrier (\<up> A)"
-  proof (simp add: pointwise_extension_def, rule typed_abstraction, safe)
-    fix x show "\<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X) \<in> carrier A"
-      by (metis assms X_map complete_join_semilattice.lub_ex ord_A order.lub_closed)
-  qed
+    by (metis X_subset cjs_A extend_lub_closed)
 
   have "\<forall>h\<in>X. h \<sqsubseteq>\<^bsub>\<up> A\<^esub> ?L"
     apply (simp add: pointwise_extension_def)
@@ -1068,17 +1082,25 @@ proof (simp add: complete_join_semilattice_def complete_join_semilattice_axioms_
     apply (metis ord_A order.is_lub_unique)
     by (metis image_eqI ord_A order.is_lub_simp)
 
-  moreover hence "order.is_lub (\<up> A) ?L X"
+  thus "order.is_lub (\<up> A) ?L X"
     apply (simp add: order.is_lub_simp[OF ord_A_ex])
     apply safe
     apply (metis X_subset set_mp)
     apply (metis Lc)
     apply (simp add: pointwise_extension_def)
     by (smt UNIV_I X_map assms complete_join_semilattice.lub_greatest ftype_pred imageE)
-
-  thus "\<exists>x\<in>carrier (\<up> A). order.is_lub (\<up> A) x X"
-    by (metis Lc)
 qed
+
+lemma extend_cjs:
+  assumes cjs_A: "complete_join_semilattice A"
+  shows "complete_join_semilattice (\<up> A)"
+  apply (simp add: complete_join_semilattice_def complete_join_semilattice_axioms_def, safe)
+  apply (subgoal_tac "order A")
+  apply (rule extend_ord, auto)
+  apply (metis cjs_A complete_join_semilattice_def)
+  apply (rule_tac x = "\<lambda>x. \<Sigma>\<^bsub>A\<^esub>((\<lambda>f. f x) ` X)" in bexI)
+  apply (metis assms extend_lub)
+  by (metis assms extend_lub_closed)
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Complete meet semilattices *}
@@ -1308,7 +1330,39 @@ lemma extend_cl: "complete_lattice A \<Longrightarrow> complete_lattice (\<up> A
   by (simp add: complete_lattice_def extend_cjs extend_cms)
 
 locale complete_boolean_lattice = complete_lattice + distributive_lattice +
-  assumes compl_ex: "x \<in> carrier A \<Longrightarrow> \<exists>y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
+  assumes ccompl_ex: "x \<in> carrier A \<Longrightarrow> \<exists>y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
+
+begin
+
+  lemma ccompl_uniq:
+    assumes xc: "x \<in> carrier A"
+    shows "\<exists>!y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
+    apply safe
+    apply (metis assms ccompl_ex)
+    by (metis (lifting) assms dist1 meet_comm top_oner)
+
+  definition ccompl :: "'a \<Rightarrow> 'a" ("!") where
+    "! x = (THE y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>)"
+
+  lemma ccompl_closed: "x \<in> carrier A \<Longrightarrow> ! x \<in> carrier A"
+    by (simp add: ccompl_def, rule the1I2, (smt ccompl_uniq)+)
+
+  lemma ccompl_top: "x \<in> carrier A \<Longrightarrow> x \<squnion> ! x = \<top>"
+    apply (simp add: ccompl_def)
+    apply (rule the1I2)
+    apply (metis (lifting) ccompl_uniq)
+    by auto
+
+  lemma ccompl_bot: "x \<in> carrier A \<Longrightarrow> x \<sqinter> ! x = \<bottom>"
+    apply (simp add: ccompl_def)
+    apply (rule the1I2)
+    apply (metis (lifting) ccompl_uniq)
+    by auto
+
+end
+
+abbreviation ccompl_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a \<Rightarrow> 'a" ("!\<^bsub>_\<^esub>") where
+  "!\<^bsub>A\<^esub> x \<equiv> complete_boolean_lattice.ccompl A x"
 
 lemma extend_cbl:
   assumes cbl_A: "complete_boolean_lattice A"
@@ -1318,16 +1372,109 @@ proof (simp add: complete_boolean_lattice_def complete_boolean_lattice_axioms_de
     by (insert cbl_A, simp add: complete_boolean_lattice_def)
   thus "complete_lattice (\<up> A)"
     by (metis extend_cl)
+  hence cms_A_ex: "complete_meet_semilattice (\<up> A)"
+    by (metis cl_to_cms)
+  from `complete_lattice (\<up> A)` have cjs_A_ex: "complete_join_semilattice (\<up> A)"
+    by (metis cl_to_cjs)
   have "distributive_lattice A"
     by (insert cbl_A, simp add: complete_boolean_lattice_def)
   thus "distributive_lattice (\<up> A)"
     by (metis extend_distributive)
+  have js_A: "join_semilattice A"
+    by (metis `complete_lattice A` cl_to_js)
+  have ms_A: "meet_semilattice A"
+    by (metis `complete_lattice A` cl_to_ms)
 
-  fix f assume fc: "x \<in> carrier (\<up> A)"
+  let ?INV = "(\<lambda>f x. !\<^bsub>A\<^esub> (f x))"
 
-  show "\<exists>y. y \<in> carrier (\<up> A) \<and> x
-  
+  fix f assume fc: "f \<in> carrier (\<up> A)"
+
+  hence ifc: "?INV f \<in> carrier (\<up> A)"
+    apply (simp add: pointwise_extension_def)
+    by (smt assms complete_boolean_lattice.ccompl_closed ftype_pred)
+
+  moreover have "f \<squnion>\<^bsub>\<up> A\<^esub> ?INV f = \<top>\<^bsub>\<up> A\<^esub>"
+    apply (simp add: extend_join[OF js_A fc ifc])
+    apply (rule sym)
+    apply default
+  proof -
+    fix x :: 'c
+    have fxc: "f x \<in> carrier A"
+      apply (insert fc, simp add: pointwise_extension_def)
+      by (metis UNIV_I ftype_pred)
+    show "\<top>\<^bsub>\<up> A\<^esub> x = f x \<squnion>\<^bsub>A\<^esub> !\<^bsub>A\<^esub> (f x)"
+      apply (simp add: complete_boolean_lattice.ccompl_top[OF cbl_A fxc])
+      apply (simp add: complete_meet_semilattice.top_def[OF cms_A_ex])
+      apply (rule_tac P = "\<lambda>x. x \<in> carrier (\<up> A) \<and> (\<forall>y\<in>carrier (\<up> A). y \<sqsubseteq>\<^bsub>\<up> A\<^esub> x)" in the1I2)
+      apply (metis (no_types) cms_A_ex complete_meet_semilattice.top_ax)
+    proof safe
+      fix g :: "'c \<Rightarrow> 'a" assume gc: "g \<in> carrier (\<up> A)" and g_top: "\<forall>h\<in>carrier (\<up> A). h \<sqsubseteq>\<^bsub>\<up> A\<^esub> g"
+      have "(\<lambda>x. \<top>\<^bsub>A\<^esub>) \<in> carrier (\<up> A)"
+        apply (simp add: pointwise_extension_def)
+        by (metis `complete_lattice A` cl_to_cms complete_meet_semilattice.top_closed ftype_pred)
+      hence "(\<lambda>x. \<top>\<^bsub>A\<^esub>) \<sqsubseteq>\<^bsub>\<up> A\<^esub> g"
+        by (metis g_top)
+      hence "(\<lambda>x. \<top>\<^bsub>A\<^esub>) = g"
+        apply (simp add: pointwise_extension_def)
+        apply (rule sym)
+        apply default
+      proof -
+        fix y assume "\<forall>x. \<top>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> g x"
+        hence "\<top>\<^bsub>A\<^esub> \<sqsubseteq>\<^bsub>A\<^esub> g y"
+          by metis
+        moreover have "g y \<in> carrier A"
+          apply (insert gc, simp add: pointwise_extension_def)
+          by (metis UNIV_I ftype_pred)
+        ultimately show "g y = \<top>\<^bsub>A\<^esub>"
+          by (metis `complete_lattice A` cl_to_cms cl_to_order complete_meet_semilattice.prop_top complete_meet_semilattice.top_closed order.order_antisym)
+      qed
+      thus "g x = \<top>\<^bsub>A\<^esub>" by auto
+    qed
+  qed
+
+  moreover have "f \<sqinter>\<^bsub>\<up> A\<^esub> ?INV f = \<bottom>\<^bsub>\<up> A\<^esub>"
+    apply (simp add: extend_meet[OF ms_A fc ifc])
+    apply (rule sym)
+    apply default
+  proof -
+    fix x :: 'c
+    have fxc: "f x \<in> carrier A"
+      apply (insert fc, simp add: pointwise_extension_def)
+      by (metis UNIV_I ftype_pred)
+    show "\<bottom>\<^bsub>\<up> A\<^esub> x = f x \<sqinter>\<^bsub>A\<^esub> !\<^bsub>A\<^esub> (f x)"
+      apply (simp add: complete_boolean_lattice.ccompl_bot[OF cbl_A fxc])
+      apply (simp add: complete_join_semilattice.bot_def[OF cjs_A_ex])
+      apply (rule_tac P = "\<lambda>x. x \<in> carrier (\<up> A) \<and> (\<forall>y\<in>carrier (\<up> A). x \<sqsubseteq>\<^bsub>\<up> A\<^esub> y)" in the1I2)
+      apply (metis (no_types) cjs_A_ex complete_join_semilattice.bot_ax)
+    proof safe
+      fix g :: "'c \<Rightarrow> 'a" assume gc: "g \<in> carrier (\<up> A)" and g_bot: "\<forall>h\<in>carrier (\<up> A). g \<sqsubseteq>\<^bsub>\<up> A\<^esub> h"
+      have "(\<lambda>x. \<bottom>\<^bsub>A\<^esub>) \<in> carrier (\<up> A)"
+        apply (simp add: pointwise_extension_def)
+        by (metis `complete_lattice A` cl_to_cjs complete_join_semilattice.bot_closed ftype_pred)
+      hence "g \<sqsubseteq>\<^bsub>\<up> A\<^esub> (\<lambda>x. \<bottom>\<^bsub>A\<^esub>) "
+        by (metis g_bot)
+      hence "(\<lambda>x. \<bottom>\<^bsub>A\<^esub>) = g"
+        apply (simp add: pointwise_extension_def)
+        apply (rule sym)
+        apply default
+      proof -
+        fix y assume "\<forall>x. g x \<sqsubseteq>\<^bsub>A\<^esub> \<bottom>\<^bsub>A\<^esub>"
+        hence "g y \<sqsubseteq>\<^bsub>A\<^esub> \<bottom>\<^bsub>A\<^esub>"
+          by metis
+        moreover have "g y \<in> carrier A"
+          apply (insert gc, simp add: pointwise_extension_def)
+          by (metis UNIV_I ftype_pred)
+        ultimately show "g y = \<bottom>\<^bsub>A\<^esub>"
+          by (metis `complete_lattice A` cl_to_cjs cl_to_order complete_join_semilattice.prop_bot complete_join_semilattice.bot_closed order.order_antisym)
+      qed
+      thus "g x = \<bottom>\<^bsub>A\<^esub>" by auto
+    qed
+  qed
+
+  ultimately show "\<exists>y. y \<in> carrier (\<up> A) \<and> f \<squnion>\<^bsub>\<up> A\<^esub> y = \<top>\<^bsub>\<up> A\<^esub> \<and> f \<sqinter>\<^bsub>\<up> A\<^esub> y = \<bottom>\<^bsub>\<up> A\<^esub>"
+    by metis
 qed
+
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Boolean algebra of booleans *}

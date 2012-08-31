@@ -257,6 +257,12 @@ begin
   definition is_min :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
     "is_min x X \<equiv> x \<in> X \<and> (\<forall>y\<in>X. x \<sqsubseteq> y)"
 
+  lemma is_max_equiv: "X \<subseteq> carrier A \<Longrightarrow> is_max x X = (x \<in> X \<and> is_lub x X)"
+    by (simp add: is_lub_simp, safe, (metis is_max_def set_mp)+)
+
+  lemma is_min_equiv: "X \<subseteq> carrier A \<Longrightarrow> is_min x X = (x \<in> X \<and> is_glb x X)"
+    by (simp add: is_glb_simp, safe, (metis is_min_def set_mp)+)
+
   definition way_below :: "'a \<Rightarrow> 'a \<Rightarrow> prop" (infixl "\<guillemotleft>" 50) where
      "x \<guillemotleft> y \<equiv> (\<And>D. \<lbrakk>D \<subseteq> carrier A; \<forall>a\<in>D. \<forall>b\<in>D. \<exists>c\<in>D. a \<sqsubseteq> c \<and> b \<sqsubseteq> c; \<exists>z. is_lub z D; y \<sqsubseteq> \<Sigma> D\<rbrakk> \<Longrightarrow> \<exists>z\<in>D. x \<sqsubseteq> z)"
 

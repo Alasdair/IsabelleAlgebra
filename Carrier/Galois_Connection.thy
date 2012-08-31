@@ -142,23 +142,6 @@ lemma perfect2: "\<lbrakk>galois_connection A B f g; x \<in> carrier B\<rbrakk> 
    | Theorems 4.20(a) and 4.20(b)                                           |
    +------------------------------------------------------------------------+ *)
 
-context order
-begin
-
-  definition is_max :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-    "is_max x X \<equiv> x \<in> X \<and> is_lub x X"
-
-  definition is_min :: "'a \<Rightarrow> 'a set \<Rightarrow> bool" where
-    "is_min x X \<equiv> x \<in> X \<and> is_glb x X"
-
-end
-
-lemma is_max_dual [simp]: "order A \<Longrightarrow> order.is_max (A\<sharp>) x X = order.is_min A x X"
-  by (simp add: order.is_max_def order.is_min_def)
-
-lemma is_min_dual [simp]: "order A \<Longrightarrow> order.is_min (A\<sharp>) x X = order.is_max A x X"
-  by (simp add: order.is_max_def order.is_min_def)
-
 lemma galois_max:
   assumes conn: "galois_connection A B f g" and yc: "y \<in> carrier B"
   shows "order.is_max A (g y) {x. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<and> x \<in> carrier A}"
@@ -169,9 +152,7 @@ proof -
     apply safe
     apply (metis conn galois_connection.deflation yc)
     apply (metis conn ftype_pred galois_ump1 yc)
-    apply (metis typed_application conn galois_ump2 yc)
-    apply (metis conn galois_ump1 yc)
-    by (metis typed_application conn galois_connection.deflation galois_ump2 yc)
+    by (metis conn galois_ump1 yc)
 qed
 
 lemma galois_min:
@@ -182,7 +163,8 @@ proof -
               \<Longrightarrow> order.is_max (B\<sharp>) (f z) {y. g y \<sqsubseteq>\<^bsub>(A\<sharp>)\<^esub> z \<and> y \<in> carrier (B\<sharp>)}"
     by (rule galois_max, auto)
   moreover have "order B" by (metis conn galois_connection.is_order_B)
-  ultimately show ?thesis by (simp, metis (no_types) conn xc)
+  ultimately show ?thesis
+    by (smt Collect_cong conn dual_is_max galois_dual inv_carrier_id inv_flip xc)
 qed
 
 theorem max_galois: "galois_connection A B f g = (isotone A B f \<and> (\<forall>y\<in>carrier B. order.is_max A (g y) {x. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<and> x \<in> carrier A}) \<and> g \<in> carrier B \<rightarrow> carrier A \<and> f \<in> carrier A \<rightarrow> carrier B)"
@@ -213,7 +195,7 @@ next
     fix x y assume xc: "x \<in> carrier A" and yc: "y \<in> carrier B" and lower: "f x \<sqsubseteq>\<^bsub>B\<^esub> y"
     have oa: "order A" and ob: "order B" by (metis f_iso isotone_def)+
     hence lub1: "order.is_lub A (g y) {x. f x \<sqsubseteq>\<^bsub>B\<^esub> y \<and> x \<in> carrier A}"
-      using max yc by (simp add: order.is_max_def)
+      using max yc by (metis (mono_tags) Collect_mem_eq Collect_mono order.is_max_equiv)
     thus "x \<sqsubseteq>\<^bsub>A\<^esub> g y" using oa by (simp add: order.is_lub_def order.is_ub_def, metis lower xc)
   qed
 qed

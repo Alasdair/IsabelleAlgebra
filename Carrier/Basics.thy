@@ -1,6 +1,5 @@
 theory Basics
-imports Main Lattice
-
+  imports Main WeakQuantale
 begin
 
 datatype intplus = inf | neginf | integer int
@@ -367,7 +366,34 @@ proof -
   qed
   thus ?thesis by auto
 qed
-      
+
+definition IP_WQ :: "IntervalPred mult_ord" ("\<Phi>") where
+  "\<Phi> = \<lparr>carrier = carrier \<Psi>, le = le \<Psi>, \<dots> = \<lparr>one = empty, mult = chop\<rparr>\<rparr>"
+
+lemma "complete_lattice l \<Longrightarrow> complete_lattice (extend l m)"
+  apply (simp add: extend_def)
+  apply (simp add: complete_lattice_def)
+  apply (simp add: complete_join_semilattice_def)
+  apply (simp add: complete_meet_semilattice_def)
+  apply (simp add: complete_meet_semilattice_axioms_def)
+  apply (simp add: complete_join_semilattice_axioms_def)
+  apply (simp add: order_def)
+  
+
+lemma "complete_lattice \<Phi>"
+ 
+proof -
+  have "complete_lattice (truncate \<Phi>)"
+    apply (simp add: 
+  
+
+lemma "weak_quantale \<Phi>"
+  apply default
+  apply (simp_all add: IP_WQ_def)
+  
+  
+
+
 sledgehammer min [spass] (Rep_Interval_inject Un_commute)
       
       apply (simp add: complete_distrib simp_help)

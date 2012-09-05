@@ -294,6 +294,84 @@ begin
   definition omega :: "'a \<Rightarrow> 'a" ("_\<^sup>\<omega>" [101] 100) where
     "x\<^sup>\<omega> \<equiv> \<nu>\<^bsub>A\<^esub>(\<lambda>y. 1 + x\<cdot>y)"
 
+  definition splits :: "'a \<Rightarrow> bool" where
+    "splits x \<equiv> \<forall>y\<in>carrier A. \<forall>z\<in>carrier A. (x \<sqinter> y\<cdot>z) \<sqsubseteq> (x \<sqinter> y) \<cdot> (x \<sqinter> z)"
+
+end
+
+
+locale weak_boolean_quantale = weak_quantale +
+  assumes weak_boolean_quantale_cbl: "complete_boolean_lattice A"
+
+sublocale weak_boolean_quantale \<subseteq> complete_boolean_lattice
+  by (metis weak_boolean_quantale_cbl)
+
+context weak_boolean_quantale
+begin
+
+  lemma double_compl: "x \<in> carrier A \<Longrightarrow> !(!x) = x"
+    by (smt bot_closed bot_oner ccompl_bot ccompl_closed ccompl_top dist1 eq_refl leq_meet_def meet_comm)
+
+  lemma zero_not_top: "!\<top> = 0"
+    by (metis ccompl_bot ccompl_closed top_closed top_onel)
+
+  lemma top_not_zero: "\<top> = !0"
+    by (metis double_compl top_closed zero_not_top)
+
+  lemma de_morgan1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> !x \<sqinter> !y = !(x + y)"
+    apply (subgoal_tac "!x \<in> carrier A" "!y \<in> carrier A" "!x \<sqinter> !y \<in> carrier A" "!(x + y) \<in> carrier A")
+    apply (rule order.order_antisym[of A])
+    defer
+    apply (simp_all add: leq_def)
+    apply (smt bot_oner ccompl_bot ccompl_top dist1 dist2 double_compl join_closed join_comm meet_assoc top_oner)
+    apply (smt absorb2 bot_closed bot_onel ccompl_top complete_boolean_lattice.ccompl_bot dist1 join_closed meet_assoc meet_comm top_oner weak_boolean_quantale_cbl)
+    apply (metis ccompl_closed join_closed)
+    apply (metis meet_closed)
+    apply (metis ccompl_closed)
+    apply (metis ccompl_closed)
+    by (metis quantale_order)
+
+  lemma meet_def_boolean: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqinter> y = !((!x)+(!y))"
+    by (metis ccompl_closed de_morgan1 double_compl)
+
+  lemma de_morgan2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> !x + !y = !(x \<sqinter> y)"
+    by (metis (lifting) complete_boolean_lattice.ccompl_closed double_compl join_closed meet_def_boolean weak_boolean_quantale_cbl)
+
+  lemma compl_anti: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqsubseteq> y \<longleftrightarrow> !y \<sqsubseteq> !x"
+    by (smt ccompl_closed double_compl join_comm leq_def_right leq_meet_def meet_def_boolean)
+
+  lemma de_morgan3: "x+y = !(!x \<sqinter> !y)"
+    sledgehammer [timeout = 300]
+    by (metis double_compl meet_def)
+
+
+  lemma shunting:
+    assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
+    shows "x \<sqinter> y \<sqsubseteq> z \<longleftrightarrow> y \<sqsubseteq> !x + z"
+  proof -
+    have xyc: "x \<sqinter> y \<in> carrier A"
+      by (metis meet_closed xc yc)
+    have xzc: "!x + z \<in> carrier A"
+      by (metis ccompl_closed join_closed xc zc)
+
+    from xc xyc yc xzc have "x \<sqinter> y \<sqsubseteq> z \<longrightarrow> y \<sqsubseteq> !x + z"
+      apply (simp add: leq_def)
+      
+      
+      
+      
+      
+    apply (simp add: leq_def)
+
+  lemma split_distribute_star:
+    assumes xc: "x \<in> carrier A" and "splits x"
+    shows "\<forall>y\<in>carrier A. x \<sqinter> y\<^sup>* \<sqsubseteq> (x \<sqinter> y)\<^sup>*"
+  proof
+    fix y assume yc: "y \<in> carrier A"
+    have "x \<sqinter> y\<^sup>* \<sqsubseteq> (x \<sqinter> y)\<^sup>* \<longleftrightarrow> y\<^sup>* \<sqsubseteq> !x + (x \<sqinter> y)\<^sup>*"
+      
+    
+
 end
 
 end

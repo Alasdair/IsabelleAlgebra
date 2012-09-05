@@ -349,6 +349,4 @@ begin
   lemma invariant_fix: "invariant s \<Longrightarrow> \<iota> s = s"
     by (metis invariant_def)
 
-  
-
 end

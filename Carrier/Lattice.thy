@@ -1,4 +1,3 @@
-
 theory Lattice
   imports Main
 begin

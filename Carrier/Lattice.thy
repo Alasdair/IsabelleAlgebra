@@ -1,69 +1,6 @@
 theory Lattice
-  imports Main
+  imports Base
 begin
-
-section {* Orders and lattices *}
-
-record 'a partial_object =
-  carrier :: "'a set"
-
-(* From HOL/SenSocialChoice/FSect.thy in AFP. By Peter Gammie *)
-lemma finite_subset_induct_var [consumes 2, case_names empty insert]:
-  assumes "finite F" and "F \<subseteq> A"
-    and empty: "P {}"
-    and insert: "\<And>a F. \<lbrakk>finite F; a \<in> A; F \<subseteq> A; a \<notin> F; P F\<rbrakk> \<Longrightarrow> P (insert a F)"
-  shows "P F"
-proof -
-  from `finite F`
-  have "F \<subseteq> A \<Longrightarrow> ?thesis"
-  proof induct
-    show "P {}" by fact
-  next
-    fix x F
-    assume "finite F" and "x \<notin> F" and
-      P: "F \<subseteq> A \<Longrightarrow> P F" and i: "insert x F \<subseteq> A"
-    show "P (insert x F)"
-    proof (rule insert)
-      from i show "x \<in> A" by blast
-      from i have "F \<subseteq> A" by blast
-      with P show "P F" .
-      show "finite F" by fact
-      show "x \<notin> F" by fact
-      show "F \<subseteq> A" by fact
-    qed
-  qed
-  with `F \<subseteq> A` show ?thesis by blast
-qed
-
-text {* To talk about functions between structures with carrier sets,
-we need some notion of a function's \emph {type}. *}
-
-definition ftype :: "'a set \<Rightarrow> 'b set \<Rightarrow> ('a \<Rightarrow> 'b) set" (infixr "\<rightarrow>" 60) where
-  "ftype A B \<equiv> {f. \<forall>x. x \<in> A \<longrightarrow> f x \<in> B}"
-
-text {* We could also define \emph{ftype} as a predicate rather than
-as a set. *}
-
-lemma ftype_pred: "(f \<in> A \<rightarrow> B) = (\<forall>x. x \<in> A \<longrightarrow> f x \<in> B)"
-  by (simp add: ftype_def)
-
-text {* Typing rules for composition and application can then be
-derived, as well as the type of the identity function. *}
-
-lemma typed_composition: "\<lbrakk>f \<in> A \<rightarrow> B; g \<in> B \<rightarrow> C\<rbrakk> \<Longrightarrow> g \<circ> f \<in> A \<rightarrow> C"
-  by (simp add: ftype_def)
-
-lemma typed_application: "\<lbrakk>x \<in> A; f \<in> A \<rightarrow> B\<rbrakk> \<Longrightarrow> f x \<in> B"
-  by (simp add: ftype_def)
-
-lemma typed_abstraction: "\<forall>x. f x \<in> A \<Longrightarrow> f \<in> UNIV \<rightarrow> A"
-  by (simp add: ftype_def)
-
-lemma typed_mapping: "\<lbrakk>f \<in> A \<rightarrow> B; X \<subseteq> A\<rbrakk> \<Longrightarrow> f ` X \<subseteq> B"
-  by (metis ftype_pred image_subsetI set_mp)
-
-lemma id_type: "id \<in> A \<rightarrow> A"
-  by (simp add: ftype_def)
 
 subsection {* Partial orders *}
 
@@ -77,16 +14,22 @@ locale order = fixes A (structure)
 
 subsubsection {* Order duality *}
 
+text {* We can define the dual of an order via a function ord_inv,
+which flips the order in an ord_scheme. *}
+
 definition ord_inv :: "('a, 'b) ord_scheme \<Rightarrow> ('a, 'b) ord_scheme" ("_\<sharp>" [1000] 100) where
   "ord_inv ordr \<equiv> \<lparr>carrier = carrier ordr, le = \<lambda>x y. le ordr y x, \<dots> = ord.more ordr\<rparr>"
 
-lemma inv_carrier_id [simp]: "carrier (ord_inv A) = carrier A"
+text {* We provide the simplifier with rules that tell it how to
+simplify away any occurence of duality *}
+
+lemma inv_carrier_id [simp]: "carrier (A\<sharp>) = carrier A"
   by (metis ord_inv_def partial_object.simps(1))
 
-lemma ord_to_inv: "order A \<Longrightarrow> order (ord_inv A)"
+lemma ord_to_inv: "order A \<Longrightarrow> order (A\<sharp>)"
   by (default, simp_all add: ord_inv_def, (metis order.order_refl order.order_trans order.order_antisym)+)
 
-lemma inv_inv_id: "ord_inv (A\<sharp>) = A"
+lemma inv_inv_id [simp]: "(A\<sharp>)\<sharp> = A"
   by (simp add: ord_inv_def)
 
 lemma inv_to_ord: "order (A\<sharp>) \<Longrightarrow> order A"
@@ -94,6 +37,10 @@ lemma inv_to_ord: "order (A\<sharp>) \<Longrightarrow> order A"
 
 lemma ord_is_inv [simp]: "order (A\<sharp>) = order A"
   by (metis inv_to_ord ord_to_inv)
+
+text {* The reason a more standard notation for duality cannot be used
+is because it often appears in subscripts, as below. Nested
+subscripts/superscripts are not supported by Proof General. *}
 
 lemma inv_flip [simp]: "(x \<sqsubseteq>\<^bsub>A\<sharp>\<^esub> y) = (y \<sqsubseteq>\<^bsub>A\<^esub> x)"
   by (simp add: ord_inv_def)
@@ -103,8 +50,12 @@ lemma dual_carrier_subset: "X \<subseteq> carrier A \<longleftrightarrow> X \<su
 
 subsubsection {* Isotone functions *}
 
+(* FIXME: Maybe get rid of order requirements in isotone? *)
+
 definition isotone :: "('a, 'c) ord_scheme \<Rightarrow> ('b, 'd) ord_scheme \<Rightarrow> ('a \<Rightarrow> 'b) \<Rightarrow> bool" where
   "isotone A B f \<equiv> order A \<and> order B \<and> (\<forall>x\<in>carrier A. \<forall>y\<in>carrier A. x \<sqsubseteq>\<^bsub>A\<^esub> y \<longrightarrow> f x \<sqsubseteq>\<^bsub>B\<^esub> f y)"
+
+(* FIXME: Merge *)
 
 lemma use_iso1: "\<lbrakk>isotone A A f; x \<in> carrier A; y \<in> carrier A; x \<sqsubseteq>\<^bsub>A\<^esub> y\<rbrakk> \<Longrightarrow> f x \<sqsubseteq>\<^bsub>A\<^esub> f y"
   by (simp add: isotone_def)
@@ -903,28 +854,28 @@ qed
 subsection {* Bounded Lattices *}
 (* +------------------------------------------------------------------------+ *)
 
-record 'a bounded_ord = "'a ord" +
-  topf :: "'a" ("\<top>\<index>")
-  botf :: "'a" ("\<bottom>\<index>")
-
-locale bounded_lattice = fixes A (structure)
-  assumes bounded_is_lattice: "lattice A"
-  and bot_closed: "botf A \<in> carrier A"
-  and top_closed: "topf A \<in> carrier A"
-  and bot_id: "x \<in> carrier A \<Longrightarrow> order.join A x (botf A) = x"
-  and top_id: "x \<in> carrier A \<Longrightarrow> order.meet A x (topf A) = x"
-
-sublocale bounded_lattice \<subseteq> lattice
-  by (metis bounded_is_lattice)
+locale bounded_lattice = lattice +
+  assumes bot_ex: "\<exists>!b. b\<in>carrier A \<and> (\<forall>x\<in>carrier A. b \<sqsubseteq> x)"
+  and top_ex: "\<exists>!t. t\<in>carrier A \<and> (\<forall>x\<in>carrier A. x \<sqsubseteq> t)"
 
 context bounded_lattice
 begin
 
-  lemma bot_least: "x \<in> carrier A \<Longrightarrow> \<bottom> \<sqsubseteq> x"
-    by (metis assms join_comm leq_def bot_closed bot_id)
+  definition top :: "'a" ("\<top>") where "\<top> \<equiv> THE t. t\<in>carrier A \<and> (\<forall>x\<in>carrier A. x \<sqsubseteq> t)"
 
-  lemma top_greatest: "x \<in> carrier A \<Longrightarrow> x \<sqsubseteq> \<top>"
-    by (metis leq_meet_def top_closed top_id)
+  lemma top_closed: "\<top> \<in> carrier A"
+    by (simp add: top_def, rule the1I2, rule top_ex, auto)
+
+  lemma prop_top: "x \<in> carrier A \<Longrightarrow> x \<sqsubseteq> \<top>"
+    by (simp add: top_def, rule the1I2, rule top_ex, auto)
+
+  definition bot :: "'a" ("\<bottom>") where "\<bottom> \<equiv> THE b. b\<in>carrier A \<and> (\<forall>x\<in>carrier A. b \<sqsubseteq> x)"
+
+  lemma bot_closed: "\<bottom> \<in> carrier A"
+    by (simp add: bot_def, rule the1I2, rule bot_ex, auto)
+
+  lemma prop_bot: "x \<in> carrier A \<Longrightarrow> \<bottom> \<sqsubseteq> x"
+    by (simp add: bot_def, rule the1I2, rule bot_ex, auto)
 
 end
 
@@ -946,9 +897,7 @@ begin
   lemma compl_uniq:
     assumes xc: "x \<in> carrier A"
     shows "\<exists>!y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
-    apply safe
-    apply (metis assms compl)
-    by (metis (lifting) assms bot_id dist2 join_comm)
+    by (safe, metis assms compl, smt absorb1 assms dist2 join_comm meet_comm)
 
 end
 
@@ -959,21 +908,112 @@ subsection {* Complete join semilattices *}
 locale complete_join_semilattice = order +
   assumes lub_ex: "\<lbrakk>X \<subseteq> carrier A\<rbrakk> \<Longrightarrow> \<exists>x\<in>carrier A. is_lub x X"
 
+locale complete_meet_semilattice = order +
+  assumes glb_ex: "\<lbrakk>X \<subseteq> carrier A\<rbrakk> \<Longrightarrow> \<exists>x\<in>carrier A. is_glb x X"
+
+sublocale complete_meet_semilattice \<subseteq> meet_semilattice
+  by default (metis bot_least insert_subset glb_ex)
+
 sublocale complete_join_semilattice \<subseteq> join_semilattice
   by default (metis bot_least insert_subset lub_ex)
+
+lemma dual_cms_is_cjs [simp]: "complete_meet_semilattice (A\<sharp>) = complete_join_semilattice A"
+  by (simp add: complete_meet_semilattice_def complete_join_semilattice_def complete_meet_semilattice_axioms_def complete_join_semilattice_axioms_def, safe, simp_all)
+
+lemma dual_cjs_is_cms [simp]: "complete_join_semilattice (A\<sharp>) = complete_meet_semilattice A"
+  by (simp add: complete_meet_semilattice_def complete_join_semilattice_def complete_meet_semilattice_axioms_def complete_join_semilattice_axioms_def, safe, simp_all)
 
 context complete_join_semilattice
 begin
 
-  lemma bot_ax: "\<exists>!b\<in>carrier A. \<forall>x\<in>carrier A. b \<sqsubseteq> x"
-    by (metis (no_types) order_antisym bot_least equals0D is_lub_def lub_ex)
+  lemma glb_from_lub: "\<lbrakk>X \<subseteq> carrier A; is_lub x {z. z \<in> carrier A \<and> (\<forall>y\<in>X. z \<sqsubseteq> y)}\<rbrakk> \<Longrightarrow> is_glb x X"
+    by (simp add: is_lub_simp is_glb_simp, metis set_mp)
 
-  definition bot :: "'a" ("\<bottom>") where "\<bottom> \<equiv> THE x. x\<in>carrier A \<and> (\<forall>y\<in>carrier A. x \<sqsubseteq> y)"
+  lemma cms: "complete_meet_semilattice A"
+  proof
+    fix X assume Xc: "X \<subseteq> carrier A"
+    let ?S = "{z. z \<in> carrier A \<and> (\<forall>y\<in>X. z \<sqsubseteq> y)}"
+    have Sc: "?S \<subseteq> carrier A"
+      by (metis (lifting) mem_Collect_eq subsetI)
+    hence "\<exists>x\<in>carrier A. is_lub x ?S"
+      by (metis (lifting) lub_ex)
+    then obtain x where x_lub: "is_lub x ?S" by auto
+    have "is_glb x X"
+      by (rule glb_from_lub[OF Xc x_lub])
+    moreover hence "x \<in> carrier A"
+      by (metis is_glb_simp)
+    ultimately show "\<exists>x\<in>carrier A. is_glb x X"
+      by metis
+  qed
 
-  lemma bot_closed: "\<bottom> \<in> carrier A" by (smt bot_def the1I2 bot_ax)
+  lemma inv: "complete_join_semilattice (A\<sharp>)"
+    by (metis cms dual_cjs_is_cms)
 
-  lemma prop_bot: "\<forall>x\<in>carrier A. \<bottom> \<sqsubseteq> x"
-    by (simp only: bot_def, rule the1I2, smt bot_ax, metis)
+end
+
+context complete_meet_semilattice
+begin
+
+  lemma cjs_dual: "complete_join_semilattice (A\<sharp>)"
+    apply (subgoal_tac "complete_meet_semilattice A", metis dual_cjs_is_cms) ..
+
+  lemmas cjs = complete_join_semilattice.cms[OF cjs_dual, simplified]
+    and inv = complete_join_semilattice.inv[OF cjs_dual, simplified]
+
+  lemma lub_from_glb: "\<lbrakk>X \<subseteq> carrier A; is_glb x {z. z \<in> carrier A \<and> (\<forall>y\<in>X. y \<sqsubseteq> z)}\<rbrakk> \<Longrightarrow> is_lub x X"
+    by (simp add: is_lub_simp is_glb_simp, metis set_mp)
+
+end
+
+lemma cjs_is_cms: "complete_join_semilattice A = complete_meet_semilattice A"
+  by (auto, metis complete_join_semilattice.cms, metis complete_meet_semilattice.cjs)
+
+lemma cjs_is_lattice: "complete_join_semilattice A \<Longrightarrow> lattice A"
+  apply (simp add: lattice_def)
+  apply (simp add: join_semilattice_def join_semilattice_axioms_def)
+  apply (simp add: meet_semilattice_def meet_semilattice_axioms_def)
+  apply safe
+  apply (simp add: complete_join_semilattice_def)
+  apply (metis complete_join_semilattice.lub_ex empty_subsetI insert_subset)
+  apply (simp add: complete_join_semilattice_def)
+  by (metis complete_meet_semilattice.cjs complete_meet_semilattice.glb_ex dual_cjs_is_cms empty_subsetI insert_subset inv_inv_id)
+
+lemma cms_is_lattice: "complete_meet_semilattice A \<Longrightarrow> lattice A"
+  by (metis cjs_is_cms cjs_is_lattice)
+
+sublocale complete_meet_semilattice \<subseteq> lattice
+  by (metis cjs cjs_is_lattice)
+
+sublocale complete_join_semilattice \<subseteq> lattice
+  by (metis cms cms_is_lattice)
+
+context complete_join_semilattice
+begin
+
+  lemma bounded: "bounded_lattice A"
+    apply default
+    apply auto
+    apply (rule_tac x = "\<Sigma> {}" in exI)
+    apply safe
+    apply (metis empty_subsetI lub_closed lub_ex)
+    apply (metis empty_iff empty_subsetI is_lub_simp lub_ex lub_is_lub)
+    apply (metis order_antisym)
+    apply (rule_tac x = "\<Sigma> (carrier A)" in exI)
+    apply safe
+    apply (metis lub_closed lub_ex subset_refl)
+    apply (metis equalityE is_lub_simp lub_ex lub_is_lub)
+    by (metis order_antisym)
+
+end
+
+sublocale complete_join_semilattice \<subseteq> bounded_lattice
+  by (metis bounded)
+
+lemma (in complete_meet_semilattice) bounded: "bounded_lattice A"
+  by (metis cjs complete_join_semilattice.bounded)
+
+sublocale complete_meet_semilattice \<subseteq> bounded_lattice
+  by (metis bounded)
 
   lemma is_lub_lub [intro?]: "X \<subseteq> carrier A \<Longrightarrow> is_lub (\<Sigma> X) X"
     by (metis lub_ex lub_is_lub)
@@ -989,6 +1029,22 @@ begin
 
   lemma lub_least [intro?]: "\<lbrakk>X \<subseteq> carrier A; x \<in> X\<rbrakk> \<Longrightarrow> x \<sqsubseteq> \<Sigma> X"
     by (metis is_lub_def is_lub_lub is_ub_def)
+
+  lemma "\<exists>!t. t \<in> carrier A \<and> (\<forall>x\<in>carrier A. x \<sqsubseteq> t)"
+    apply auto
+    apply (rule_tac x = "\<Sigma> (carrier A)" in exI)
+    apply safe
+    apply (metis lub_closed lub_ex subset_refl)
+    apply (metis lub_least preorder_class.order_refl)
+    by (metis order_antisym)
+
+end
+
+sublocale complete_join_semilattice \<subseteq> bounded_lattice
+proof
+  fix x y assume xc: "x \<in> carrier A" and yc: "y \<in> carrier A"
+  have "meet_semilattice (A\<sharp>)"
+  show "\<exists>z\<in>carrier A. is_glb z {x, y}"
 
   lemma empty_lub [simp]: "\<Sigma> {} = \<bottom>"
     by (metis bot_closed empty_iff empty_subsetI is_lub_def is_ub_def lub_is_lub prop_bot)

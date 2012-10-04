@@ -64,9 +64,36 @@ begin
       by (rule_tac x = \<sigma> in bexI, induct \<sigma> arbitrary: X, auto)
   qed
 
-  lemma join_traces_assoc:
+  lemma join_last [simp]: "last (join_traces \<sigma> \<tau>) = last \<tau>"
+    by (induct \<sigma>, auto)
+
+  lemma join_first [simp]: "last \<sigma> = first \<tau> \<Longrightarrow> first (join_traces \<sigma> \<tau>) = first \<sigma>"
+    by (induct \<sigma>, auto)
+
+  lemma join_traces_assoc: "join_traces (join_traces \<sigma> \<tau>) \<phi> = join_traces \<sigma> (join_traces \<tau> \<phi>)"
+    by (induct \<sigma>, auto)
+
+  lemma join_trace_set_assoc:
     "join_trace_sets (join_trace_sets X Y) Z = join_trace_sets X (join_trace_sets Y Z)"
-    sorry
+  proof (auto simp add: join_trace_sets_def)
+    fix \<sigma> \<tau> \<phi>
+    assume \<sigma>X: "\<sigma> \<in> X" and \<tau>Y: "\<tau> \<in> Y " and \<phi>Z: "\<phi> \<in> Z"
+    and \<tau>\<phi>: "last \<tau> = first \<phi>"
+    and \<sigma>\<tau>: "last \<sigma> = first \<tau>"
+    thus "\<exists>\<nu>\<in>X. \<exists>\<chi>. (\<exists>\<sigma>'\<in>Y. \<exists>\<tau>'\<in>Z. \<chi> = join_traces \<sigma>' \<tau>' \<and> local.last \<sigma>' = first \<tau>')
+                  \<and> join_traces (join_traces \<sigma> \<tau>) \<phi> = join_traces \<nu> \<chi>
+                  \<and> local.last \<nu> = first \<chi>"
+      apply (rule_tac x = \<sigma> in bexI, auto)
+      apply (rule_tac x = "join_traces \<tau> \<phi>" in exI, auto)
+      by (metis join_traces_assoc)
+    from \<sigma>X \<tau>Y \<phi>Z \<tau>\<phi> \<sigma>\<tau>
+    show "\<exists>\<chi>. (\<exists>\<sigma>'\<in>X. \<exists>\<tau>'\<in>Y. \<chi> = join_traces \<sigma>' \<tau>' \<and> local.last \<sigma>' = first \<tau>')
+            \<and> (\<exists>\<nu>\<in>Z. join_traces \<sigma> (join_traces \<tau> \<phi>) = join_traces \<chi> \<nu>
+              \<and> local.last \<chi> = first \<nu>)"
+      apply (rule_tac x = "join_traces \<sigma> \<tau>" in exI, auto)
+      apply (rule_tac x = \<phi> in bexI, auto)
+      by (metis join_traces_assoc)
+  qed
 
   abbreviation traces :: "('a trace set) mult_ord" where
     "traces \<equiv> \<lparr>carrier = UNIV, le = op \<subseteq>, one = all_tests, mult = join_trace_sets\<rparr>"
@@ -87,7 +114,7 @@ begin
     apply (simp_all add: order.is_lub_simp[OF traces_ord] order.is_glb_simp[OF traces_ord])
     apply blast+
     apply (metis UNIV_I typed_abstraction)
-    apply (metis join_traces_assoc)
+    apply (metis join_trace_set_assoc)
     defer defer
     apply (metis join_trace_onel)
     apply (metis join_trace_oner)

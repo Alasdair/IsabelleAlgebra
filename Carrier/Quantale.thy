@@ -187,10 +187,10 @@ begin
 
   subsection {* Defining the star operation *}
 
-  definition star :: "'a \<Rightarrow> 'a"  ("_\<^sup>*" [101] 100) where
-    "x\<^sup>* = \<mu>\<^bsub>A\<^esub>(\<lambda>y. 1 + x\<cdot>y)"
+  definition star :: "'a \<Rightarrow> 'a"  ("_\<^sup>\<star>" [101] 100) where
+    "x\<^sup>\<star> = \<mu>\<^bsub>A\<^esub>(\<lambda>y. 1 + x\<cdot>y)"
 
-  lemma star_closed: assumes xc: "x \<in> carrier A" shows "x\<^sup>* \<in> carrier A"
+  lemma star_closed: assumes xc: "x \<in> carrier A" shows "x\<^sup>\<star> \<in> carrier A"
     unfolding star_def
   proof (rule least_fixpoint_closed)
     show "complete_lattice A"
@@ -291,7 +291,7 @@ begin
   text {* We can now show that $x^*$ in a quantale can be defined as
     the sum of the powers of $x$. *}
 
-  lemma star_power: assumes xc: "x \<in> carrier A" shows "x\<^sup>* = \<Sigma> (powers x)"
+  lemma star_power: assumes xc: "x \<in> carrier A" shows "x\<^sup>\<star> = \<Sigma> (powers x)"
   proof -
     let ?STAR_FUN = "\<lambda>y. 1 + x\<cdot>y"
 
@@ -373,7 +373,7 @@ begin
       by (metis assms mult_left_iso)
   qed
 
-  lemma star_unfoldl: assumes xc: "x \<in> carrier A" shows "1 + x\<cdot>x\<^sup>* = x\<^sup>*"
+  lemma star_unfoldl: assumes xc: "x \<in> carrier A" shows "1 + x\<cdot>x\<^sup>\<star> = x\<^sup>\<star>"
     unfolding star_def
   proof (rule fixpoint_computation)
     show "complete_lattice A"
@@ -387,7 +387,7 @@ begin
       by (smt assms bin_lub_var distl join_closed join_idem leq_def mult_closed one_closed)
   qed
 
-  lemma star_unfoldr: assumes xc: "x \<in> carrier A" shows "1 + x\<^sup>*\<cdot>x = x\<^sup>*"
+  lemma star_unfoldr: assumes xc: "x \<in> carrier A" shows "1 + x\<^sup>\<star>\<cdot>x = x\<^sup>\<star>"
   proof (insert xc, unfold star_power)
     have power_unfold: "({1} \<union> ((\<lambda>y. y\<cdot>x) ` powers x)) = (powers x)"
       apply (simp add: image_def powers_def, auto)
@@ -406,7 +406,7 @@ begin
 
   lemma star_continuity:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
-    shows "x\<cdot>y\<^sup>*\<cdot>z = \<Sigma> {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>}"
+    shows "x\<cdot>y\<^sup>\<star>\<cdot>z = \<Sigma> {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>}"
   proof (insert yc, unfold star_power powers_def)
     have closure_xu: "{x\<cdot>u |u. \<exists>i. u = y\<^bsup>i\<^esup>} \<subseteq> carrier A"
       by (safe, metis mult_closed power_closed xc yc)
@@ -425,33 +425,33 @@ begin
 
   lemma prod_cstar_unique:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
-    shows "is_lub w {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>} \<Longrightarrow> x\<cdot>y\<^sup>*\<cdot>z = w"
+    shows "is_lub w {x\<cdot>u\<cdot>z |u. \<exists>i. u = y\<^bsup>i\<^esup>} \<Longrightarrow> x\<cdot>y\<^sup>\<star>\<cdot>z = w"
     by (simp add: star_continuity[OF xc yc zc], smt lub_is_lub)
 
-  lemma star_unique: "x \<in> carrier A \<Longrightarrow> is_lub w (powers x) \<Longrightarrow> x\<^sup>* = w"
+  lemma star_unique: "x \<in> carrier A \<Longrightarrow> is_lub w (powers x) \<Longrightarrow> x\<^sup>\<star> = w"
     by (metis lub_is_lub star_power)
 
   lemma ex_star: "\<forall>x\<in>carrier A. \<exists>y\<in>carrier A. is_lub y (powers x)"
     by (metis (lifting) lub_ex powers_closed)
 
-  lemma star_is_lub: "x \<in> carrier A \<Longrightarrow> is_lub (x\<^sup>*) (powers x)"
+  lemma star_is_lub: "x \<in> carrier A \<Longrightarrow> is_lub (x\<^sup>\<star>) (powers x)"
     by (metis ex_star star_unique)
 
   lemma star_lub:
     assumes xc: "x \<in> carrier A" and zc: "z \<in> carrier A"
-    shows "(\<forall>y\<in>(powers x). y \<sqsubseteq> z) \<longleftrightarrow> (x\<^sup>* \<sqsubseteq> z)"
+    shows "(\<forall>y\<in>(powers x). y \<sqsubseteq> z) \<longleftrightarrow> (x\<^sup>\<star> \<sqsubseteq> z)"
     by (insert star_is_lub[OF xc], simp add: is_lub_simp, metis (hide_lams, no_types) in_mono order_trans zc)
 
   lemma star_lub_var:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A"
-    shows "(\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y) \<longleftrightarrow> (x\<^sup>* \<sqsubseteq> y)"
+    shows "(\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y) \<longleftrightarrow> (x\<^sup>\<star> \<sqsubseteq> y)"
     apply (insert star_is_lub[OF xc])
     apply (simp add: is_lub_simp powers_def, clarify)
     by (metis (lifting) order_trans power_closed xc yc)
 
   lemma star_inductl_var:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A"
-    shows "x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^sup>*\<cdot>y \<sqsubseteq> y"
+    shows "x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^sup>\<star>\<cdot>y \<sqsubseteq> y"
   proof
     have yy_c: "y \<leftharpoondown> y \<in> carrier A"
       by (metis postimp_closed yc)
@@ -461,29 +461,29 @@ begin
       by (metis postimp_conn_prop xc yc)
     hence "\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y \<leftharpoondown> y"
       by (metis postimp_conn_prop power_closed power_inductl_var xc yc)
-    hence "x\<^sup>* \<sqsubseteq> y \<leftharpoondown> y"
+    hence "x\<^sup>\<star> \<sqsubseteq> y \<leftharpoondown> y"
       by (insert star_lub_var[OF xc yy_c], auto)
-    thus "x\<^sup>*\<cdot>y \<sqsubseteq> y"
+    thus "x\<^sup>\<star>\<cdot>y \<sqsubseteq> y"
       by (metis postimp_conn_prop star_closed xc yc)
   qed
 
   lemma star_inductl:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
-    shows "z+x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^sup>*\<cdot>z \<sqsubseteq> y"
+    shows "z+x\<cdot>y \<sqsubseteq> y \<longrightarrow> x\<^sup>\<star>\<cdot>z \<sqsubseteq> y"
   proof
     assume hyp: "z+x\<cdot>y \<sqsubseteq> y"
     hence "z \<sqsubseteq> y" and "x\<cdot>y \<sqsubseteq> y"
       apply (metis bin_lub_var mult_closed xc yc zc)
       by (metis bin_lub_var hyp mult_closed xc yc zc)
-    hence "x\<^sup>*\<cdot>y \<sqsubseteq> y"
+    hence "x\<^sup>\<star>\<cdot>y \<sqsubseteq> y"
       by (metis star_inductl_var xc yc)
-    thus "x\<^sup>*\<cdot>z \<sqsubseteq> y"
+    thus "x\<^sup>\<star>\<cdot>z \<sqsubseteq> y"
       by (smt `z \<sqsubseteq> y` distl join_assoc leq_def mult_closed star_closed xc yc zc)
   qed
 
   lemma star_inductr_var:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A"
-    shows "y\<cdot>x \<sqsubseteq> y \<longrightarrow> y\<cdot>x\<^sup>* \<sqsubseteq> y"
+    shows "y\<cdot>x \<sqsubseteq> y \<longrightarrow> y\<cdot>x\<^sup>\<star> \<sqsubseteq> y"
   proof
     have yy_c: "y \<rightharpoondown> y \<in> carrier A"
       by (metis preimp_closed yc)
@@ -493,35 +493,35 @@ begin
       by (metis preimp_conn_prop xc yc)
     hence "\<forall>n. x\<^bsup>n\<^esup> \<sqsubseteq> y \<rightharpoondown> y"
       by (metis preimp_conn_prop power_closed power_inductr_var xc yc)
-    hence "x\<^sup>* \<sqsubseteq> y \<rightharpoondown> y"
+    hence "x\<^sup>\<star> \<sqsubseteq> y \<rightharpoondown> y"
       by (insert star_lub_var[OF xc yy_c], auto)
-    thus "y\<cdot>x\<^sup>* \<sqsubseteq> y"
+    thus "y\<cdot>x\<^sup>\<star> \<sqsubseteq> y"
       by (metis preimp_conn_prop star_closed xc yc)
   qed
 
   lemma star_inductr:
     assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
-    shows "z+y\<cdot>x \<sqsubseteq> y \<longrightarrow> z\<cdot>x\<^sup>* \<sqsubseteq> y"
+    shows "z+y\<cdot>x \<sqsubseteq> y \<longrightarrow> z\<cdot>x\<^sup>\<star> \<sqsubseteq> y"
   proof
     assume hyp: "z+y\<cdot>x \<sqsubseteq> y"
     hence "z \<sqsubseteq> y" and "y\<cdot>x \<sqsubseteq> y"
       apply (metis bin_lub_var mult_closed xc yc zc)
       by (metis bin_lub_var hyp mult_closed xc yc zc)
-    hence "y\<cdot>x\<^sup>* \<sqsubseteq> y"
+    hence "y\<cdot>x\<^sup>\<star> \<sqsubseteq> y"
       by (metis star_inductr_var xc yc)
-    thus "z\<cdot>x\<^sup>* \<sqsubseteq> y"
+    thus "z\<cdot>x\<^sup>\<star> \<sqsubseteq> y"
       by (smt `z \<sqsubseteq> y` distr join_assoc leq_def mult_closed star_closed xc yc zc)
   qed
 
   lemma star_subid:
-    assumes xc: "x \<in> carrier A" shows "x \<sqsubseteq> 1 \<longrightarrow> x\<^sup>* = 1"
+    assumes xc: "x \<in> carrier A" shows "x \<sqsubseteq> 1 \<longrightarrow> x\<^sup>\<star> = 1"
   proof
     assume "x \<sqsubseteq> 1"
-    hence "x\<^sup>* \<sqsubseteq> 1"
+    hence "x\<^sup>\<star> \<sqsubseteq> 1"
       by (metis assms mult_oner one_closed star_closed star_inductl_var)
-    moreover have "1 \<sqsubseteq> x\<^sup>*"
+    moreover have "1 \<sqsubseteq> x\<^sup>\<star>"
       by (metis assms eq_refl power.simps(1) star_closed star_lub_var)
-    ultimately show "x\<^sup>* = 1"
+    ultimately show "x\<^sup>\<star> = 1"
       by (metis assms one_closed order_antisym star_closed)
   qed
 

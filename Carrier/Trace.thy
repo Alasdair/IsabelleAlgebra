@@ -1,123 +1,139 @@
 theory Trace
-  imports Flowchart Quantale
+  imports Quantale
 begin
 
-definition (in alph) atomic_programs :: "flow set" where
-  "atomic_programs = {UNDEFINED, SKIP} \<union> {A. \<exists>x y. A = x y}"
+datatype ('a, 'b) trace = tlink 'a 'b "('a, 'b) trace" | tend 'a
 
-definition (in alph) atomic_tests :: "atomic_formula set" where
-  "atomic_tests = {t. wf_atomic_formula \<Sigma>l t}"
+fun fusion_product :: "('a, 'b) trace \<Rightarrow> ('a, 'b) trace \<Rightarrow> ('a, 'b) trace" where
+  "fusion_product (tlink u p \<sigma>) \<tau> = tlink u p (fusion_product \<sigma> \<tau>)"
+| "fusion_product (tend u) \<tau> = \<tau>"
 
-locale kripke_frame = fixes A (structure)
-  fixes tests_map :: "atomic_formula \<Rightarrow> 'a set"
-  and programs_map :: "flow set \<Rightarrow> ('a \<times> 'a) set"
-  and \<Sigma>l :: alphabet
-  assumes tests_map_type: "tests_map : atomic_tests \<rightarrow> Pow (carrier A)"
-  and programs_map_type: "programs_map : atomic_programs \<rightarrow> Pow (carrier A \<times> carrier A)"
+fun first :: "('a, 'b) trace \<Rightarrow> 'a" where
+  "first (tlink u _ _) = u"
+| "first (tend u)      = u"
 
-sublocale kripke_frame \<subseteq> alph .
+fun last :: "('a, 'b) trace \<Rightarrow> 'a" where
+  "last (tlink _ _ \<sigma>) = last \<sigma>"
+| "last (tend u)      = u"
 
-datatype 'a trace = tlink 'a "flow set" "'a trace" | tend 'a
+definition fuse :: "('a, 'b) trace set \<Rightarrow> ('a, 'b) trace set \<Rightarrow> ('a, 'b) trace set" where
+  "fuse X Y = {Z. \<exists>\<sigma>\<in>X. \<exists>\<tau>\<in>Y. Z = fusion_product \<sigma> \<tau> \<and> last \<sigma> = first \<tau>}"
 
-context kripke_frame
-begin
+definition all_tests :: "('a, 'b) trace set" where
+  "all_tests = tend ` UNIV"
 
-  fun wf_trace :: "'a trace \<Rightarrow> bool" where
-    "wf_trace (tlink u0 p0 (tlink u1 p1 \<sigma>)) = ((u0, u1) \<in> programs_map p0 \<and> wf_trace (tlink u1 p1 \<sigma>))"
-  | "wf_trace (tlink u0 p0 (tend u1))       = ((u0, u1) \<in> programs_map p0)"
-  | "wf_trace (tend u1)                     = True"
+lemma fuse_onel: "fuse all_tests X = X"
+  by (auto simp add: fuse_def all_tests_def)
 
-  fun first :: "'a trace \<Rightarrow> 'a" where
-    "first (tlink u p \<sigma>) = u"
-  | "first (tend u)      = u"
+lemma fuse_oner: "fuse X all_tests = X"
+  apply (auto simp add: fuse_def all_tests_def)
+proof -
+  fix \<sigma> :: "('a, 'b) trace" assume "\<sigma> \<in> X"
+  thus "fusion_product \<sigma> (tend (last \<sigma>)) \<in> X"
+    by (induct \<sigma> arbitrary: X, auto)
+  from `\<sigma> \<in> X` show "\<exists>\<tau>\<in>X. \<sigma> = fusion_product \<tau> (tend (last \<tau>))"
+    by (rule_tac x = \<sigma> in bexI, induct \<sigma> arbitrary: X, auto)
+qed
 
-  fun last :: "'a trace \<Rightarrow> 'a" where
-    "last (tlink u p \<sigma>) = last \<sigma>"
-  | "last (tend u)      = u"
+lemma fusion_last [simp]: "last (fusion_product \<sigma> \<tau>) = last \<tau>"
+  by (induct \<sigma>, auto)
 
-  fun join_traces :: "'a trace \<Rightarrow> 'a trace \<Rightarrow> 'a trace" where
-    "join_traces (tlink u p \<sigma>) \<tau> = tlink u p (join_traces \<sigma> \<tau>)"
-  | "join_traces (tend u) \<tau> = \<tau>"
+lemma fusion_first [simp]: "last \<sigma> = first \<tau> \<Longrightarrow> first (fusion_product \<sigma> \<tau>) = first \<sigma>"
+  by (induct \<sigma>, auto)
 
-  definition join_trace_sets :: "'a trace set \<Rightarrow> 'a trace set \<Rightarrow> 'a trace set" where
-    "join_trace_sets X Y = {Z. \<exists>\<sigma>\<in>X. \<exists>\<tau>\<in>Y. Z = join_traces \<sigma> \<tau> \<and> last \<sigma> = first \<tau>}"
+lemma fusion_assoc: "fusion_product (fusion_product \<sigma> \<tau>) \<phi> = fusion_product \<sigma> (fusion_product \<tau> \<phi>)"
+  by (induct \<sigma>, auto)
 
-  definition canonical_program :: "flow set \<Rightarrow> 'a trace set" ("\<lbrace>_\<rbrace>") where
-    "\<lbrace>S\<rbrace> = {\<sigma>. \<exists>u0 u1. \<sigma> = tlink u0 S (tend u1) \<and> (u0, u1) \<in> programs_map S}"
+lemma fuse_assoc:
+  "fuse (fuse X Y) Z = fuse X (fuse Y Z)"
+proof (auto simp add: fuse_def)
+  fix \<sigma> \<tau> \<phi>
+  assume \<sigma>X: "\<sigma> \<in> X" and \<tau>Y: "\<tau> \<in> Y " and \<phi>Z: "\<phi> \<in> Z"
+  and \<tau>\<phi>: "last \<tau> = first \<phi>"
+  and \<sigma>\<tau>: "last \<sigma> = first \<tau>"
+  thus "\<exists>\<nu>\<in>X. \<exists>\<chi>. (\<exists>\<sigma>'\<in>Y. \<exists>\<tau>'\<in>Z. \<chi> = fusion_product \<sigma>' \<tau>' \<and> last \<sigma>' = first \<tau>')
+                  \<and> fusion_product (fusion_product \<sigma> \<tau>) \<phi> = fusion_product \<nu> \<chi>
+                  \<and> last \<nu> = first \<chi>"
+    apply (rule_tac x = \<sigma> in bexI, auto)
+    apply (rule_tac x = "fusion_product \<tau> \<phi>" in exI, auto)
+    by (metis fusion_assoc)
+  from \<sigma>X \<tau>Y \<phi>Z \<tau>\<phi> \<sigma>\<tau>
+  show "\<exists>\<chi>. (\<exists>\<sigma>'\<in>X. \<exists>\<tau>'\<in>Y. \<chi> = fusion_product \<sigma>' \<tau>' \<and> last \<sigma>' = first \<tau>')
+          \<and> (\<exists>\<nu>\<in>Z. fusion_product \<sigma> (fusion_product \<tau> \<phi>) = fusion_product \<chi> \<nu>
+            \<and> last \<chi> = first \<nu>)"
+    apply (rule_tac x = "fusion_product \<sigma> \<tau>" in exI, auto)
+    apply (rule_tac x = \<phi> in bexI, auto)
+    by (metis fusion_assoc)
+qed
 
-  definition canonical_test :: "atomic_formula \<Rightarrow> 'a trace set" ("\<lbrace>_\<rbrace>") where
-    "\<lbrace>p\<rbrace> = tend ` tests_map p"
+fun trace_states :: "('a, 'b) trace \<Rightarrow> 'a list" where
+  "trace_states (tlink s u \<sigma>) = (s # trace_states \<sigma>)"
+| "trace_states (tend s)      = [s]"
 
-  definition all_tests :: "'a trace set" where
-    "all_tests = tend ` UNIV"
+fun trace_transitions :: "('a, 'b) trace \<Rightarrow> 'b list" where
+  "trace_transitions (tlink s u \<sigma>) = (u # trace_transitions \<sigma>)"
+| "trace_transitions (tend s)      = []"
 
-  lemma join_trace_onel: "join_trace_sets all_tests X = X"
-    by (auto simp add: join_trace_sets_def all_tests_def)
+abbreviation traces :: "('a, 'b) trace set \<Rightarrow> ('a, 'b) trace set mult_ord" where
+  "traces X \<equiv> \<lparr>carrier = Pow X, le = op \<subseteq>, one = all_tests, mult = fuse\<rparr>"
 
-  lemma join_trace_oner: "join_trace_sets X all_tests = X"
-    apply (auto simp add: join_trace_sets_def all_tests_def)
-  proof -
-    fix \<sigma> :: "'a trace" assume "\<sigma> \<in> X"
-    thus "join_traces \<sigma> (tend (last \<sigma>)) \<in> X"
-      by (induct \<sigma> arbitrary: X, auto)
-    from `\<sigma> \<in> X` show "\<exists>\<tau>\<in>X. \<sigma> = join_traces \<tau> (tend (local.last \<tau>))"
-      by (rule_tac x = \<sigma> in bexI, induct \<sigma> arbitrary: X, auto)
-  qed
+lemma traces_ord: "order (traces X)"
+  by (auto simp add: order_def)
 
-  lemma join_last [simp]: "last (join_traces \<sigma> \<tau>) = last \<tau>"
-    by (induct \<sigma>, auto)
+lemma traces_lub [simp]: "X \<subseteq> Pow Y \<Longrightarrow> \<Sigma>\<^bsub>traces Y\<^esub> X = \<Union> X"
+  apply (simp add: order.lub_simp[OF traces_ord], rule the1I2)
+  apply safe
+  apply blast
+  apply (metis PowI in_mono)
+  apply (metis PowI in_mono)
+  apply (metis PowI Sup_upper UnionI Union_Pow_eq Union_mono)
+  apply (metis set_mp)
+  done
 
-  lemma join_first [simp]: "last \<sigma> = first \<tau> \<Longrightarrow> first (join_traces \<sigma> \<tau>) = first \<sigma>"
-    by (induct \<sigma>, auto)
+lemma traces_cjs: "complete_join_semilattice (traces X)"
+  by (unfold_locales, auto simp add: order.is_lub_simp[OF traces_ord])
 
-  lemma join_traces_assoc: "join_traces (join_traces \<sigma> \<tau>) \<phi> = join_traces \<sigma> (join_traces \<tau> \<phi>)"
-    by (induct \<sigma>, auto)
+lemma traces_cms: "complete_meet_semilattice (traces X)"
+  by (rule complete_join_semilattice.is_cms[OF traces_cjs])
 
-  lemma join_trace_set_assoc:
-    "join_trace_sets (join_trace_sets X Y) Z = join_trace_sets X (join_trace_sets Y Z)"
-  proof (auto simp add: join_trace_sets_def)
-    fix \<sigma> \<tau> \<phi>
-    assume \<sigma>X: "\<sigma> \<in> X" and \<tau>Y: "\<tau> \<in> Y " and \<phi>Z: "\<phi> \<in> Z"
-    and \<tau>\<phi>: "last \<tau> = first \<phi>"
-    and \<sigma>\<tau>: "last \<sigma> = first \<tau>"
-    thus "\<exists>\<nu>\<in>X. \<exists>\<chi>. (\<exists>\<sigma>'\<in>Y. \<exists>\<tau>'\<in>Z. \<chi> = join_traces \<sigma>' \<tau>' \<and> local.last \<sigma>' = first \<tau>')
-                  \<and> join_traces (join_traces \<sigma> \<tau>) \<phi> = join_traces \<nu> \<chi>
-                  \<and> local.last \<nu> = first \<chi>"
-      apply (rule_tac x = \<sigma> in bexI, auto)
-      apply (rule_tac x = "join_traces \<tau> \<phi>" in exI, auto)
-      by (metis join_traces_assoc)
-    from \<sigma>X \<tau>Y \<phi>Z \<tau>\<phi> \<sigma>\<tau>
-    show "\<exists>\<chi>. (\<exists>\<sigma>'\<in>X. \<exists>\<tau>'\<in>Y. \<chi> = join_traces \<sigma>' \<tau>' \<and> local.last \<sigma>' = first \<tau>')
-            \<and> (\<exists>\<nu>\<in>Z. join_traces \<sigma> (join_traces \<tau> \<phi>) = join_traces \<chi> \<nu>
-              \<and> local.last \<chi> = first \<nu>)"
-      apply (rule_tac x = "join_traces \<sigma> \<tau>" in exI, auto)
-      apply (rule_tac x = \<phi> in bexI, auto)
-      by (metis join_traces_assoc)
-  qed
+lemma traces_cl: "complete_lattice (traces X)"
+  by (simp add: complete_lattice_def traces_cjs traces_cms)
 
-  abbreviation traces :: "('a trace set) mult_ord" where
-    "traces \<equiv> \<lparr>carrier = UNIV, le = op \<subseteq>, one = all_tests, mult = join_trace_sets\<rparr>"
+lemma traces_quantale:
+  assumes fuse_type: "fuse \<in> Pow X \<rightarrow> Pow X \<rightarrow> Pow X"
+  and all_tests_in_X: "all_tests \<subseteq> X"
+  shows "unital_quantale (traces X)"
+proof (simp add: unital_quantale_def, intro conjI)
+  show "complete_lattice (traces X)"
+    by (rule traces_cl)
 
-  lemma traces_ord: "order traces"
-    by (auto simp add: order_def)
+  show "fuse \<in> Pow X \<rightarrow> Pow X \<rightarrow> Pow X"
+    by (rule fuse_type)
 
-  lemma traces_lub [simp]: "\<Sigma>\<^bsub>traces\<^esub> X = \<Union> X"
-    apply (simp add: order.lub_simp[OF traces_ord])
-    apply (rule the1I2)
-    apply (safe, blast, blast)
-    apply (metis in_mono)
-    by blast+
+  show "\<forall>x\<subseteq>X. \<forall>y\<subseteq>X. \<forall>z\<subseteq>X. fuse (fuse x y) z = fuse x (fuse y z)"
+    by (metis fuse_assoc)
 
-  lemma "unital_quantale traces"
-    apply (simp add: unital_quantale_def, intro conjI)
-    apply unfold_locales
-    apply (simp_all add: order.is_lub_simp[OF traces_ord] order.is_glb_simp[OF traces_ord])
-    apply blast+
-    apply (metis UNIV_I typed_abstraction)
-    apply (metis join_trace_set_assoc)
-    defer defer
-    apply (metis join_trace_onel)
-    apply (metis join_trace_oner)
-    by (auto simp add: join_trace_sets_def all_tests_def)
+  from fuse_type show "\<forall>x\<subseteq>X. \<forall>Y\<subseteq>Pow X. fuse x (\<Union>Y) = \<Sigma>\<^bsub>traces X\<^esub>(fuse x ` Y)"
+    apply (clarify, subgoal_tac "(fuse x ` Y) \<subseteq> Pow X", simp add: fuse_def, blast)
+    by (simp add: ftype_pred, clarify, smt Pow_iff set_mp)
+
+  from fuse_type show "\<forall>x\<subseteq>X. \<forall>Y\<subseteq>Pow X. fuse (\<Union>Y) x = \<Sigma>\<^bsub>traces X\<^esub>((\<lambda>y. fuse y x) ` Y)"
+    apply (clarify, subgoal_tac "((\<lambda>y. fuse y x) ` Y) \<subseteq> Pow X", simp add: fuse_def, blast)
+    by (simp add: ftype_pred, clarify, smt Pow_iff set_mp)
+
+  show "all_tests \<subseteq> X"
+    by (rule all_tests_in_X)
+
+  show "\<forall>x\<subseteq>X. fuse all_tests x = x"
+    by (metis fuse_onel)
+
+  show "\<forall>x\<subseteq>X. fuse x all_tests = x"
+    by (metis fuse_oner)
+qed
+
+lemma traces_quantale_UNIV: "unital_quantale (traces UNIV)"
+  by (rule traces_quantale, simp add: ftype_pred, rule subset_UNIV)
 
 end
+
+

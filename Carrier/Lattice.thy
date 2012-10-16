@@ -225,6 +225,9 @@ begin
   definition compact :: "'a \<Rightarrow> prop" where
     "compact x \<equiv> x \<guillemotleft> x"
 
+  definition covers_op :: "'a \<Rightarrow> 'a \<Rightarrow> bool" (infixl "covers" 50) where
+    "y covers x \<equiv> x \<sqsubset> y \<and> \<not> (\<exists>z. x \<sqsubset> z \<and> z \<sqsubset> y)"
+
 end
 
 definition pointwise_extension :: "'a ord \<Rightarrow> ('b \<Rightarrow> 'a) ord" ("\<up>") where
@@ -840,28 +843,46 @@ qed
 subsection {* Bounded Lattices *}
 (* +------------------------------------------------------------------------+ *)
 
-record 'a bounded_ord = "'a ord" +
-  topf :: "'a" ("\<top>\<index>")
-  botf :: "'a" ("\<bottom>\<index>")
-
-locale bounded_lattice = fixes A (structure)
-  assumes bounded_is_lattice: "lattice A"
-  and bot_closed: "botf A \<in> carrier A"
-  and top_closed: "topf A \<in> carrier A"
-  and bot_id: "x \<in> carrier A \<Longrightarrow> order.join A x (botf A) = x"
-  and top_id: "x \<in> carrier A \<Longrightarrow> order.meet A x (topf A) = x"
-
-sublocale bounded_lattice \<subseteq> lattice
-  by (metis bounded_is_lattice)
+locale bounded_lattice = lattice +
+  assumes bot_ex: "\<exists>b\<in>carrier A. \<forall>x\<in>carrier A. b \<squnion> x = x"
+  and top_ex: "\<exists>t\<in>carrier A. \<forall>x\<in>carrier A. t \<sqinter> x = x"
 
 context bounded_lattice
 begin
 
+  definition bot :: "'a" ("\<bottom>") where "\<bottom> \<equiv> THE x. x\<in>carrier A \<and> (\<forall>y\<in>carrier A. x \<sqsubseteq> y)"
+
+  lemma bot_closed: "\<bottom> \<in> carrier A"
+    apply (simp add: bot_def)
+    apply (rule the1I2)
+    apply (metis (no_types) bot_ex leq_def_left order_antisym)
+    by auto
+
+  definition top :: "'a" ("\<top>") where "\<top> \<equiv> THE x. x\<in>carrier A \<and> (\<forall>y\<in>carrier A. y \<sqsubseteq> x)"
+
+  lemma top_closed: "\<top> \<in> carrier A"
+    apply (simp add: top_def)
+    apply (rule the1I2)
+    apply (metis (hide_lams, no_types) leq_meet_def meet_comm top_ex)
+    by auto
+
   lemma bot_least: "x \<in> carrier A \<Longrightarrow> \<bottom> \<sqsubseteq> x"
-    by (metis assms join_comm leq_def bot_closed bot_id)
+    apply (simp add: bot_def)
+    apply (rule the1I2)
+    apply (metis (no_types) bot_ex leq_def_left order_antisym)
+    by auto
 
   lemma top_greatest: "x \<in> carrier A \<Longrightarrow> x \<sqsubseteq> \<top>"
-    by (metis leq_meet_def top_closed top_id)
+    apply (simp add: top_def)
+    apply (rule the1I2)
+    apply (metis (hide_lams, no_types) leq_meet_def meet_comm top_ex)
+    by auto
+
+  definition atom :: "'a \<Rightarrow> bool" where
+    "atom x \<equiv> x covers \<bottom>"
+
+  definition atoms :: "'a set" where
+    "atoms \<equiv> {x. x covers \<bottom> \<and> x \<in> carrier A}"
 
 end
 
@@ -876,6 +897,17 @@ locale complemented_lattice = bounded_lattice +
 subsection {* Boolean algebra *}
 (* +------------------------------------------------------------------------+ *)
 
+datatype 'a ba_expr = BNand "'a ba_expr" "'a ba_expr"
+                    | BOne
+                    | BZero
+                    | BAtom 'a
+
+primrec be_atoms :: "'a ba_expr \<Rightarrow> 'a set" where
+  "be_atoms (BNand x y) = be_atoms x \<union> be_atoms y"
+| "be_atoms BOne = {}"
+| "be_atoms BZero = {}"
+| "be_atoms (BAtom x) = {x}"
+
 locale boolean_algebra = complemented_lattice + distributive_lattice
 
 begin
@@ -885,7 +917,46 @@ begin
     shows "\<exists>!y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>"
     apply safe
     apply (metis assms compl)
-    by (metis (lifting) assms bot_id dist2 join_comm)
+    by (metis absorb2 assms dist1 join_comm meet_comm)
+
+  definition complement :: "'a \<Rightarrow> 'a" ("!") where
+    "complement x = (THE y. y \<in> carrier A \<and> x \<squnion> y = \<top> \<and> x \<sqinter> y = \<bottom>)"
+
+  lemma complement_closed: assumes xc: "x \<in> carrier A" shows "!x \<in> carrier A"
+    by (simp add: complement_def, rule the1I2, rule compl_uniq[OF xc], auto)
+
+  primrec be_unfold :: "'a ba_expr \<Rightarrow> 'a" where
+    "be_unfold BOne = \<top>"
+  | "be_unfold BZero = \<bottom>"
+  | "be_unfold (BNand x y) = (! (be_unfold x \<squnion> be_unfold y))"
+  | "be_unfold (BAtom x) = x"
+
+  lemma atoms_closed: "atoms \<subseteq> carrier A"
+    by (auto simp add: atoms_def)
+
+  (*
+  lemma complement1: "x \<in> carrier A \<Longrightarrow> x \<squnion> !x = \<top>" sorry
+
+  lemma complement2: "x \<in> carrier A \<Longrightarrow> x \<sqinter> !x = \<bottom>" sorry
+
+  lemma not_one: "!\<top> = \<bottom>" sorry
+
+  lemma not_zero: "!\<bottom> = \<top>" sorry
+
+  lemma double_compl: "x \<in> carrier A \<Longrightarrow> !(!x) = x" sorry
+
+  lemma de_morgan1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> !x \<sqinter> !y = !(x \<squnion> y)" sorry
+
+  lemma ba_meet_def: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqinter> y = !(!x \<squnion> !y)" sorry
+
+  lemma de_morgan2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> !x \<squnion> !y = !(x \<sqinter> y)" sorry
+
+  lemma compl_anti: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqsubseteq> y \<longleftrightarrow> !y \<sqsubseteq> !x" sorry
+
+  lemma ba_join_def: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<squnion> y = !(!x \<sqinter> !y)" sorry
+
+  lemma ba_3: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x = (x \<sqinter> y) \<squnion> (x \<sqinter> !y)" sorry
+      *)
 
 end
 
@@ -1116,6 +1187,23 @@ abbreviation top_ext :: "('a, 'b) ord_scheme \<Rightarrow> 'a" ("\<top>\<^bsub>_
 
 lemma extend_cms: "complete_meet_semilattice A \<Longrightarrow> complete_meet_semilattice (\<up> A)"
   by (metis extend_cjs extend_dual inv_cms_is_cjs inv_inv_id)
+
+lemma (in order) is_glb_from_is_lub:
+  "\<lbrakk>x \<in> carrier A; X \<subseteq> carrier A; is_lub x {b. (\<forall>a\<in>X. b \<sqsubseteq> a) \<and> b \<in> carrier A}\<rbrakk> \<Longrightarrow> is_glb x X"
+  by (auto simp add: is_glb_simp is_lub_simp)
+
+lemma (in complete_join_semilattice) is_cms: "complete_meet_semilattice A"
+proof
+  fix X assume Xc: "X \<subseteq> carrier A"
+
+  have "{b. (\<forall>a\<in>X. b \<sqsubseteq> a) \<and> b \<in> carrier A} \<subseteq> carrier A" by auto
+  then obtain x where "is_lub x {b. (\<forall>a\<in>X. b \<sqsubseteq> a) \<and> b \<in> carrier A}" and "x \<in> carrier A"
+    by (metis (lifting) lub_ex)
+  hence "is_glb x X"
+    by (metis (no_types) Xc is_glb_from_is_lub)
+  thus "\<exists>x\<in>carrier A. is_glb x X"
+    by (metis `x \<in> carrier A`)
+qed
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Complete lattices *}

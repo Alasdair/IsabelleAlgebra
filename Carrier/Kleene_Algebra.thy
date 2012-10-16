@@ -2,8 +2,9 @@ theory Kleene_Algebra
   imports Dioid "Regular-Sets/Equivalence_Checking"
 begin
 
-lemma "check_eqv (Times (Star (Atom 0)) (Star (Atom 0))) (Star (Atom 0))"
-  by eval
+(* +------------------------------------------------------------------------+ *)
+subsection {* Kleene Algebras *}
+(* +------------------------------------------------------------------------+ *)
 
 record 'a kleene_algebra = "'a dioid" +
   star :: "'a \<Rightarrow> 'a" ("_\<^sup>\<star>\<index>" [101] 100)

@@ -12,7 +12,7 @@ locale kat' =
   fixes A :: "('a, 'b) test_scheme" (structure)
   assumes kat_ka: "kleene_algebra A"
   and test_subset: "tests A \<subseteq> carrier A"
-  and test_le [simp]: "le (test A) = nat_order"
+  and test_le [simp]: "le (test A) = dioid.nat_order A"
   and test_ba: "boolean_algebra (test A)"
 
 sublocale kat' \<subseteq> kleene_algebra using kat_ka .
@@ -24,9 +24,6 @@ locale kat = kat' +
   and test_meet: "order.meet (test A) x y = x \<cdot> y"
 
 begin
-
-  definition test_atoms :: "'a set" where
-    "test_atoms \<equiv> bounded_lattice.atoms (test A)"
 
   lemma test_le_var: "x \<sqsubseteq>\<^bsub>test A\<^esub> y \<longleftrightarrow> x \<sqsubseteq> y"
     by (metis (full_types) test_le)
@@ -82,26 +79,11 @@ begin
     and test_compl = complemented_lattice.compl[OF test_complemented, simplified]
     and test_compl_uniq = boolean_algebra.compl_uniq[OF test_ba, simplified]
 
-  lemma test_atoms_def_var: "test_atoms = {x. covers_op x 0 \<and> x \<in> tests A}"
-    apply (simp add: test_atoms_def)
-    apply (simp add: bounded_lattice.atoms_def[OF test_bl])
-    apply (simp add: order.covers_op_def[OF natural])
-    apply (simp add: order.covers_op_def[OF test_ord])
-    by (simp add: less_def order.less_def[OF test_ord])
-
   declare test_join [simp del]
   declare test_meet [simp del]
   declare test_le_var [simp del]
   declare test_one [simp del]
   declare test_zero [simp del]
-
-  lemma test_atoms_closed: "test_atoms \<subseteq> tests A"
-    apply (simp add: test_atoms_def)
-    apply (simp add: bounded_lattice.atoms_def[OF test_bl])
-    by (metis (full_types) order.less_irrefl order.order_refl test_le test_one_closed test_ord)
-
-  lemma "test_atoms \<noteq> {}"
-    by (metis (full_types) bounded_lattice.top_greatest order.less_irrefl test_bl test_le test_one test_one_closed test_ord)
 
   definition complement :: "'a \<Rightarrow> 'a" ("!") where
     "complement x = (THE y. y \<in> tests A \<and> x + y = 1 \<and> x \<cdot> y = 0)"
@@ -116,7 +98,7 @@ begin
     by (simp add: complement_def, rule the1I2, rule test_compl_uniq[OF assms], auto+)
 
   lemma test_under_one: "p \<in> tests A \<Longrightarrow> p \<sqsubseteq> 1"
-    by (metis (full_types) less_irrefl nat_refl one_closed partial_object.simps(1) test_le)
+    by (metis mult_oner test_leq_meet_def test_one_closed test_subset_var)
 
   lemma test_star: "p \<in> tests A \<Longrightarrow> p\<^sup>\<star> = 1"
     by (smt set_rev_mp star_subid test_subset test_under_one)
@@ -140,12 +122,10 @@ begin
     by (smt add_comm complement1 complement2 complement_closed test_compl_uniq test_mult_comm test_subset_var)
 
   lemma de_morgan1: "\<lbrakk>p \<in> tests A; q \<in> tests A\<rbrakk> \<Longrightarrow> !p \<cdot> !q = !(p + q)"
-    apply (subgoal_tac "!p \<in> tests A" "!q \<in> tests A" "!p \<cdot> !q \<in> tests A" "!(p + q) \<in> tests A")
-    apply (rule test_antisym)
-    apply (simp add: test_leq_def)
-    apply (metis (full_types) less_irrefl nat_refl one_closed partial_object.simps(1) test_le)
-    apply (metis (full_types) less_irrefl nat_refl one_closed partial_object.simps(1) test_le)
-    by (metis complement_closed test_join_closed test_meet_closed)+
+    apply (subgoal_tac "p + q + !p\<cdot>!q = 1" "(p + q) \<cdot> (!p\<cdot>!q) = 0")
+    apply (smt complement1 complement2 complement_closed test_compl_uniq test_join_closed test_meet_closed)
+    apply (smt complement2 complement_closed mult_zeror test_dist1 test_join_closed test_meet_assoc test_meet_closed test_mult_comm test_subset_var)
+    by (smt add_comm complement1 complement_closed nat_order_def test_absorb2 test_dist2 test_join_assoc test_join_closed test_subset_var test_under_one)
 
   lemma test_meet_def: "\<lbrakk>p \<in> tests A; q \<in> tests A\<rbrakk> \<Longrightarrow> p \<cdot> q = !(!p + !q)"
     by (metis complement_closed de_morgan1 test_double_compl)
@@ -154,7 +134,7 @@ begin
     by (smt complement_closed test_double_compl test_join_closed test_meet_def)
 
   lemma test_compl_anti: "\<lbrakk>p \<in> tests A; q \<in> tests A\<rbrakk> \<Longrightarrow> p \<sqsubseteq> q \<longleftrightarrow> !q \<sqsubseteq> !p"
-    by (metis (full_types) eq_refl less_irrefl one_closed partial_object.simps(1) test_le)
+    by (metis add_idem de_morgan2 nat_order_def test_leq_meet_def test_meet_def test_mult_comm test_subset_var)
 
   lemma test_join_def: "\<lbrakk>p \<in> tests A; q \<in> tests A\<rbrakk> \<Longrightarrow> p + q = !(!p \<cdot> !q)"
     by (metis de_morgan1 test_double_compl test_join_closed)
@@ -180,7 +160,9 @@ begin
   lemma shunting:
     assumes pc: "p \<in> tests A" and qc: "q \<in> tests A" and rc: "r \<in> tests A"
     shows "p \<cdot> q \<sqsubseteq> r \<longleftrightarrow> q \<sqsubseteq> !p + r"
-    by (metis (full_types) bounded_lattice.top_greatest order.less_irrefl test_bl test_le test_one test_one_closed test_ord)
+    apply default
+    apply (smt complement1 complement_closed distl mult_assoc mult_oner pc qc rc test_absorb2 test_double_compl test_join_closed test_leq_meet_def test_meet_closed test_mult_comm test_subset_var)
+    by (smt ba_5 complement_closed pc qc rc test_double_compl test_join_closed test_leq_meet_def test_meet_assoc test_meet_def test_mult_comm)
 
   lemma shunting_galois:
     assumes pc: "p \<in> tests A"
@@ -226,6 +208,62 @@ begin
   declare test_one[simp del]
   declare test_zero[simp del]
   declare o_def[simp del]
+
+  definition if_then_else :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> 'a" ("IF _ THEN _ ELSE _ ENDIF" [64,64,64] 63) where
+    "IF b THEN p ELSE q ENDIF \<equiv> b\<cdot>p + (!b)\<cdot>q"
+
+  definition while :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("WHILE _ DO _ WEND" [64,64] 63) where
+    "WHILE b DO p WEND = (b\<cdot>p)\<^sup>\<star>\<cdot>!b"
+
+  abbreviation SKIP :: "'a" where "SKIP \<equiv> 1"
+
+  definition hoare_triple :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool" ("_ \<lbrace> _ \<rbrace> _" [54,54,54] 53) where
+    "b \<lbrace> p \<rbrace> c \<equiv> b \<in> tests A \<and> c \<in> tests A \<and> p \<in> carrier A \<and> b\<cdot>p\<cdot>(!c) = 0"
+
+  lemma hoare_triple_var: "b \<lbrace> p \<rbrace> c \<longleftrightarrow> b \<in> tests A \<and> c \<in> tests A \<and> p \<in> carrier A \<and> b\<cdot>p = b\<cdot>p\<cdot>c"
+    apply (auto simp add: hoare_triple_def)
+    apply (smt add_zerol complement2 complement_closed de_morgan2 distl mult_closed mult_oner test_double_compl test_not_zero test_subset_var)
+    by (metis (lifting) complement2 complement_closed mult_assoc mult_closed mult_zeror test_subset_var)
+
+  lemma mult4_assoc: "\<lbrakk>a \<in> carrier A; b \<in> carrier A; c \<in> carrier A; d \<in> carrier A\<rbrakk> \<Longrightarrow> a\<cdot>(b\<cdot>c\<cdot>d) = (a\<cdot>b\<cdot>c)\<cdot>d"
+    by (metis (lifting) mult_assoc mult_closed)
+
+  lemma hoare_composition: "\<lbrakk>b \<lbrace> p \<rbrace> c; c \<lbrace> q \<rbrace> d\<rbrakk> \<Longrightarrow> b \<lbrace> p \<cdot> q \<rbrace> d"
+    apply (simp add: hoare_triple_var, safe, metis mult_closed)
+    by (metis (hide_lams, no_types) mult_assoc mult_closed test_subset_var)
+
+  lemma hoare_weakening: "\<lbrakk>b' \<in> tests A; c' \<in> tests A; b' \<sqsubseteq> b; b \<lbrace> p \<rbrace> c; c \<sqsubseteq> c'\<rbrakk> \<Longrightarrow> b' \<lbrace> p \<rbrace> c'"
+    apply (simp add: hoare_triple_var, safe)
+    by (smt mult4_assoc mult_assoc test_leq_meet_def test_subset_var)
+
+  lemma hoare_if:
+    assumes bt: "b \<in> tests A" and ct: "c \<in> tests A"
+    and then_branch: "b\<cdot>c \<lbrace> p \<rbrace> d"
+    and else_branch: "!b\<cdot>c \<lbrace> q \<rbrace> d"
+    shows "c \<lbrace> IF b THEN p ELSE q ENDIF \<rbrace> d"
+    apply (insert then_branch else_branch)
+    apply (simp add: hoare_triple_var if_then_else_def ct bt, safe)
+    apply (metis add_closed bt complement_closed dioid.mult_closed ka_dioid test_subset_var)
+    by (smt bt complement_closed ct distl distr mult_assoc mult_closed test_mult_comm test_subset_var)
+
+  lemma hoare_while:
+    assumes bt: "b \<in> tests A" and ct: "c \<in> tests A" and pc: "p \<in> carrier A"
+    shows "b\<cdot>c \<lbrace>p\<rbrace> c \<Longrightarrow> c \<lbrace> WHILE b DO p WEND \<rbrace> !b \<cdot> c"
+    apply (simp add: hoare_triple_var while_def, safe)
+    apply (metis bt complement_closed test_meet_closed)
+    apply (metis bt complement_closed mult_closed star_closed test_subset_var)
+  proof -
+    assume "b\<cdot>c \<in> tests A" and "c \<in> tests A" and "p \<in> carrier A" and "b \<cdot> c \<cdot> p = b \<cdot> c \<cdot> p \<cdot> c"
+    hence "c\<cdot>b\<cdot>p \<sqsubseteq> c\<cdot>b\<cdot>p\<cdot>c"
+      by (metis (lifting) bt mult_closed nat_refl test_mult_comm test_subset_var)
+    hence "c\<cdot>(b\<cdot>p)\<^sup>\<star> \<sqsubseteq> c\<cdot>(b\<cdot>p)\<^sup>\<star>\<cdot>c"
+      by (smt add_idem bt ct star_closed meet_semilattice.meet_comm mult_assoc mult_closed nat_order_def pc test_meet test_meet_idem test_ms test_subset_var)
+    thus "c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b) = c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b)\<cdot>(!b\<cdot>c)"
+      by (smt bt complement_closed ct mult_double_iso mult_assoc mult_closed mult_oner nat_antisym nat_refl one_closed pc star_closed test_meet_idem test_mult_comm test_subset_var test_under_one)
+  qed
+
+  lemma hoare_skip: "b \<in> tests A \<Longrightarrow> b \<lbrace> SKIP \<rbrace> b"
+    by (metis (lifting) complement2 hoare_triple_def mult_oner one_closed test_subset_var)
 
 end
 

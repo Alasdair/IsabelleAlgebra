@@ -2,14 +2,14 @@ theory KAT
   imports Kleene_Algebra Galois_Connection
 begin
 
-record 'a test = "'a kleene_algebra" +
+record 'a test_algebra = "'a kleene_algebra" +
   test :: "'a ord"
 
-abbreviation tests :: "('a, 'b) test_scheme \<Rightarrow> 'a set" where
+abbreviation tests :: "('a, 'b) test_algebra_scheme \<Rightarrow> 'a set" where
     "tests A \<equiv> carrier (test A)"
 
 locale kat' =
-  fixes A :: "('a, 'b) test_scheme" (structure)
+  fixes A :: "('a, 'b) test_algebra_scheme" (structure)
   assumes kat_ka: "kleene_algebra A"
   and test_subset: "tests A \<subseteq> carrier A"
   and test_le [simp]: "le (test A) = dioid.nat_order A"
@@ -20,10 +20,21 @@ sublocale kat' \<subseteq> kleene_algebra using kat_ka .
 locale kat = kat' +
   assumes test_one: "bounded_lattice.top (test A) = 1"
   and test_zero: "bounded_lattice.bot (test A) = 0"
-  and test_join: "order.join (test A) x y = x + y"
-  and test_meet: "order.meet (test A) x y = x \<cdot> y"
+  and test_join: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> order.join (test A) x y = x + y"
+  and test_meet: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> order.meet (test A) x y = x \<cdot> y"
 
+sublocale kat \<subseteq> test: boolean_algebra "test A"
+  where "bounded_lattice.top (test A) = 1"
+  and "bounded_lattice.bot (test A) = 0"
+  and "x \<sqsubseteq>\<^bsub>test A\<^esub> y \<longleftrightarrow> x \<sqsubseteq> y"
+  by (simp_all add: test_ba test_one test_zero test_join test_meet test_join)
+
+(*
+context kat
 begin
+
+  lemma rem_tj: "\<lbrakk>P (x \<sqinter>\<^bsub>test A\<^esub> y); x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> P (x \<cdot> y)"
+    by (metis test_meet)
 
   lemma test_le_var: "x \<sqsubseteq>\<^bsub>test A\<^esub> y \<longleftrightarrow> x \<sqsubseteq> y"
     by (metis (full_types) test_le)
@@ -507,5 +518,6 @@ begin
     by (metis (lifting) complement2 hoare_triple_def mult_oner one_closed test_subset_var)
 
 end
+*)
 
 end

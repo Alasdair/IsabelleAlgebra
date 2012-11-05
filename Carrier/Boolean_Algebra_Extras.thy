@@ -431,46 +431,129 @@ lift_definition bt_zero :: "'a bterm" is BZero
 
 definition free_ba where "free_ba \<equiv> \<lparr>carrier = UNIV, le = (\<lambda>x y. bt_or x y = y)\<rparr>"
 
+lemma free_ba_hunt: "huntington_algebra \<lparr>carrier = UNIV, hor = bt_or, hnot = bt_not\<rparr>"
+proof (default, simp_all)
+  fix x y z :: "'b bterm"
+  show "x = bt_or (bt_not (bt_or (bt_not x) y)) (bt_not (bt_or (bt_not x) (bt_not y)))"
+    by (rule HOL.sym, transfer, rule hunt_con.huntington)
+  show "bt_or x y = bt_or y x"
+    by (transfer, rule hunt_con.comm)
+  show "bt_or (bt_or x y) z = bt_or x (bt_or y z)"
+    by (transfer, rule hunt_con.assoc)
+qed
+
+abbreviation BTH where "BTH \<equiv> \<lparr>carrier = UNIV, hor = bt_or, hnot = bt_not\<rparr>"
+
+lemma bt_hone [simp]: "huntington_algebra.hone BTH = bt_one"
+proof -
+  have "bt_or bt_one (bt_not bt_one) = bt_one"
+    by (transfer, metis one)
+  thus ?thesis
+    by (simp add: huntington_algebra.one_prop[symmetric, OF free_ba_hunt])
+qed
+
+lemma bt_hzero [simp]: "huntington_algebra.hzero BTH = bt_zero"
+proof -
+  have "bt_not bt_one = bt_zero"
+    by (transfer, metis zero)
+  thus ?thesis
+    by (simp add: huntington_algebra.hzero_def[OF free_ba_hunt])
+qed
+
+interpretation hba: huntington_algebra "BTH"
+  where "hor BTH x y = bt_or x y"
+  and "hnot BTH x = bt_not x"
+  and "huntington_algebra.hand BTH x y = bt_and x y"
+  and "huntington_algebra.hone BTH = bt_one"
+  and "huntington_algebra.hzero BTH = bt_zero"
+  and "x \<in> carrier BTH = True"
+  apply (simp_all add: free_ba_hunt)
+  apply (simp add: huntington_algebra.hand_def[OF free_ba_hunt])
+  apply transfer
+  apply (metis hunt_con.sym meet)
+  done
+
 theorem free_ba: "boolean_algebra free_ba"
 proof (simp add: free_ba_def)
-  have "huntington_algebra \<lparr>carrier = UNIV, hor = bt_or, hnot = bt_not\<rparr>"
-  proof (default, simp_all)
-    fix x y z :: "'b bterm"
-    show "x = bt_or (bt_not (bt_or (bt_not x) y)) (bt_not (bt_or (bt_not x) (bt_not y)))"
-      by (rule HOL.sym, transfer, rule hunt_con.huntington)
-    show "bt_or x y = bt_or y x"
-      by (transfer, rule hunt_con.comm)
-    show "bt_or (bt_or x y) z = bt_or x (bt_or y z)"
-      by (transfer, rule hunt_con.assoc)
-  qed
-  thus "boolean_algebra \<lparr>carrier = UNIV, le = \<lambda>x y. bt_or x y = y\<rparr>"
+  from free_ba_hunt
+  show "boolean_algebra \<lparr>carrier = UNIV, le = \<lambda>x y. bt_or x y = y\<rparr>"
     by (rule huntington_induces_ba)
 qed
+
+lemma free_ba_ord: "order free_ba"
+  apply (insert free_ba)
+  apply (simp add: boolean_algebra_def distributive_lattice_def)
+  apply (simp add: lattice_def join_semilattice_def)
+  by auto
+
+lemma [simp]: "carrier free_ba = UNIV"
+  by (simp add: free_ba_def)
+
+lemma [simp]: "x \<squnion>\<^bsub>free_ba\<^esub> y = bt_or x y"
+  apply (simp add: order.join_def[OF free_ba_ord] order.lub_simp[OF free_ba_ord])
+  apply (simp add: free_ba_def)
+  apply (rule the1I2)
+  apply auto
+  apply (smt hba.assoc hba.comm hba.or_idem)
+  apply (metis hba.comm)
+  by (metis (full_types) hba.assoc hba.comm hba.or_idem)
+
+lemma [simp]: "x \<sqinter>\<^bsub>free_ba\<^esub> y = bt_and x y"
+  apply (simp add: order.meet_def[OF free_ba_ord] order.glb_simp[OF free_ba_ord])
+  apply (simp add: free_ba_def)
+  apply (rule the1I2)
+  apply auto
+  apply (rule_tac x = "bt_and x y" in exI)
+  apply (metis hba.absorb1 hba.distl hba.glb2 hba.hand_comm)
+  apply (metis hba.comm)
+  by (smt hba.absorb1 hba.distr hba.glb2 hba.hand_comm)
+
+lemma free_ba_bl: "bounded_lattice free_ba"
+  apply (insert free_ba)
+  apply (simp add: boolean_algebra_def complemented_lattice_def)
+  apply auto
+  done
+
+lemma [simp]: "bounded_lattice.top free_ba = bt_one"
+  apply (simp add: bounded_lattice.top_def[OF free_ba_bl])
+  apply (simp add: free_ba_def)
+  apply (rule the1I2)
+  apply auto
+  apply (metis hba.or_one)
+  apply (metis hba.comm)
+  by (metis hba.comm hba.or_one)
+
+lemma [simp]: "bounded_lattice.bot free_ba = bt_zero"
+  apply (simp add: bounded_lattice.bot_def[OF free_ba_bl])
+  apply (simp add: free_ba_def)
+  apply (rule the1I2)
+  apply auto
+  apply (metis hba.comm hba.or_zero)
+  apply (metis hba.or_zero)
+  by (metis hba.or_zero)
 
 interpretation ba: join_semilattice free_ba
   where "x \<squnion>\<^bsub>free_ba\<^esub> y = bt_or x y"
   and "x \<sqinter>\<^bsub>free_ba\<^esub> y = bt_and x y"
-  and "carrer free_ba = UNIV"
+  and "carrier free_ba = UNIV"
   and "bounded_lattice.top free_ba = bt_one"
   and "bounded_lattice.bot free_ba = bt_zero"
-  sorry
+  by (insert free_ba, simp_all add: boolean_algebra_def distributive_lattice_def lattice_def, auto)
 
 interpretation ba: meet_semilattice free_ba
   where "x \<squnion>\<^bsub>free_ba\<^esub> y = bt_or x y"
   and "x \<sqinter>\<^bsub>free_ba\<^esub> y = bt_and x y"
-  and "carrer free_ba = UNIV"
+  and "carrier free_ba = UNIV"
   and "bounded_lattice.top free_ba = bt_one"
   and "bounded_lattice.bot free_ba = bt_zero"
-  sorry
+  by (insert free_ba, simp_all add: boolean_algebra_def distributive_lattice_def lattice_def, auto)
 
 interpretation ba: boolean_algebra free_ba
   where "x \<squnion>\<^bsub>free_ba\<^esub> y = bt_or x y"
   and "x \<sqinter>\<^bsub>free_ba\<^esub> y = bt_and x y"
-  and "carrer free_ba = UNIV"
+  and "carrier free_ba = UNIV"
   and "bounded_lattice.top free_ba = bt_one"
   and "bounded_lattice.bot free_ba = bt_zero"
-  sorry
+  by (insert free_ba, simp_all)
 
 end
-
-

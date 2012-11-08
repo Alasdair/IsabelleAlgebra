@@ -371,6 +371,10 @@ notation
   Groups.one_class.one ("1") and
   Groups.zero_class.zero ("0")
 
+no_notation
+  huntington_algebra.hor (infixl "+\<index>" 70) and
+  huntington_algebra.hnot ("!\<index>")
+
 datatype 'a bexpr = BLeaf 'a
                   | BOr "'a bexpr" "'a bexpr" (infixl ":+:" 70)
                   | BNot "'a bexpr"

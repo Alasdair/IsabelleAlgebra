@@ -215,6 +215,96 @@ begin
       by (metis mult_closed nat_antisym star_closed star_slide1 xc yc)
   qed
 
+  lemma star_denest_1:
+    assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A"
+    shows "x\<^sup>\<star>\<cdot>(y\<cdot>x\<^sup>\<star>)\<^sup>\<star> \<sqsubseteq> (x + y)\<^sup>\<star>"
+    apply (rule star_inductr[rule_format], insert xc yc, ka_closure+)
+    apply (rule add_lub_r1, ka_closure+)
+    apply (rule star_subdist, ka_closure+)
+    apply (rule star_inductl[rule_format], ka_closure+)
+    apply (rule add_lub_r1, ka_closure+)
+    apply (smt add_closed add_lub mult_double_iso star_closed star_ext star_subdist star_trans_eq)
+    by (metis add_closed star_1l)
+
+  lemma star_subdist_var_1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x \<sqsubseteq> (x+y)\<^sup>\<star>"
+    by (metis add_closed add_lub star_closed star_ext)
+
+  lemma star_subdist_var_2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x\<cdot>y \<sqsubseteq> (x+y)\<^sup>\<star>"
+    by (metis add_closed add_comm mult_double_iso star_closed star_subdist_var_1 star_trans_eq)
+
+  lemma star_subdist_var_3: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x\<^sup>\<star>\<cdot>y\<^sup>\<star> \<sqsubseteq> (x+y)\<^sup>\<star>"
+    by (metis add_closed add_comm mult_double_iso star_closed star_subdist star_trans_eq)
+
+  lemma star_denest_2:
+    assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A"
+    shows "(x + y)\<^sup>\<star> \<sqsubseteq> x\<^sup>\<star>\<cdot>(y\<cdot>x\<^sup>\<star>)\<^sup>\<star>"
+  proof -
+    have "(x + y)\<^sup>\<star>\<cdot>1 \<sqsubseteq> x\<^sup>\<star>\<cdot>(y\<cdot>x\<^sup>\<star>)\<^sup>\<star>"
+      apply (rule star_inductl[rule_format], insert xc yc, ka_closure+)
+      apply (rule add_lub_r1, ka_closure+)
+      apply (smt mult_closed mult_double_iso mult_onel one_closed star_closed star_ref)
+      apply (subst distr, ka_closure+)
+      apply (rule add_lub_r1, ka_closure+)
+      apply (metis mult_closed mult_assoc mult_isor star_1l star_closed)
+      by (smt mult_assoc mult_closed mult_double_iso mult_onel one_closed star_1l star_closed star_ref)
+    thus ?thesis
+      by (metis dioid.add_closed ka_dioid mult_oner star_closed xc yc)
+  qed
+
+  lemma star_denest: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x\<^sup>\<star>\<cdot>(y\<cdot>x\<^sup>\<star>)\<^sup>\<star> = (x + y)\<^sup>\<star>"
+    by (smt add_closed mult_closed nat_antisym star_closed star_denest_1 star_denest_2)
+
+  lemma kozen_skat_lemma:
+    assumes uc: "u \<in> carrier A" and vc: "v \<in> carrier A" and wc: "w \<in> carrier A"
+    and z3: "u\<cdot>v = 0" and z2: "u\<cdot>w = 0"
+    shows "(u + v)\<^sup>\<star>\<cdot>w = v\<^sup>\<star>\<cdot>w"
+
+  proof -
+    have z1: "u\<cdot>v = u\<cdot>w"
+      by (metis z3 z2)
+    have "u\<^sup>\<star>\<cdot>w \<sqsubseteq> w"
+      by (metis star_inductl_var uc wc z2 zero_min)
+    moreover have "w \<sqsubseteq> u\<^sup>\<star>\<cdot>w"
+      by (smt distr mult_onel nat_order_def one_closed star_closed star_plus_one uc wc)
+    ultimately have a: "u\<^sup>\<star>\<cdot>w = w"
+      by (smt nat_antisym uc wc star_closed mult_closed zero_closed)
+
+    have "u\<^sup>\<star>\<cdot>v \<sqsubseteq> v"
+      by (metis star_inductl_var uc vc z3 zero_min)
+    moreover have "v \<sqsubseteq> u\<^sup>\<star>\<cdot>v"
+      by (smt distr mult_onel nat_order_def one_closed star_closed star_plus_one uc vc)
+    ultimately have b: "u\<^sup>\<star>\<cdot>v = v"
+      by (metis mult_closed nat_antisym star_closed uc vc)
+
+    from a and b show ?thesis
+      by (smt add_closed mult_assoc mult_closed nat_antisym star_closed star_denest_1 star_denest_2 star_slide uc vc wc)
+  qed
+
+  lemma kozen_skat_lemma_dual:
+    assumes uc: "u \<in> carrier A" and vc: "v \<in> carrier A" and wc: "w \<in> carrier A"
+    and z3: "v\<cdot>u = 0" and z2: "w\<cdot>u = 0"
+    shows "w\<cdot>(u + v)\<^sup>\<star> = w\<cdot>v\<^sup>\<star>"
+  proof -
+    have z1: "v\<cdot>u = w\<cdot>u"
+      by (metis z3 z2)
+    have "w\<cdot>u\<^sup>\<star> \<sqsubseteq> w"
+      by (metis add_zeror nat_refl star_inductr uc wc z2)
+    moreover have "w \<sqsubseteq> w\<cdot>u\<^sup>\<star>"
+      by (smt distl mult_oner nat_order_def one_closed star_closed star_plus_one uc wc)
+    ultimately have a: "w\<cdot>u\<^sup>\<star> = w"
+      by (smt nat_antisym uc wc star_closed mult_closed zero_closed)
+
+    have "v\<cdot>u\<^sup>\<star> \<sqsubseteq> v"
+      by (metis add_zeror nat_refl star_inductr uc vc z3)
+    moreover have "v \<sqsubseteq> v\<cdot>u\<^sup>\<star>"
+      by (smt distl mult_oner nat_order_def one_closed star_closed star_plus_one uc vc)
+    ultimately have b: "v\<cdot>u\<^sup>\<star> = v"
+      by (metis mult_closed nat_antisym star_closed uc vc)
+
+    from a and b show ?thesis
+      by (metis mult_assoc star_closed star_denest uc vc wc)
+  qed
+
 end
 
 end

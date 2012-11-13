@@ -258,7 +258,6 @@ begin
     assumes uc: "u \<in> carrier A" and vc: "v \<in> carrier A" and wc: "w \<in> carrier A"
     and z3: "u\<cdot>v = 0" and z2: "u\<cdot>w = 0"
     shows "(u + v)\<^sup>\<star>\<cdot>w = v\<^sup>\<star>\<cdot>w"
-
   proof -
     have z1: "u\<cdot>v = u\<cdot>w"
       by (metis z3 z2)
@@ -303,6 +302,71 @@ begin
 
     from a and b show ?thesis
       by (metis mult_assoc star_closed star_denest uc vc wc)
+  qed
+
+  lemma star_comm: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x\<cdot>y = y\<cdot>x \<Longrightarrow> x\<cdot>y\<^sup>\<star> = y\<^sup>\<star>\<cdot>x"
+    apply (rule nat_antisym[rotated 2], ka_closure+)
+    apply (rule star_inductr[rule_format], ka_closure+)
+    apply (rule add_lub_r1, ka_closure+)
+    apply (metis distr mult_onel nat_order_def one_closed star_closed star_plus_one)
+    apply (smt subdistl distr mult_assoc mult_closed nat_order_def star_closed star_ext star_trans_eq)
+    apply (rule star_inductl[rule_format], ka_closure+)
+    apply (rule add_lub_r1, ka_closure+)
+    apply (smt mult_double_iso mult_oner nat_refl one_closed star_closed star_ref)
+    by (smt mult_assoc mult_closed mult_double_iso nat_refl star_1l star_closed)
+
+  lemma star_eliml1: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x = x\<cdot>x \<Longrightarrow> x\<cdot>y = y\<cdot>x \<Longrightarrow> x\<cdot>(x\<cdot>y)\<^sup>\<star> \<sqsubseteq> x\<cdot>y\<^sup>\<star>"
+    apply (rule star_inductr[rule_format], ka_closure+)
+    apply (rule add_lub_r1, ka_closure+)
+    apply (smt mult_double_iso mult_oner nat_refl one_closed star_closed star_ref)
+    by (smt mult_assoc mult_closed mult_isol star_1l star_closed star_comm)
+
+  lemma star_eliml2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x = x\<cdot>x \<Longrightarrow> x\<cdot>y = y\<cdot>x \<Longrightarrow> x\<cdot>y\<^sup>\<star> \<sqsubseteq> x\<cdot>(x\<cdot>y)\<^sup>\<star>"
+    by (metis add_idem mult_assoc mult_closed nat_order_def star_comm star_sim1)
+
+  lemma star_eliml: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x = x\<cdot>x \<Longrightarrow> x\<cdot>y = y\<cdot>x \<Longrightarrow> x\<cdot>(x\<cdot>y)\<^sup>\<star> = x\<cdot>y\<^sup>\<star>"
+    by (metis (no_types) mult_closed nat_antisym star_closed star_eliml1 star_eliml2)
+
+  lemma star_elimr: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; x = x\<cdot>x; x\<cdot>y = y\<cdot>x\<rbrakk> \<Longrightarrow> (y\<cdot>x)\<^sup>\<star>\<cdot>x = y\<^sup>\<star>\<cdot>x"
+    by (metis star_comm star_eliml star_slide)
+
+  lemma star_sim2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> z\<cdot>x \<sqsubseteq> y\<cdot>z \<Longrightarrow> z\<cdot>x\<^sup>\<star> \<sqsubseteq> y\<^sup>\<star>\<cdot>z"
+  proof (rule star_inductr[rule_format], ka_closure+)
+    assume xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
+    and asm: "z\<cdot>x \<sqsubseteq> y\<cdot>z"
+    have "y\<^sup>\<star>\<cdot>(z\<cdot>x) \<sqsubseteq> y\<^sup>\<star>\<cdot>y\<cdot>z"
+      by (smt asm mult_assoc mult_closed mult_isol star_closed xc yc zc)
+    moreover have "... \<sqsubseteq> y\<^sup>\<star>\<cdot>z"
+      by (smt mult_closed mult_isor star_1l star_closed star_comm yc zc)
+    ultimately have "y\<^sup>\<star>\<cdot>z\<cdot>x \<sqsubseteq> y\<^sup>\<star>\<cdot>z"
+      by (metis (no_types) mult_assoc mult_closed nat_trans star_closed xc yc zc)
+
+    moreover have "z \<sqsubseteq> y\<^sup>\<star>\<cdot>z"
+      by (smt distr mult_onel nat_order_def one_closed star_closed star_plus_one yc zc)
+
+    ultimately show "z + y\<^sup>\<star>\<cdot>z\<cdot>x \<sqsubseteq> y\<^sup>\<star>\<cdot>z"
+      by (metis add_lub_r1 mult_closed star_closed xc yc zc)
+  qed
+
+  lemma star_sim: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; z \<in> carrier A\<rbrakk> \<Longrightarrow> z\<cdot>x = y\<cdot>z \<Longrightarrow> z\<cdot>x\<^sup>\<star> = y\<^sup>\<star>\<cdot>z"
+    apply (rule nat_antisym[rotated 2], ka_closure+)
+    apply (rule star_sim2, ka_closure+)
+    apply (metis mult_isor nat_refl)
+    apply (rule star_sim1[rule_format], ka_closure+)
+    by (metis mult_closed nat_refl)
+
+  lemma star_elim:
+    assumes xc: "x \<in> carrier A" and yc: "y \<in> carrier A" and zc: "z \<in> carrier A"
+    and zz: "z = z\<cdot>z" and yz: "y\<cdot>z = z\<cdot>y" and xz: "x\<cdot>z = z"
+    shows "y\<^sup>\<star>\<cdot>z = (x\<cdot>y)\<^sup>\<star>\<cdot>z"
+  proof -
+    have "z\<cdot>y\<^sup>\<star> = (x\<cdot>y)\<^sup>\<star>\<cdot>z"
+    proof (rule star_sim, insert xc yc zc, ka_closure+)
+      show "z\<cdot>y = x\<cdot>y\<cdot>z"
+        by (metis mult_assoc xc xz yc yz zc)
+    qed
+    thus ?thesis
+      by (metis star_comm yc yz zc)
   qed
 
 end

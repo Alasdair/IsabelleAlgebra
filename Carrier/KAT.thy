@@ -29,7 +29,6 @@ sublocale kat \<subseteq> test: boolean_algebra "test A"
   and "x \<sqsubseteq>\<^bsub>test A\<^esub> y \<longleftrightarrow> x \<sqsubseteq> y"
   by (simp_all add: test_ba test_one test_zero test_join test_meet test_join)
 
-(*
 context kat
 begin
 
@@ -64,32 +63,85 @@ begin
   lemma test_complemented: "complemented_lattice (test A)"
     by (insert test_ba, simp add: boolean_algebra_def)
 
+  lemma test_plus_closed [simp]: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x + y \<in> tests A"
+    by (metis test.join_closed test_join)
+
+  lemma test_mult_closed [simp]: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x\<cdot>y \<in> tests A"
+    by (metis meet_closed test_meet)
+
   declare test_join [simp]
   declare test_meet [simp]
   declare test_le_var[simp]
   declare test_one[simp]
   declare test_zero[simp]
 
-  lemmas test_dist1 = distributive_lattice.dist1[OF test_distributive, simplified]
-    and test_dist2 = distributive_lattice.dist2[OF test_distributive, simplified]
-    and test_join_closed = join_semilattice.join_closed[OF test_js, simplified]
-    and test_meet_closed = meet_semilattice.meet_closed[OF test_ms, simplified]
-    and test_absorb1 = lattice.absorb1[OF test_lattice, simplified]
-    and test_absorb2 = lattice.absorb2[OF test_lattice, simplified]
-    and test_join_assoc = join_semilattice.join_assoc[OF test_js, simplified]
-    and test_meet_assoc = meet_semilattice.meet_assoc[OF test_ms, simplified]
-    and test_join_idem = join_semilattice.join_idem[OF test_js, simplified]
-    and test_meet_idem = meet_semilattice.meet_idem[OF test_ms, simplified]
-    and test_leq_def = join_semilattice.leq_def[OF test_js, simplified]
-    and test_leq_meet_def = meet_semilattice.leq_meet_def[OF test_ms, simplified]
-    and test_refl = order.order_refl[OF test_ord, simplified]
-    and test_trans = order.order_trans[OF test_ord, simplified]
-    and test_antisym = order.order_antisym[OF test_ord, simplified]
-    and test_one_closed = bounded_lattice.top_closed[OF test_bl, simplified]
-    and test_zero_closed = bounded_lattice.bot_closed[OF test_bl, simplified]
-    and test_compl = complemented_lattice.compl[OF test_complemented, simplified]
-    and test_compl_uniq = boolean_algebra.compl_uniq[OF test_ba, simplified]
+  lemma test_dist1:
+    "\<lbrakk>x \<in> tests A; y \<in> tests A; z \<in> tests A\<rbrakk> \<Longrightarrow> x \<cdot> (y + z) = (x \<cdot> y) + (x \<cdot> z)"
+    by (insert distributive_lattice.dist1[OF test_distributive], simp)
 
+  lemma test_dist2:
+    "\<lbrakk>x \<in> tests A; y \<in> tests A; z \<in> tests A\<rbrakk> \<Longrightarrow> x + y \<cdot> z = (x + y) \<cdot> (x + z)"
+    by (insert distributive_lattice.dist2[OF test_distributive], simp)
+
+  lemma test_join_closed: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x + y \<in> tests A"
+    by (insert join_semilattice.join_closed[OF test_js], simp)
+
+  lemma test_meet_closed: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x \<cdot> y \<in> tests A"
+    by (insert meet_semilattice.meet_closed[OF test_ms], simp)
+
+  lemma test_absorb1: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x + x \<cdot> y = x"
+    by (insert lattice.absorb1[OF test_lattice], simp)
+
+  lemma test_absorb2: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x \<cdot> (x + y) = x"
+    by (insert lattice.absorb2[OF test_lattice], simp)
+
+  lemma test_join_assoc:
+    "\<lbrakk>x \<in> tests A; y \<in> tests A; z \<in> tests A\<rbrakk> \<Longrightarrow> (x + y) + z = x + (y + z)"
+    by (insert join_semilattice.join_assoc[OF test_js], simp)
+
+  lemma test_meet_assoc:
+    "\<lbrakk>x \<in> tests A; y \<in> tests A; z \<in> tests A\<rbrakk> \<Longrightarrow> (x \<cdot> y) \<cdot> z = x \<cdot> (y \<cdot> z)"
+    by (insert meet_semilattice.meet_assoc[OF test_ms], simp)
+
+  lemma test_join_idem: "x \<in> tests A \<Longrightarrow> x + x = x"
+    by (insert join_semilattice.join_idem[OF test_js], simp)
+
+  lemma test_meet_idem: "x \<in> tests A \<Longrightarrow> x \<cdot> x = x"
+    by (insert meet_semilattice.meet_idem[OF test_ms], simp)
+
+  lemma test_leq_def:
+        "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> (x \<sqsubseteq> y) = (x + y = y)"
+    by (insert join_semilattice.leq_def[OF test_js], simp)
+
+  lemma test_leq_meet_def:
+        "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> (x \<sqsubseteq> y) = (x \<cdot> y = x)"
+    by (insert meet_semilattice.leq_meet_def[OF test_ms], simp)
+
+  lemma test_refl: "x \<in> tests A \<Longrightarrow> x \<sqsubseteq> x"
+    by (insert order.order_refl[OF test_ord], simp)
+
+  lemma test_trans:
+    "\<lbrakk>x \<in> tests A; y \<in> tests A; z \<in> tests A; x \<sqsubseteq> y; y \<sqsubseteq> z\<rbrakk> \<Longrightarrow> x \<sqsubseteq> z"
+    by (insert order.order_trans[OF test_ord,simplified,of x y z], auto)
+
+  lemma test_antisym: "\<lbrakk>x \<sqsubseteq> y; y \<sqsubseteq> x; x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> x = y"
+    by (insert order.order_antisym[OF test_ord], simp)
+
+  lemma test_compl:
+    "x \<in> tests A \<Longrightarrow> \<exists>y. y \<in> tests A \<and> x + y = 1 \<and> x \<cdot> y = 0"
+    apply (insert complemented_lattice.compl[OF test_complemented], simp)
+    by (metis test_join test_meet)
+
+  lemma test_compl_uniq:
+    "x \<in> tests A \<Longrightarrow> \<exists>!y. y \<in> tests A \<and> x + y = 1 \<and> x \<cdot> y = 0"
+    apply (insert boolean_algebra.compl_uniq[OF test_ba], simp)
+    by (metis test_join test_meet)
+
+  lemmas test_one_closed = bounded_lattice.top_closed[OF test_bl, simplified]
+    and test_zero_closed = bounded_lattice.bot_closed[OF test_bl, simplified]
+
+  declare test_join_closed [simp del]
+  declare test_meet_closed [simp del]
   declare test_join [simp del]
   declare test_meet [simp del]
   declare test_le_var [simp del]
@@ -222,14 +274,16 @@ begin
 
 end
 
-datatype 'a bexpr = BLeaf 'a
-                  | BPlus "'a bexpr" "'a bexpr"
-                  | BTimes "'a bexpr" "'a bexpr"
-                  | BOne
-                  | BZero
-                  | BNeg "'a bexpr"
+(*
+datatype 'a kat_bexpr =
+    BLeaf 'a
+  | BPlus "'a kat_bexpr" "'a kat_bexpr"
+  | BTimes "'a kat_bexpr" "'a kat_bexpr"
+  | BOne
+  | BZero
+  | BNeg "'a kat_bexpr"
 
-primrec (in kat) bexpr_unfold :: "'a bexpr \<Rightarrow> 'a" where
+primrec (in kat) bexpr_unfold :: "'a kat_bexpr \<Rightarrow> 'a" where
   "bexpr_unfold (BLeaf x) = x"
 | "bexpr_unfold (BPlus x y) = bexpr_unfold x + bexpr_unfold y"
 | "bexpr_unfold (BTimes x y) = bexpr_unfold x \<cdot> bexpr_unfold y"
@@ -240,7 +294,7 @@ primrec (in kat) bexpr_unfold :: "'a bexpr \<Rightarrow> 'a" where
 lemma (in kat) bexpr_fold_leaf: "x \<in> tests A \<Longrightarrow> x = bexpr_unfold (BLeaf x)"
   by (rule bexpr_unfold.simps(1)[symmetric])
 
-primrec bexpr_leaves :: "'a bexpr \<Rightarrow> 'a set" where
+primrec bexpr_leaves :: "'a kat_bexpr \<Rightarrow> 'a set" where
   "bexpr_leaves (BLeaf x) = {x}"
 | "bexpr_leaves (BPlus x y) = bexpr_leaves x \<union> bexpr_leaves y"
 | "bexpr_leaves (BTimes x y) = bexpr_leaves x \<union> bexpr_leaves y"
@@ -282,7 +336,7 @@ datatype 'a kexpr = KLeaf 'a
                   | KPlus "'a kexpr" "'a kexpr"
                   | KTimes "'a kexpr" "'a kexpr"
                   | KStar "'a kexpr"
-                  | KBool "'a bexpr"
+                  | KBool "'a kat_bexpr"
 
 primrec (in kat) kexpr_unfold :: "'a kexpr \<Rightarrow> 'a" where
   "kexpr_unfold (KLeaf x) = x"
@@ -316,6 +370,20 @@ lemma (in kat) kexpr_closed:
 lemma (in kat) bexpr_to_kexpr: "bexpr_unfold \<alpha> = kexpr_unfold (KBool \<alpha>)" by simp
 
 ML {*
+
+fun inst_thm thm ctrm = SOME (Drule.instantiate' [] [SOME ctrm] thm)
+  handle _ => NONE
+
+fun inst_thms thm ctrms = List.mapPartial (inst_thm thm) ctrms
+
+fun delete_alpha_eq y (x::xs) =
+    if y aconvc x
+    then delete_alpha_eq y xs
+    else x :: (delete_alpha_eq y xs)
+  | delete_alpha_eq _ [] = []
+
+fun rem_alpha_eq (x::xs) = x :: rem_alpha_eq (delete_alpha_eq x xs)
+  | rem_alpha_eq [] = []
 
 fun kat_fold_tac leaves = Subgoal.FOCUS (fn {context, prems, ...} =>
   let
@@ -498,6 +566,7 @@ begin
     apply (metis add_closed bt complement_closed dioid.mult_closed ka_dioid test_subset_var)
     by (smt bt complement_closed ct distl distr mult_assoc mult_closed test_mult_comm test_subset_var)
 
+(*
   lemma hoare_while:
     assumes bt: "b \<in> tests A" and ct: "c \<in> tests A" and pc: "p \<in> carrier A"
     shows "b\<cdot>c \<lbrace>p\<rbrace> c \<Longrightarrow> c \<lbrace> WHILE b DO p WEND \<rbrace> !b \<cdot> c"
@@ -509,10 +578,12 @@ begin
     hence "c\<cdot>b\<cdot>p \<sqsubseteq> c\<cdot>b\<cdot>p\<cdot>c"
       by (metis (lifting) bt mult_closed nat_refl test_mult_comm test_subset_var)
     hence "c\<cdot>(b\<cdot>p)\<^sup>\<star> \<sqsubseteq> c\<cdot>(b\<cdot>p)\<^sup>\<star>\<cdot>c"
+      
       by (smt add_idem bt ct star_closed meet_semilattice.meet_comm mult_assoc mult_closed nat_order_def pc test_meet test_meet_idem test_ms test_subset_var)
     thus "c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b) = c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b)\<cdot>(!b\<cdot>c)"
       by (smt bt complement_closed ct mult_double_iso mult_assoc mult_closed mult_oner nat_antisym nat_refl one_closed pc star_closed test_meet_idem test_mult_comm test_subset_var test_under_one)
   qed
+*)
 
   lemma hoare_skip: "b \<in> tests A \<Longrightarrow> b \<lbrace> SKIP \<rbrace> b"
     by (metis (lifting) complement2 hoare_triple_def mult_oner one_closed test_subset_var)

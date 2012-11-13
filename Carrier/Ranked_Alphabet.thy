@@ -81,6 +81,10 @@ qed
 lemma trms_const: "\<lbrakk>f \<in> funs; arity f = 0\<rbrakk> \<Longrightarrow> App f [] \<in> trms"
   by (rule trms.func, simp_all add: lists_def)
 
+(* +------------------------------------------------------------------------+ *)
+subsection {* n-tuples *}
+(* +------------------------------------------------------------------------+ *)
+
 text {* Given a set, generate all posible $n$-tuples of a specific
 length. Here we represent an $n$-tuple as a list. *}
 
@@ -110,6 +114,10 @@ lemma ntuples7: "n \<noteq> 0 \<longleftrightarrow> [] \<notin> X\<^bsup>n\<^esu
 lemma ntuples_set: "X\<^bsup>n\<^esup> = {xs. set xs \<subseteq> X \<and> length xs = n}" by auto
 
 type_synonym 'a relation = "('a list) set"
+
+(* +------------------------------------------------------------------------+ *)
+subsection {* Interpretation and term evaluation *}
+(* +------------------------------------------------------------------------+ *)
 
 record ('a, 'b) interp = "'b partial_object" +
   mf :: "'a \<Rightarrow> 'b list \<Rightarrow> 'b"
@@ -192,6 +200,10 @@ abbreviation wf_trm_subst_notation :: "'a::ranked_alphabet wf_trm \<Rightarrow> 
   ("_[_|_]" [100,100,100] 101) where
   "s[x|t] \<equiv> wf_trm_subst x t s"
 
+(* +------------------------------------------------------------------------+ *)
+subsection {* Predicates *}
+(* +------------------------------------------------------------------------+ *)
+
 datatype 'a pred = Pred 'a "'a wf_trm list"
 
 inductive_set preds :: "'a::ranked_alphabet pred set" where
@@ -218,6 +230,8 @@ abbreviation
   wf_pred_subst_notation :: "'a::ranked_alphabet wf_pred \<Rightarrow> nat set \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_pred"
   ("_[_|_]" [100,100,100] 101) where
   "s[x|t] \<equiv> wf_pred_subst x t s"
+
+(* Simple while programs *)
 
 datatype 'a prog = If "'a wf_pred" "'a prog" "'a prog"
                  | While "'a wf_pred" "'a prog"
@@ -250,6 +264,10 @@ definition terminates :: "'a::ranked_alphabet prog \<Rightarrow> bool" where
 definition tprogs :: "'a::ranked_alphabet prog set" where
   "tprogs \<equiv> {prgm. terminates TYPE('b) prgm}"
 
+(* +------------------------------------------------------------------------+ *)
+subsection {* Schematic Kleene Algebra Expressions *}
+(* +------------------------------------------------------------------------+ *)
+
 datatype 'a skat_expr = SKLeaf "nat set" "'a wf_trm"
                       | SKPlus "'a skat_expr" "'a skat_expr" (infixl ":\<oplus>:" 70)
                       | SKMult "'a skat_expr" "'a skat_expr" (infixl ":\<odot>:" 80)
@@ -257,6 +275,8 @@ datatype 'a skat_expr = SKLeaf "nat set" "'a wf_trm"
                       | SKBool "'a wf_pred bexpr"
                       | SKOne
                       | SKZero
+
+(* Free variables *)
 
 fun FV' :: "'a trm \<Rightarrow> nat set" where
   "FV' (Var v) = {v}"
@@ -366,7 +386,8 @@ inductive skat_con :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat_expr 
 | assign2: "x \<inter> FV s = {} \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf x s :\<odot>: SKLeaf y (t[x|s]))"
 | assign3: "skat_con (SKLeaf x s :\<odot>: SKLeaf x t) (SKLeaf x (t[x|s]))"
 | assign4: "skat_con (SKBool (bexpr_map (wf_pred_subst x t) \<phi>) :\<odot>: SKLeaf x t) (SKLeaf x t :\<odot>: SKBool \<phi>)"
-| assign5: "skat_con (SKLeaf (X \<union> Y) s) (SKLeaf X s :\<odot>: SKLeaf Y s)"
+| assign5: "X \<inter> FV s = {} \<Longrightarrow> skat_con (SKLeaf (X \<union> Y) s) (SKLeaf X s :\<odot>: SKLeaf Y s)"
+| assign6: "skat_con SKOne (SKLeaf {} s)"
 
 lemma skat_con_eq: "x = y \<Longrightarrow> skat_con x y" by (simp add: skat_con.refl)
 
@@ -414,6 +435,9 @@ lift_definition skat_star :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat" ("
 no_notation
   kleene_algebra.star ("_\<^sup>\<star>\<index>" [101] 100)
 
+definition skat_star1 :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat" ("_\<^sup>+" [101] 100) where
+  "skat_star1 x = x\<cdot>x\<^sup>\<star>"
+
 lift_definition test :: "'a::ranked_alphabet wf_pred bterm \<Rightarrow> 'a skat" is SKBool
   by (rule skat_con.test_ba, assumption)
 
@@ -427,6 +451,9 @@ lift_definition pred :: "'a::ranked_alphabet wf_pred \<Rightarrow> 'a skat" is "
 
 lemma skat_set_assign1: "Y \<inter> FV s = {} \<Longrightarrow> (X ::= s \<cdot> Y ::= t) = (Y ::= t[X|s] \<cdot> X ::= s)"
   by (transfer, rule assign1, assumption)
+
+lemma skat_set_assign1_var: "\<lbrakk>u = t[X|s]; Y \<inter> FV s = {}\<rbrakk> \<Longrightarrow> (X ::= s \<cdot> Y ::= t) = (Y ::= u \<cdot> X ::= s)"
+  by (erule ssubst, rule skat_set_assign1, assumption)
 
 lemma skat_assign1: "y \<notin> FV s \<Longrightarrow> (x := s \<cdot> y := t) = (y := t[{x}|s] \<cdot> x := s)"
   by (simp add: skat_assign_def, rule skat_set_assign1, blast)
@@ -471,10 +498,10 @@ lemma skat_set_assign_comm: "\<lbrakk>X \<inter> FV t = {}; Y \<inter> FV s = {}
 lemma skat_assign_comm: "\<lbrakk>x \<notin> FV t; y \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t \<cdot> x := s)"
   by (insert skat_assign1[of y s x t], simp)
 
-lemma skat_set_assign5: "((X \<union> Y) ::= s) = (X ::= s \<cdot> Y ::= s)"
-  by (transfer, rule assign5)
+lemma skat_set_assign5: "X \<inter> FV s = {} \<Longrightarrow> ((X \<union> Y) ::= s) = (X ::= s \<cdot> Y ::= s)"
+  by (transfer, rule assign5, assumption)
 
-lemma skat_set_assign5_var: "Z = X \<union> Y \<Longrightarrow> Z ::= s = X ::= s \<cdot> Y ::= s"
+lemma skat_set_assign5_var: "\<lbrakk>Z = X \<union> Y; X \<inter> FV s = {}\<rbrakk> \<Longrightarrow> Z ::= s = X ::= s \<cdot> Y ::= s"
   by (erule ssubst, rule skat_set_assign5)
 
 lemma FV_null [simp]: "FV null = {}"
@@ -507,7 +534,8 @@ lemma skat_halt: "x \<notin> output_vars TYPE('a::ranked_alphabet) \<Longrightar
   apply (simp add: halt_def skat_assign_def)
   apply (subst skat_set_assign5_var[of _ "{x}" "- output_vars TYPE('a)"])
   apply (metis Compl_iff insert_absorb insert_is_Un)
-  by simp
+  apply (simp add: FV_def)
+  by (metis Compl_iff insert_absorb insert_is_Un)
 
 definition test_set :: "'a::ranked_alphabet skat set" where
   "test_set \<equiv> test ` UNIV"
@@ -893,6 +921,64 @@ qed
 lemma free_kat: "kat free_kat"
   by (simp add: kat_def kat_axioms_def, rule conjI, rule free_kat', simp add: free_kat_def)
 
+lemma kat_comp_simp [simp]: "x \<in> carrier tests \<Longrightarrow> KAT.kat.complement free_kat x = !x"
+  apply (subst KAT.kat.complement_def[OF free_kat])
+  apply (rule the1I2)
+  apply auto
+  apply (simp_all add: free_kat_def)
+  apply (rule_tac x = "!x" in exI)
+  apply auto
+  apply (metis not_closed)
+  prefer 3
+  apply (metis (lifting) boolean_algebra.compl_uniq test_bot_is_zero test_top_is_one tests_ba tests_join tests_meet)
+proof -
+  fix y :: "'a skat" assume "x \<in> carrier tests" and "y \<in> carrier tests"
+  then obtain x' and y' where
+    x'_def[simp]: "x = test x'" and y'_def[simp]: "y = test y'"
+    by (simp add: tests_def, metis test_ex)
+  show "x + !x = \<one>"
+  proof (simp, transfer)
+    fix x
+    have "skat_con (SKBool (x :+: BNot x)) SKOne"
+      by (smt one skat_con.sym skat_con.trans test_ba test_mult test_one)
+    thus "skat_con (SKBool x :\<oplus>: SKNot (SKBool x)) SKOne"
+      by (simp, smt skat_con.sym skat_con.trans test_mult)
+  qed
+  show "x \<cdot> ! x = \<zero>"
+  proof (simp, transfer)
+    fix x
+    have "skat_con (SKBool (x :\<cdot>: BNot x)) SKZero"
+      by (metis hunt_con.trans meet not_compat one skat_con.sym skat_con.trans test_ba test_zero zero)
+    thus "skat_con (SKBool x :\<odot>: SKNot (SKBool x)) SKZero"
+      by (simp, smt skat_con.sym skat_con.trans test_plus)
+  qed
+  assume "x + y = \<one>" and "x \<cdot> y = \<zero>"
+  thus "y = !x"
+    apply simp
+    apply transfer
+    apply simp
+    by (metis (hide_lams, no_types) mult_compat skat_con.mult_oner skat_con.mult_zeror skat_con.sym skat_con.trans test_mult test_plus)
+qed
+
+interpretation skt: kat free_kat
+  where "dioid.plus free_kat x y = x + y"
+  and "dioid.zero free_kat = \<zero>"
+  and "dioid.mult free_kat x y = x\<cdot>y"
+  and "dioid.one free_kat = \<one>"
+  and "kleene_algebra.star free_kat x = x\<^sup>\<star>"
+  and "dioid.nat_order free_kat x y = (x \<sqsubseteq> y)"
+  and "KAT.tests free_kat = carrier tests"
+  apply (simp add: free_kat)
+  apply (simp_all add: dioid.nat_order_def[OF free_kat_dioid] skat_order_def)
+  apply (simp_all add: free_kat_def)
+  done
+
+lemma complement_one: "p \<in> carrier tests \<Longrightarrow> p + !p = \<one>"
+  by (metis kat_comp_simp skt.complement1)
+
+lemma complement_zero: "p \<in> carrier tests \<Longrightarrow> p \<cdot> !p = \<zero>"
+  by (metis kat_comp_simp skt.complement2)
+
 primrec test_unfold :: "'a::ranked_alphabet wf_pred bexpr \<Rightarrow> 'a skat" where
   "test_unfold (BLeaf x) = pred x"
 | "test_unfold (BOr x y) = test_unfold x + test_unfold y"
@@ -1003,7 +1089,7 @@ proof -
 qed
 
 theorem no_interact_commute1_fold:
-  assumes no_interaction: "touches (SKLeaf X s) \<inter> touches y = {}"
+  assumes no_interaction: "(X \<union> FV s) \<inter> touches y = {}"
   shows "skat_unfold (SKLeaf X s :\<odot>: y) = skat_unfold (y :\<odot>: SKLeaf X s)"
 proof -
   let ?U = "skat_unfold"
@@ -1066,58 +1152,13 @@ proof -
   qed
 qed
 
-lemma helper: "(\<And>x. \<lbrakk>y = x; P\<rbrakk> \<Longrightarrow> X) \<Longrightarrow> \<lbrakk>x = y; P\<rbrakk> \<Longrightarrow> X" by auto
-
-(*
-lemma no_interact_commute2_fold:
-  assumes no_interaction: "(\<Union>x\<in>bexpr_leaves p. wf_pred_vars x) \<inter> touches y = {}"
-  shows "test_unfold p \<cdot> skat_unfold y = skat_unfold y \<cdot> test_unfold p"
-proof -
-  from no_interaction show ?thesis
-    apply (induct y, simp_all)
-    
-    apply (metis Int_commute pred_expr_comm pred_expr_unfold)
-    apply (smt inf_commute inf_sup_distrib2 skd.distl skd.distr sup_assoc sup_bot_left sup_commute sup_left_idem)
-    apply (metis (lifting) inf_sup_distrib1 skd.mult_assoc sup_eq_bot_iff)
-    defer
-    defer
-    apply (metis skd.mult_onel skd.mult_oner)
-    apply (metis skd.mult_zerol skd.mult_zeror)
-    apply (rule skd.nat_antisym[simplified])
-    apply (rule ska.star_inductr[rule_format,simplified])
-    apply (subst skd.mult_assoc[simplified])
-    apply (erule ssubst)
-    apply (subst skd.mult_assoc[symmetric,simplified])
-    apply (rule ska.add_lub_r1[simplified])
-    apply (metis ska.star_ref skd.mult_isor skd.mult_onel)
-    apply (metis (full_types) ska.star_1l ska.star_slide skd.mult_isor skd.mult_onel skd.mult_oner)
-    apply (rule ska.star_inductl[rule_format,simplified])
-    apply (subst skd.mult_assoc[symmetric,simplified])
-    apply (subgoal_tac "skat_unfold ya \<cdot> test_unfold p = test_unfold p \<cdot> skat_unfold ya")
-    apply (rotate_tac 3)
-    apply (erule ssubst)
-    apply (subst skd.mult_assoc[simplified])
-    apply (rule ska.add_lub_r1[simplified])
-    apply (metis (lifting) ska.star_plus_one skat_order_def skd.distl skd.mult_oner)
-    apply (metis (lifting) ska.star_1l skd.mult_isol)
-    apply simp
-    apply (simp add: pred_expr_unfold)
-    apply (subst tests_meet[symmetric])
-    prefer 3
-    apply (subst tests_meet[symmetric])
-    prefer 3
-    apply (subst meet_semilattice.meet_comm[OF tests_ms], simp)
-    apply (rule pred_expr_closed)+
-    done
-qed
-*)
 lemma no_interact_commute_fold:
   assumes no_interaction: "touches x \<inter> touches y = {}"
   shows "skat_unfold x \<cdot> skat_unfold y = skat_unfold y \<cdot> skat_unfold x"
 proof -
   from no_interaction show ?thesis
     apply (induct x)
-    apply (metis no_interact_commute1_fold skat_unfold.simps(3))
+    apply (metis no_interact_commute1_fold skat_unfold.simps(3) touches.simps(1))
     apply (smt UnI1 UnI2 disjoint_iff_not_equal skat_unfold.simps(2) skd.distl skd.distr touches.simps(2))
     apply (smt UnI1 UnI2 disjoint_iff_not_equal skat_unfold.simps(3) skd.mult_assoc touches.simps(3))
     defer
@@ -1152,6 +1193,11 @@ lemma no_interact_commute_fold_var:
   "touches x \<inter> touches y = {} \<Longrightarrow> skat_unfold (x :\<odot>: y) = skat_unfold (y :\<odot>: x)"
   by (simp, erule no_interact_commute_fold)
 
+lemma assign_commute_fold:
+  assumes no_interference: "X \<inter> FV t = {} \<and> Y \<inter> FV s = {}"
+  shows "skat_unfold (SKLeaf X s :\<odot>: SKLeaf Y t) = skat_unfold (SKLeaf Y t :\<odot>: SKLeaf X s)"
+  by (smt no_interference skat_set_assign_comm skat_unfold.simps(1) skat_unfold.simps(3))
+
 lemma skat_comm_tac1:
   "skat_unfold (SKBool (p :\<cdot>: q)) = skat_unfold (SKBool p :\<odot>: SKBool q)"
   by simp
@@ -1170,11 +1216,17 @@ structure SkatSimpRules = Named_Thms
   (val name = @{binding "skat_simp"}
    val description = "SKAT simplification rules")
 
-fun skat_comm1_tac ctxt n =
+fun skat_std_commuter ctxt n =
   DETERM (skat_fold_tac ctxt n
     THEN simp_tac (HOL_basic_ss addsimps @{thms skat_comm_tac1}) n)
   THEN (resolve_tac @{thms no_modify_commute_test no_modify_commute_test[symmetric]} n
+    ORELSE rtac @{thm assign_commute_fold} n
     ORELSE rtac @{thm no_interact_commute_fold_var} n)
+
+fun skat_ni_commuter ctxt n =
+  DETERM (skat_fold_tac ctxt n
+    THEN simp_tac (HOL_basic_ss addsimps @{thms skat_comm_tac1}) n)
+  THEN rtac @{thm no_interact_commute_fold_var} n
 
 fun wf_trm_abs_inverse_tac ctxt =
   EqSubst.eqsubst_tac ctxt [0] @{thms Abs_wf_trm_inverse} 1
@@ -1195,20 +1247,457 @@ val touch_simp_tac =
     REPEAT (wf_trm_abs_inverse_tac context)
     THEN REPEAT (wf_pred_abs_inverse_tac context))
 
-fun skat_comm_tac ctxt n =
+fun skat_comm_tac' commuter ctxt n =
   asm_full_simp_tac (HOL_basic_ss addsimps SkatSimpRules.get ctxt) n
-  THEN skat_comm1_tac ctxt n
+  THEN DETERM (commuter ctxt n)
   THEN asm_full_simp_tac (simpset_of ctxt addsimps @{thms FV_def wf_pred_vars_def}) n
   THEN TRY (touch_simp_tac ctxt n)
+
+val skat_comm_tac = skat_comm_tac' skat_std_commuter
 *}
 
 method_setup skat_comm = {*
 Scan.succeed (fn ctxt => SIMPLE_METHOD (skat_comm_tac ctxt 1))
 *}
 
+method_setup skat_simp = {*
+Scan.succeed (fn ctxt =>
+  asm_full_simp_tac (simpset_of ctxt addsimps SkatSimpRules.get ctxt) 1
+  THEN TRY (touch_simp_tac ctxt 1)
+  |> SIMPLE_METHOD)
+*}
+
+method_setup skat_reduce = {*
+Scan.succeed (fn ctxt =>
+  SIMPLE_METHOD (simp_tac (HOL_basic_ss addsimps SkatSimpRules.get ctxt) 1))
+*}
+
 setup {* SkatAlphabetRules.setup *}
 setup {* SkatSimpRules.setup *}
 
 declare skat_assign_def [skat_simp]
+
+lemma "X \<inter> FV s = {} \<Longrightarrow> (X ::= s)\<^sup>+ = X ::= s"
+proof -
+  assume "X \<inter> FV s = {}"
+  hence "X ::= s + X ::= s \<cdot> X ::= s \<sqsubseteq> X ::= s"
+    by (metis Un_absorb skat_set_assign5 skd.add_idem skd.nat_refl)
+  hence "X ::= s \<cdot> (X ::= s)\<^sup>\<star> \<sqsubseteq> X ::= s"
+    by (rule ska.star_inductr[rule_format,simplified])
+  hence "(X ::= s)\<^sup>+ \<sqsubseteq> X ::= s"
+    by (metis skat_star1_def)
+  moreover have "X ::= s \<sqsubseteq> (X ::= s)\<^sup>+"
+    by (metis ska.star_ref skat_star1_def skd.mult_isol skd.mult_oner)
+  ultimately show ?thesis
+    by (metis skd.nat_antisym)
+qed
+
+lemma skat_star_elim:
+  assumes "X \<inter> touches t = {}"
+  shows "(X ::= s \<cdot> skat_unfold t)\<^sup>\<star> \<cdot> X ::= null = (skat_unfold t)\<^sup>\<star> \<cdot> X ::= null"
+  apply (subst ska.star_elim[symmetric,simplified])
+  apply (metis FV_null inf_bot_right no_FV skat_set_assign3)
+  apply skat_comm
+  apply (metis assms inf_commute)
+  apply (metis FV_null inf_bot_right no_FV skat_set_assign3)
+  by auto
+
+lemma unfold_is_abs: "skat_unfold y = abs_skat y"
+proof (induct y, simp_all)
+  fix X s show "X ::= s = abs_skat (SKLeaf X s)"
+    by (transfer, metis skat_con.refl)
+next
+  fix s t show "abs_skat s + abs_skat t = abs_skat (s :\<oplus>: t)"
+    by (transfer, metis skat_con.refl)
+next
+  fix s t show "abs_skat s \<cdot> abs_skat t = abs_skat (s :\<odot>: t)"
+    by (transfer, metis skat_con.refl)
+next
+  fix s show "abs_skat s\<^sup>\<star> = abs_skat (SKStar s)"
+    by (transfer, metis skat_con.refl)
+next
+  fix a
+  have "pred_expr a = abs_skat (SKBool a)"
+    by (transfer, metis skat_con.refl)
+  thus "test_unfold a = abs_skat (SKBool a)"
+    by (subst pred_expr_unfold)
+next
+  show "\<one> = abs_skat SKOne"
+    by (transfer, metis skat_con.refl)
+next
+  show "\<zero> = abs_skat SKZero"
+    by (transfer, metis skat_con.refl)
+qed
+
+lemma unfold_exists: "\<exists>t. skat_unfold t = s"
+  by (metis Quotient3_abs_rep Quotient3_skat unfold_is_abs)
+
+definition P where "P X s \<equiv> X ::= s"
+
+declare P_def [skat_simp]
+
+ML {*
+fun inst_thm ctrm thm = Drule.instantiate' [SOME (ctyp_of_term ctrm)] [SOME ctrm] thm
+
+fun skat_apply_fold_tac ctrm =
+  Subgoal.FOCUS (fn {context, ...} =>
+    rtac @{thm HOL.trans} 1
+    THEN rtac (inst_thm ctrm @{thm arg_cong}) 1
+    THEN simp_tac (Simplifier.context context empty_ss addsimps SkatSimpRules.get context) 1
+    THEN skat_fold_tac context 1
+    THEN simp_tac HOL_basic_ss 1)
+*}
+
+definition seq :: "'a::ranked_alphabet skat list \<Rightarrow> 'a skat" where
+  "seq xs \<equiv> foldl op \<cdot> \<one> xs"
+
+definition SEQ :: "'a::ranked_alphabet skat list \<Rightarrow> 'a skat" where
+  "SEQ \<equiv> seq"
+
+definition qes :: "'a::ranked_alphabet skat list \<Rightarrow> 'a skat" where
+  "qes xs \<equiv> seq (rev xs)"
+
+definition QES :: "'a::ranked_alphabet skat list \<Rightarrow> 'a skat" where
+  "QES \<equiv> qes"
+
+lemma seq_to_qes: "seq xs = qes (rev xs)"
+  by (simp add: qes_def)
+
+ML {*
+fun seq_select_tac s ctxt n =
+  simp_tac (HOL_basic_ss addsimps @{thms SEQ_def[symmetric]}) n
+  THEN EqSubst.eqsubst_tac ctxt [s] @{thms SEQ_def} n
+
+fun seq_deselect_tac n =
+  simp_tac (HOL_basic_ss addsimps @{thms SEQ_def QES_def}) n
+
+fun qes_select_tac s ctxt n =
+  simp_tac (HOL_basic_ss addsimps @{thms QES_def[symmetric]}) n
+  THEN EqSubst.eqsubst_tac ctxt [s] @{thms QES_def} n
+
+fun qes_deselect_tac n =
+  simp_tac (HOL_basic_ss addsimps @{thms QES_def}) n
+
+fun seq_reverse_tac s ctxt n =
+  seq_select_tac s ctxt n
+  THEN simp_tac (HOL_basic_ss addsimps @{thms seq_to_qes rev.simps append.simps}) n
+  THEN seq_deselect_tac n
+
+fun qes_reverse_tac s ctxt n =
+  qes_select_tac s ctxt n
+  THEN simp_tac (HOL_basic_ss addsimps @{thms qes_def rev.simps append.simps}) n
+  THEN qes_deselect_tac n
+
+*}
+
+method_setup seq_select = {*
+Scan.lift (Scan.optional Parse.nat 0) >>
+  (fn s => fn ctxt => SIMPLE_METHOD (seq_select_tac s ctxt 1))
+*}
+
+method_setup seq_deselect = {*
+Scan.succeed (fn _ => SIMPLE_METHOD (seq_deselect_tac 1))
+*}
+
+method_setup qes_select = {*
+Scan.lift (Scan.optional Parse.nat 0) >>
+  (fn s => fn ctxt => SIMPLE_METHOD (qes_select_tac s ctxt 1))
+*}
+
+method_setup qes_deselect = {*
+Scan.succeed (fn _ => SIMPLE_METHOD (qes_deselect_tac 1))
+*}
+
+method_setup seq_rev = {*
+Scan.lift (Scan.optional Parse.nat 0) >>
+  (fn s => fn ctxt => seq_reverse_tac s ctxt |> SIMPLE_METHOD')
+*}
+
+method_setup qes_rev = {*
+Scan.lift (Scan.optional Parse.nat 0) >>
+  (fn s => fn ctxt => qes_reverse_tac s ctxt |> SIMPLE_METHOD')
+*}
+
+lemmas mult_oner = skd.mult_oner[simplified]
+  and mult_onel = skd.mult_onel[simplified]
+
+declare mult_oner [skat_simp]
+  and mult_onel [skat_simp]
+  and seq_def [skat_simp]
+  and qes_def [skat_simp]
+  and foldl.simps [skat_simp]
+  and rev.simps [skat_simp]
+  and append.simps [skat_simp]
+
+lemma seq_singleton [simp]: "seq [x] = x" by skat_reduce
+lemma qes_singleton [simp]: "qes [x] = x" by skat_reduce
+
+lemma foldl_step: "foldl op \<cdot> \<one> (x#xs) = x \<cdot> foldl op \<cdot> \<one> xs"
+  by (induct xs arbitrary: x, auto, skat_reduce, metis skd.mult_assoc)
+
+lemma foldl_is_foldr: "foldl op \<cdot> \<one> xs = foldr op \<cdot> xs \<one>"
+  by (induct xs, auto, metis foldl_Cons foldl_step)
+
+lemma seq_foldr: "seq xs = foldr op \<cdot> xs \<one>"
+  by (simp add: seq_def foldl_is_foldr)
+
+lemma seq_mult: "seq (xs @ ys) = seq xs \<cdot> seq ys"
+  apply (induct xs)
+  apply (simp add: seq_foldr)
+  apply (metis skd.mult_onel)
+  apply (simp add: seq_foldr)
+  by (metis skd.mult_assoc)
+
+lemma seq_cut: "seq xs = seq (take n xs) \<cdot> seq (drop n xs)"
+  by (subst seq_mult[symmetric], simp)
+
+lemma seq_zip: "seq xs = qes (rev (take n xs)) \<cdot> seq (drop n xs)"
+  by (metis seq_cut seq_to_qes)
+
+ML {*
+
+fun nat_cterm 0 = @{cterm "0::nat"}
+  | nat_cterm n = Thm.apply @{cterm Suc} (nat_cterm (n - 1))
+
+*}
+
+method_setup cut = {*
+Scan.lift Parse.nat  -- Scan.lift Parse.nat >>
+  (fn (s, c) => fn ctxt =>
+    let
+      val ct = nat_cterm c
+    in
+      seq_select_tac s ctxt 1
+      THEN EqSubst.eqsubst_tac ctxt [0] [Drule.instantiate' [] [NONE, SOME ct] @{thm seq_cut}] 1
+      THEN simp_tac (HOL_basic_ss addsimps @{thms Nat.nat.cases take.simps drop.simps}) 1
+      THEN seq_deselect_tac 1
+      |> SIMPLE_METHOD
+    end)
+*}
+
+ML {*
+fun zip_tac s c ctxt n =
+  let
+    val ct = nat_cterm c
+  in
+    seq_select_tac s ctxt n
+    THEN EqSubst.eqsubst_tac ctxt [0] [Drule.instantiate' [] [NONE, SOME ct] @{thm seq_zip}] n
+    THEN simp_tac (HOL_basic_ss addsimps @{thms rev.simps append.simps Nat.nat.cases take.simps drop.simps}) n
+  end
+*}
+
+method_setup zip = {*
+Scan.lift Parse.nat  -- Scan.lift Parse.nat >>
+  (fn (s, c) => fn ctxt => SIMPLE_METHOD (zip_tac s c ctxt 1))
+*}
+
+lemma zip_right: "qes (x#xs) \<cdot> seq ys = qes xs \<cdot> seq (x#ys)"
+  by (metis (no_types) foldl_step qes_def rev.simps(2) seq_def seq_mult seq_singleton skd.mult_assoc)
+
+lemmas zip_left = zip_right[symmetric]
+
+lemma zip_comm: "x\<cdot>y = y\<cdot>x \<Longrightarrow> qes (x#xs) \<cdot> seq (y#ys) = qes (y#xs) \<cdot> seq (x#ys)"
+  by (metis (no_types) qes_def rev.simps(2) seq_mult seq_singleton skd.mult_assoc zip_left)
+
+lemma unzip: "qes xs \<cdot> seq ys = seq (rev xs @ ys)"
+  by (metis qes_def seq_mult)
+
+ML {*
+fun unzip_tac ctxt n =
+  EqSubst.eqsubst_tac ctxt [0] @{thms unzip} n
+  THEN simp_tac (HOL_basic_ss addsimps @{thms rev.simps append.simps}) n
+*}
+
+method_setup unzip = {*
+Scan.succeed (fn ctxt => unzip_tac ctxt |> SIMPLE_METHOD')
+*}
+
+method_setup commr = {*
+Scan.lift Parse.nat  -- Scan.lift Parse.nat >>
+  (fn (s, c) => fn ctxt =>
+    zip_tac s c ctxt 1
+    THEN (CHANGED (REPEAT (EVERY
+      [ EqSubst.eqsubst_tac ctxt [0] @{thms zip_comm} 1
+      , skat_comm_tac ctxt 1
+      , EqSubst.eqsubst_tac ctxt [0] @{thms zip_left} 1
+      ])))
+    THEN unzip_tac ctxt 1
+    THEN seq_deselect_tac 1
+    |> SIMPLE_METHOD)
+*}
+
+method_setup comml = {*
+Scan.lift Parse.nat  -- Scan.lift Parse.nat >>
+  (fn (s, c) => fn ctxt =>
+    zip_tac s (c - 1) ctxt 1
+    THEN (CHANGED (REPEAT (EVERY
+      [ EqSubst.eqsubst_tac ctxt [0] @{thms zip_comm} 1
+      , skat_comm_tac ctxt 1
+      , EqSubst.eqsubst_tac ctxt [0] @{thms zip_right} 1
+      ])))
+    THEN unzip_tac ctxt 1
+    THEN seq_deselect_tac 1
+    |> SIMPLE_METHOD)
+*}
+
+lemma seq_cong: "seq xs = seq ys \<Longrightarrow> seq (x#xs) = seq (x#ys)"
+  by (skat_simp, metis Ranked_Alphabet.mult_onel foldl_Cons foldl_step)
+
+lemma qes_cong: "qes xs = qes ys \<Longrightarrow> qes (x#xs) = qes (x#ys)"
+  by skat_simp
+
+method_setup cong = {*
+Scan.succeed (fn ctxt =>
+  REPEAT (rtac @{thm seq_cong} 1)
+  THEN simp_tac (HOL_basic_ss addsimps @{thms seq_to_qes rev.simps append.simps}) 1
+  THEN REPEAT (rtac @{thm qes_cong} 1)
+  THEN simp_tac (HOL_basic_ss addsimps @{thms qes_def rev.simps append.simps}) 1
+  |> CHANGED |> SIMPLE_METHOD)
+*}
+
+method_setup congl = {*
+Scan.succeed (fn ctxt =>
+  REPEAT (rtac @{thm seq_cong} 1) |> CHANGED |> SIMPLE_METHOD)
+*}
+
+method_setup congr = {*
+Scan.succeed (fn ctxt =>
+  simp_tac (HOL_basic_ss addsimps @{thms seq_to_qes rev.simps append.simps}) 1
+  THEN (REPEAT (rtac @{thm qes_cong} 1))
+  THEN simp_tac (HOL_basic_ss addsimps @{thms qes_def rev.simps append.simps}) 1
+  |> CHANGED |> SIMPLE_METHOD)
+*}
+
+lemma seq_head_eq [intro]: "\<lbrakk>x = y; seq xs = seq ys\<rbrakk> \<Longrightarrow> seq (x#xs) = seq (y#ys)"
+  by (metis seq_cong)
+
+lemma seq_head_plus [intro]: "seq xs = seq ys + seq zs \<Longrightarrow> seq (x#xs) = seq (x#ys) + seq (x#zs)"
+  by (metis append_Cons eq_Nil_appendI seq_mult skd.distl)
+
+lemma seq_head_elim [simp,elim]: "x \<in> carrier tests \<Longrightarrow> seq (x#xs) + seq (!x#xs) = seq xs"
+proof -
+  assume "x \<in> carrier tests"
+  hence "(x + !x) \<cdot> seq xs = seq xs"
+    by (metis complement_one skd.mult_onel)
+  hence "x \<cdot> seq xs + !x \<cdot> seq xs = seq xs"
+    by (metis skd.distr)
+  thus ?thesis
+    by (metis append_Cons append_Nil seq_mult seq_singleton)
+qed
+
+lemma seq_head_elim_var [simp,elim]: "x \<in> carrier tests \<Longrightarrow> seq (!x#xs) + seq (x#xs) = seq xs"
+  by (metis seq_head_elim skd.add_comm)
+
+lemma zip_zero: "x\<cdot>y = \<zero> \<Longrightarrow> qes (x#xs) \<cdot> seq (y#ys) = \<zero>"
+  by (metis fold_Cons_rev foldl_step seq_def skd.mult_assoc skd.mult_zerol skd.mult_zeror zip_left)
+
+lemma zip_zero1: "x \<in> carrier tests \<Longrightarrow> qes (x#xs) \<cdot> seq (!x#ys) = \<zero>"
+  by (metis complement_zero foldl_step seq_def skd.mult_assoc skd.mult_zerol skd.mult_zeror zip_left)
+
+lemma zip_zero2: "x \<in> carrier tests \<Longrightarrow> qes (!x#xs) \<cdot> seq (x#ys) = \<zero>"
+  by (metis not_closed skt.test_mult_comm zip_comm zip_zero1)
+
+lemma zippify: "seq xs \<cdot> seq ys = qes (rev xs) \<cdot> seq ys"
+  by (simp add: qes_def)
+
+method_setup zero = {*
+Scan.succeed (fn ctxt =>
+  EqSubst.eqsubst_tac ctxt [0] @{thms zippify} 1
+  THEN simp_tac (HOL_basic_ss addsimps @{thms rev.simps append.simps}) 1
+  THEN EqSubst.eqsubst_tac ctxt [0] @{thms zip_zero1 zip_zero2} 1
+  |> SIMPLE_METHOD)
+*}
+
+lemma seq_cons: "seq (x#xs) = x \<cdot> seq xs"
+  by (metis foldl_step seq_def)
+
+lemma qes_snoc: "qes (x#xs) = qes xs \<cdot> x"
+  by (simp add: qes_def seq_mult)
+
+lemma seq_empty [simp]: "seq [] = \<one>" by skat_reduce
+lemma qes_empty [simp]: "qes [] = \<one>" by skat_reduce
+
+inductive not_read :: "nat set \<Rightarrow> 'a::ranked_alphabet skat_expr \<Rightarrow> bool" where
+  "X \<inter> FV s = {} \<Longrightarrow> not_read X (SKLeaf Y s)"
+| "X \<inter> (\<Union>q\<in>bexpr_leaves p. wf_pred_vars q) = {} \<Longrightarrow> not_read X (SKBool p)"
+| "\<lbrakk>not_read X s; not_read X t\<rbrakk> \<Longrightarrow> not_read X (s :\<odot>: t)"
+| "\<lbrakk>not_read X s; not_read X t\<rbrakk> \<Longrightarrow> not_read X (s :\<oplus>: t)"
+| "not_read X s \<Longrightarrow> not_read X (SKStar s)"
+| "not_read X SKOne"
+| "not_read X SKZero"
+
+lemma not_read_leaf [simp]: "not_read X (SKLeaf Y s) = (X \<inter> FV s = {})"
+  by (default, rule not_read.cases[of "X" "SKLeaf Y s"], simp_all add: not_read.intros(1))
+
+lemma not_read_bool [simp]: "not_read X (SKBool p) = (X \<inter> (\<Union>q\<in>bexpr_leaves p. wf_pred_vars q) = {})"
+  by (default, rule not_read.cases[of "X" "SKBool p"], simp_all add: not_read.intros(2))
+
+lemma not_read_mult [simp]: "not_read X (s :\<odot>: t) = (not_read X s \<and> not_read X t)"
+  by (default, rule not_read.cases[of "X" "s :\<odot>: t"], simp_all add: not_read.intros(3))
+
+lemma not_read_plus [simp]: "not_read X (s :\<oplus>: t) = (not_read X s \<and> not_read X t)"
+  by (default, rule not_read.cases[of "X" "s :\<oplus>: t"], simp_all add: not_read.intros(4))
+
+lemma not_read_star [simp]: "not_read X (SKStar s) = not_read X s"
+  by (default, rule not_read.cases[of "X" "SKStar s"], simp_all add: not_read.intros(5))
+
+fun eliminate :: "nat set \<Rightarrow> 'a::ranked_alphabet skat_expr => 'a skat_expr" where
+  "eliminate X (SKLeaf Y s) = SKLeaf (Y - X) s"
+| "eliminate X (SKBool p) = (SKBool p)"
+| "eliminate X (s :\<odot>: t) = eliminate X s :\<odot>: eliminate X t"
+| "eliminate X (s :\<oplus>: t) = eliminate X s :\<oplus>: eliminate X t"
+| "eliminate X (SKStar s) = SKStar (eliminate X s)"
+| "eliminate X SKOne = SKOne"
+| "eliminate X SKZero = SKZero"
+
+lemma [simp]: "X \<inter> Y \<union> X = X" by blast
+
+lemma not_read_elim [intro!]: "not_read X s \<Longrightarrow> touches (eliminate X s) \<inter> X = {}"
+  by (induct s, auto)
+
+lemma eliminate_comm:
+  "not_read X s \<Longrightarrow> skat_unfold (eliminate X s) \<cdot> X ::= null = X ::= null \<cdot> skat_unfold (eliminate X s)"
+  by (skat_comm, auto)
+
+subsubsection {* Lemma 4.4 *}
+
+text {* If the variables in a set $X$ are not read by a program $s$
+then any assignments to a variable in $X$ can be eliminated from $s$
+*}
+
+theorem variable_elimination:
+  "not_read X s \<Longrightarrow> skat_unfold s \<cdot> X ::= null = skat_unfold (eliminate X s) \<cdot> X ::= null"
+proof (induct s, auto simp add: skd.distr[simplified])
+  fix Y s assume asm: "X \<inter> FV s = {}"
+  have "Y ::= s \<cdot> X ::= null = ((X \<inter> Y) \<union> (Y - X)) ::= s \<cdot> X ::= null"
+    by (metis Un_Diff_Int inf_commute sup_commute)
+  also have "... = (X \<inter> Y) ::= s \<cdot> (Y - X) ::= s \<cdot> X ::= null"
+    by (subst skat_set_assign5, insert asm, auto)
+  also have "... = (X \<inter> Y) ::= s \<cdot> X ::= null \<cdot> (Y - X) ::= s"
+    by (smt FV_null Int_empty_right asm skat_set_assign_comm skd.mult_assoc)
+  also have "... = (X \<inter> Y) ::= s \<cdot> ((X \<inter> Y) ::= null \<cdot> X ::= null) \<cdot> (Y - X) ::= s"
+    by (subst skat_set_assign5[symmetric], insert asm, auto)
+  also have "... = (X \<inter> Y) ::= null \<cdot> X ::= null \<cdot> (Y - X) ::= s"
+    by (metis FV_null inf_bot_right no_FV skat_set_assign3 skd.mult_assoc)
+  also have "... = X ::= null \<cdot> (Y - X) ::= s"
+    by (metis FV_null Un_commute inf_bot_right skat_set_assign5 sup_inf_absorb)
+  also have "... = (Y - X) ::= s \<cdot> X ::= null"
+    by (metis FV_null asm inf_bot_right skat_set_assign_comm)
+  finally show "Y ::= s \<cdot> X ::= null = (Y - X) ::= s \<cdot> X ::= null" .
+next
+  fix s t :: "'a skat_expr"
+  assume "skat_unfold s \<cdot> X ::= null = skat_unfold (eliminate X s) \<cdot> X ::= null"
+  and "skat_unfold t \<cdot> X ::= null = skat_unfold (eliminate X t) \<cdot> X ::= null"
+  and "not_read X s" and "not_read X t"
+  thus "skat_unfold s \<cdot> skat_unfold t \<cdot> X ::= null =
+        skat_unfold (eliminate X s) \<cdot> skat_unfold (eliminate X t) \<cdot> X ::= null"
+    by (metis (lifting) eliminate_comm skd.mult_assoc)
+next
+  fix s :: "'a skat_expr"
+  assume "skat_unfold s \<cdot> X ::= null = skat_unfold (eliminate X s) \<cdot> X ::= null"
+  and "not_read X s"
+  thus "skat_unfold s\<^sup>\<star> \<cdot> X ::= null = skat_unfold (eliminate X s)\<^sup>\<star> \<cdot> X ::= null"
+    by (metis eliminate_comm ska.star_sim)
+qed
 
 end

@@ -133,6 +133,8 @@ begin
 
   definition output_vars_kzp :: "kzp itself \<Rightarrow> nat set" where "output_vars_kzp x \<equiv> {0}"
 
+  declare output_vars_kzp_def[skat_alphabet]
+
   instance proof
     show "finite (UNIV::kzp set)" by (simp add: kzp_UNIV)
 
@@ -351,8 +353,15 @@ definition r :: "nat \<Rightarrow> nat \<Rightarrow> kzp skat" where
 
 abbreviation r13 where "r13 \<equiv> r 1 3"
 abbreviation r12 where "r12 \<equiv> r 1 2"
+abbreviation r22 where "r22 \<equiv> r 2 2"
 
 declare r_def [skat_simp]
+
+lemma p_to_r: "p n n \<cdot>p n n = r n n"
+  apply skat_simp
+  apply (subst skat_set_assign3)
+  apply (simp add: wf_trm_subst_def)
+  by (tactic {* touch_simp_tac @{context} 1 *})
 
 abbreviation x1 where "x1 \<equiv> 1 := vx"
 
@@ -485,56 +494,6 @@ method_setup seq_comm = {* Scan.succeed (fn ctxt => SIMPLE_METHOD' (seq_comm_tac
 lemma null_simp [simp]: "X ::= exp \<cdot> X ::= null = X ::= null"
   by (metis FV_null Int_empty_right no_FV skat_set_assign3)
 
-lemma elim_inst: "halt = seq [x := null, halt]"
-  sorry
-
-lemma elim_subst: "X = Y \<Longrightarrow> X ::= x \<cdot> Y ::= null = Y ::= null"
-  sorry
-
-lemma elim_null: "qes (x := null#xs) \<cdot> seq [halt] = qes xs \<cdot> seq [halt]"
-  sorry
-
-ML {*
-fun zip_var_elim_tac ctxt n = DETERM (
-  EqSubst.eqsubst_tac ctxt [0] @{thms zip_elim_var} n
-  THEN SOLVED' (fn n =>
-    asm_full_simp_tac (simpset_of ctxt addsimps SkatSimpRules.get ctxt) n
-    THEN TRY (touch_simp_tac ctxt n)
-    THEN TRY (rtac @{thm elim_subst} n)
-    THEN TRY (simp_tac (simpset_of ctxt) n)) n)
-
-fun zip_comml_tac ctxt n = DETERM (
-  EqSubst.eqsubst_tac ctxt [0] @{thms zip_comm} n
-  THEN skat_comm_tac' skat_ni_commuter ctxt n
-  THEN EqSubst.eqsubst_tac ctxt [0] @{thms zip_right} n)
-
-fun zip_commr_tac ctxt n = DETERM (
-  EqSubst.eqsubst_tac ctxt [0] @{thms zip_comm} n
-  THEN skat_comm_tac ctxt n
-  THEN EqSubst.eqsubst_tac ctxt [0] @{thms zip_left} n)
-
-fun var_elim_tac v ctxt n =
-  let
-    val v_ctrm = nat_cterm v
-  in
-    seq_select_tac 1 ctxt n
-    THEN simp_tac (HOL_basic_ss addsimps @{thms seq_to_qes rev.simps append.simps}) n
-    THEN EqSubst.eqsubst_tac ctxt [0] @{thms qes_snoc} n
-    THEN EqSubst.eqsubst_tac ctxt [0] [Drule.instantiate' [] [SOME v_ctrm] @{thm elim_inst}] n
-    THEN REPEAT (zip_var_elim_tac ctxt n ORELSE zip_comml_tac ctxt n ORELSE manual_elim_tac)
-    THEN EqSubst.eqsubst_tac ctxt [0] @{thms zip_left} n
-    THEN REPEAT (zip_commr_tac ctxt n)
-    THEN EqSubst.eqsubst_tac ctxt [0] @{thms elim_null} n
-    THEN unzip_tac ctxt n
-    THEN seq_deselect_tac n
-  end
-*}
-
-lemma "seq [q311,q 2 3 1,q311,halt] = seq [halt]"
-  apply (tactic {* var_elim_tac 3 @{context} 1 *})
-  ML_prf {* Goal.init @{cprop "False"} *}
-  defer
-
 no_notation
   one_class.one ("1") and
   dioid.one ("1\<index>") and
@@ -613,8 +572,6 @@ lemma vhalt [intro]: "vy \<notin> output_vars TYPE(kzp) \<Longrightarrow> vy := 
 lemma vhalt2 [intro]: "vy \<notin> output_vars TYPE(kzp) \<Longrightarrow> halt = vy := vs \<cdot> halt"
   by (metis vhalt)
 
-declare output_vars_kzp_def [simp]
-
 lemma kozen1: "p41\<cdot>p11 = p41\<cdot>p11\<cdot>(a1 iff a4)"
   sorry
 
@@ -685,7 +642,7 @@ proof -
     apply (rule plus_indiv)+
     apply (auto simp add: seq_head_elim_var[OF a_test])
     apply seq_comm+
-    by (auto simp add: seq_foldr mult_oner p_def)
+    by (auto simp add: seq_foldr mult_oner p_def output_vars_kzp_def)
 
   also have "... = seq
     [x1,p41,p11,q214,q311
@@ -839,17 +796,54 @@ proof -
     by (simp add: seq_def mult_onel skd.mult_assoc[simplified])
 
   also have "... = seq
-    [s1,(seq [a1,q211,!a2,(!a2\<cdot>p22)\<^sup>\<star>,a2])\<^sup>\<star>
+    [s1,(seq [a1,q211,!a2,r12,(!a2\<cdot>p22)\<^sup>\<star>,a2])\<^sup>\<star>
     ,q211,a2,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,z2,halt]"
-    apply (tactic {* var_elim_tac 3 @{context} 1 *})
-    apply (subgoal_tac "halt = y 3 \<cdot> halt", erule ssubst) back back
-    apply (seq_rev, subst qes_snoc)
-    apply (subst skd.mult_assoc[symmetric,simplified])
-    apply (subst qes_snoc[symmetric])+
-    apply (qes_rev)
-    apply (comml1 1 10 5)
-    apply (zip 1 4)
-    
+    apply (simp only: halt_def)
+    by (eliminate_variable 3)
+
+  also have "... = seq
+    [s1,(seq [a1,q211,r12,!a2,p22,(!a2\<cdot>p22)\<^sup>\<star>,a2])\<^sup>\<star>
+    ,q211,a1,a2,z2,halt]"
+  proof -
+    have "!a2\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2 = !a2\<cdot>a2 + !a2\<cdot>!a2\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2"
+      by (smt mult_oner ska.star_unfoldl_eq skd.distl skd.distr skd.mult_assoc)
+    also have "... = !a2\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2"
+      by (smt skd.add_zerol a_test not_closed skt.test_meet_idem complement_zero not_closed skt.test_mult_comm)
+    finally have a: "!a2\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2 = !a2\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2" .
+
+    have "a2\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2 = a2\<cdot>a2 + a2\<cdot>!a2\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2"
+      by (smt mult_oner ska.star_unfoldl_eq skd.distl skd.distr skd.mult_assoc)
+    also have "... = a2"
+      by (metis skd.add_zeror skd.mult_zerol a_test complement_zero skt.test_meet_idem)
+    finally have b: "a2\<cdot>(!a2\<cdot>p22)\<^sup>\<star>\<cdot>a2 = a2" .
+
+    from a b show ?thesis
+      by (comml1 2 4 1, simp add: seq_def mult_onel, smt a_comm skd.mult_assoc)
+  qed
+
+  also have "... = seq
+    [s1,a1,q211,(seq [r12,!a2,p22,(!a2\<cdot>p22)\<^sup>\<star>,a2,a1,q211])\<^sup>\<star>,a2,z2,halt]"
+    apply (comml1 1 4 1)
+    apply (cut 1 1)
+    apply (cut 2 3)
+    apply (cut 3 2)
+    apply (cut 2 1)
+    apply (simp add: seq_singleton)
+    apply (subst ska.star_slide[simplified])
+    by (simp add: seq_def mult_onel skd.mult_assoc)
+
+  also have "... = seq
+    [s1,a1,q211,(seq [!a2,r12,p22,(!a2\<cdot>p22)\<^sup>\<star>,a2,a1,q211])\<^sup>\<star>,a2,z2,halt]"
+    by (comml 2 2)
+
+  also have "... = seq
+    [s1,a1,q211,(seq [!a2,r12,a1,p22,a2,q211] + seq [!a2,r12,a1,p22,!a2,p22,a2,q211])\<^sup>\<star>
+    ,a2,z2]"
+  proof -
+    have "r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>!a2 \<sqsubseteq> r12\<cdot>a1\<cdot>p22\<cdot>p22\<cdot>!a2"
+      sorry
+    also have "... = r12\<cdot>a1\<cdot>r 2 2\<cdot>!a2"
+      
 
   also have "... = seq scheme2"
     sorry

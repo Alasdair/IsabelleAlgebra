@@ -357,6 +357,9 @@ lemma trm_simple_induct': "\<lbrakk>\<And>f xs. (\<forall>x\<in>set xs. P x) \<L
 lemma trm_simple_induct: "\<lbrakk>\<And>n. P (Var n); \<And>f xs. (\<forall>x\<in>set xs. P x) \<Longrightarrow> P (App f xs)\<rbrakk> \<Longrightarrow> P s"
   by (metis trm_simple_induct')
 
+lemma foldr_FV': "foldr op \<union> (map FV' xs) {} = \<Union> (FV' ` set xs)"
+  by (induct xs, auto)
+
 lemma eval_trm_eq_mem: "(\<forall>v\<in>FV' s. m1 v = m2 v) \<Longrightarrow> eval_trm D m1 s = eval_trm D m2 s"
 proof (induct rule: trm_simple_induct, auto)
   fix f :: "'a" and xs :: "'a trm list"
@@ -383,6 +386,55 @@ definition assign ::
   "('a::ranked_alphabet, 'b) interp \<Rightarrow> nat \<Rightarrow> 'a trm \<Rightarrow> 'b mem \<Rightarrow> 'b mem"
   where
   "assign D x s mem = setMem x (eval_trm D mem s) mem"
+
+lemma eval_assign1:
+  assumes ys: "y \<notin> FV' s" and xy: "x \<noteq> y"
+  shows "assign D y t (assign D x s mem) = assign D x s (assign D y (trm_subst {x} s t) mem)"
+  apply (induct t rule: trm_simple_induct)
+  apply (simp add: assign_def setMem_def)
+  apply default
+  apply default
+  apply default
+  apply (smt eval_trm_eq_mem ys)
+  apply auto
+  apply default
+  apply (smt eval_trm.simps(1) eval_trm_eq_mem xy ys)
+proof
+  fix f ts v
+  assume "\<forall>t\<in>set ts. assign D y t (assign D x s mem) =
+                      assign D x s (assign D y (trm_subst {x} s t) mem)"
+  hence "\<forall>t\<in>set ts. assign D y t (assign D x s mem) v =
+                     assign D x s (assign D y (trm_subst {x} s t) mem) v"
+    by auto
+  thus "assign D y (App f ts) (assign D x s mem) v =
+        assign D x s (assign D y (App f (map (trm_subst {x} s) ts)) mem) v"
+    apply (simp add: assign_def setMem_def o_def)
+    by (smt eval_trm_eq_mem map_eq_conv xy ys)
+qed
+
+lemma eval_assign2:
+  assumes ys: "x \<notin> FV' s" and xy: "x \<noteq> y"
+  shows "assign D y t (assign D x s mem) =
+         assign D y (trm_subst {x} s t) (assign D x s mem)"
+  apply (induct t rule: trm_simple_induct)
+  apply (simp add: assign_def setMem_def)
+  apply default
+  apply default
+  apply default
+  apply (smt eval_trm_eq_mem ys)
+  apply auto
+proof
+  fix f ts v
+  assume "\<forall>t\<in>set ts. assign D y t (assign D x s mem) =
+                      assign D y (trm_subst {x} s t) (assign D x s mem)"
+  hence "\<forall>t\<in>set ts. assign D y t (assign D x s mem) v =
+                     assign D y (trm_subst {x} s t) (assign D x s mem) v"
+    by auto
+  thus "assign D y (App f ts) (assign D x s mem) v =
+        assign D y (App f (map (trm_subst {x} s) ts)) (assign D x s mem) v"
+    apply (simp add: assign_def setMem_def o_def)
+    by (smt eval_trm_eq_mem map_eq_conv xy ys)
+qed
 
 lemma eval_assign3: "assign D x t (assign D x s mem) = assign D x (trm_subst {x} s t) mem"
 proof (induct t rule: trm_simple_induct, simp add: assign_def setMem_def, auto, default)

@@ -19,6 +19,8 @@ class ranked_alphabet =
   and rels_exist: "rels \<noteq> {}"
   and NULL_fun: "NULL \<in> funs"
   and NULL_arity: "arity NULL = 0"
+  and output_exists: "\<exists>x. x \<in> output_vars TYPE('a)"
+  and output_finite: "finite (output_vars TYPE('a))"
 
 text {* A ranked alphabet consists of a set of disjoint function and
 relation symbols. Each symbol in the alphabet has an associated
@@ -41,8 +43,8 @@ fun trm_vars :: "'a trm \<Rightarrow> nat set" where
   "trm_vars (App f xs) = \<Union> (set (map trm_vars xs))"
 | "trm_vars (Var v) = {v}"
 
-fun trm_subst :: "nat set \<Rightarrow> 'a trm \<Rightarrow> 'a trm \<Rightarrow> 'a trm" where
-  "trm_subst v s (Var v') = (if v' \<in> v then s else Var v')"
+fun trm_subst :: "nat \<Rightarrow> 'a trm \<Rightarrow> 'a trm \<Rightarrow> 'a trm" where
+  "trm_subst v s (Var v') = (if v' = v then s else Var v')"
 | "trm_subst v s (App f xs) = App f (map (trm_subst v s) xs)"
 
 inductive_set trms :: "'a::ranked_alphabet trm set" where
@@ -193,10 +195,10 @@ lemma eval_wf_trm_closed:
   shows "eval_wf_trm D mem x \<in> carrier D"
   by (metis Rep_wf_trm eval_trm_closed eval_wf_trm_def valid_ip valid_mem)
 
-definition wf_trm_subst :: "nat set \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_trm" where
+definition wf_trm_subst :: "nat \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_trm" where
   "wf_trm_subst v s x \<equiv> Abs_wf_trm (trm_subst v (Rep_wf_trm s) (Rep_wf_trm x))"
 
-abbreviation wf_trm_subst_notation :: "'a::ranked_alphabet wf_trm \<Rightarrow> nat set \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_trm"
+abbreviation wf_trm_subst_notation :: "'a::ranked_alphabet wf_trm \<Rightarrow> nat \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_trm"
   ("_[_|_]" [100,100,100] 101) where
   "s[x|t] \<equiv> wf_trm_subst x t s"
 
@@ -212,7 +214,7 @@ inductive_set preds :: "'a::ranked_alphabet pred set" where
 primrec eval_pred :: "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'b mem \<Rightarrow> 'a pred \<Rightarrow> bool" where
   "eval_pred D mem (Pred P xs) \<longleftrightarrow> map (eval_wf_trm D mem) xs \<in> mr D P"
 
-primrec pred_subst :: "nat set \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a pred \<Rightarrow> 'a pred" where
+primrec pred_subst :: "nat \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a pred \<Rightarrow> 'a pred" where
   "pred_subst v s (Pred P xs) = Pred P (map (wf_trm_subst v s) xs)"
 
 typedef (open) 'a wf_pred = "preds::'a::ranked_alphabet pred set"
@@ -222,12 +224,12 @@ definition eval_wf_pred :: "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'b me
   "eval_wf_pred D mem P \<equiv> eval_pred D mem (Rep_wf_pred P)"
 
 definition
-  wf_pred_subst :: "nat set \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a wf_pred \<Rightarrow> 'a wf_pred"
+  wf_pred_subst :: "nat \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a wf_pred \<Rightarrow> 'a wf_pred"
   where
   "wf_pred_subst v s \<equiv> Abs_wf_pred \<circ> pred_subst v s \<circ> Rep_wf_pred"
 
 abbreviation
-  wf_pred_subst_notation :: "'a::ranked_alphabet wf_pred \<Rightarrow> nat set \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_pred"
+  wf_pred_subst_notation :: "'a::ranked_alphabet wf_pred \<Rightarrow> nat \<Rightarrow> 'a wf_trm \<Rightarrow> 'a wf_pred"
   ("_[_|_]" [100,100,100] 101) where
   "s[x|t] \<equiv> wf_pred_subst x t s"
 
@@ -271,51 +273,53 @@ fun FV' :: "'a trm \<Rightarrow> nat set" where
 definition FV :: "'a::ranked_alphabet wf_trm \<Rightarrow> nat set" where
   "FV \<equiv> FV' \<circ> Rep_wf_trm"
 
-lemma app_FV': "v \<inter> FV' (App f xs) = {} \<Longrightarrow> \<forall>x\<in>set xs. v \<inter> FV' x = {}"
+lemma FV_is_FV': "x \<in> trms \<Longrightarrow> FV (Abs_wf_trm x) = FV' x"
+  by (metis Abs_wf_trm_inverse FV_def o_apply)
+
+lemma app_FV': "v \<notin> FV' (App f xs) \<Longrightarrow> \<forall>x\<in>set xs. v \<notin> FV' x"
   by (erule contrapos_pp, simp, induct xs, auto)
 
-lemma no_FV' [simp]: "v \<inter> FV' s = {} \<Longrightarrow> trm_subst v t s = s"
+lemma no_FV' [simp]: "v \<notin> FV' s \<Longrightarrow> trm_subst v t s = s"
 proof (induct s)
   fix f xs
-  assume asm: "\<forall>x\<in>set xs. v \<inter> FV' x = {} \<longrightarrow> trm_subst v t x = x"
-    and "v \<inter> FV' (App f xs) = {}"
-  hence "\<forall>x\<in>set xs. v \<inter> FV' x = {}"
+  assume asm: "\<forall>x\<in>set xs. v \<notin> FV' x \<longrightarrow> trm_subst v t x = x"
+    and "v \<notin> FV' (App f xs)"
+  hence "\<forall>x\<in>set xs. v \<notin> FV' x"
     by (metis app_FV')
   thus "trm_subst v t (App f xs) = App f xs"
     by (metis (lifting) asm map_idI trm_subst.simps(2))
 next
-  fix v' assume "v \<inter> FV' (Var v') = {}"
+  fix v' assume "v \<notin> FV' (Var v')"
   thus "trm_subst v t (Var v') = Var v'" by simp
 next
-  show "\<forall>x\<in>set []. v \<inter> FV' x = {} \<longrightarrow> trm_subst v t x = x" by simp
+  show "\<forall>x\<in>set []. v \<notin> FV' x \<longrightarrow> trm_subst v t x = x" by simp
 next
   fix x xs
-  assume "v \<inter> FV' x = {} \<Longrightarrow> trm_subst v t x = x"
-    and "\<forall>y\<in>set xs. v \<inter> FV' y = {} \<longrightarrow> trm_subst v t y = y"
-  thus "\<forall>y\<in>set (x # xs). v \<inter> FV' y = {} \<longrightarrow> trm_subst v t y = y"
+  assume "v \<notin> FV' x \<Longrightarrow> trm_subst v t x = x"
+    and "\<forall>y\<in>set xs. v \<notin> FV' y \<longrightarrow> trm_subst v t y = y"
+  thus "\<forall>y\<in>set (x # xs). v \<notin> FV' y \<longrightarrow> trm_subst v t y = y"
     by auto
 qed
 
-lemma no_FV [simp]: "v \<inter> FV s = {} \<Longrightarrow> s[v|t] = s"
+lemma no_FV [simp]: "v \<notin> FV s \<Longrightarrow> s[v|t] = s"
   by (induct s, metis FV_def Rep_wf_trm_inverse no_FV' o_apply wf_trm_subst_def)
 
 primrec pred_vars :: "'a::ranked_alphabet pred \<Rightarrow> nat set" where
   "pred_vars (Pred P xs) = \<Union> (set (map FV xs))"
 
-lemma no_pred_vars: "X \<inter> pred_vars \<phi> = {} \<Longrightarrow> pred_subst X t \<phi> = \<phi>"
+lemma no_pred_vars: "v \<notin> pred_vars \<phi> \<Longrightarrow> pred_subst v t \<phi> = \<phi>"
 proof (induct \<phi>, simp)
-  fix xs :: "'a wf_trm list" assume "X \<inter> UNION (set xs) FV = {}"
-  thus "map (wf_trm_subst X t) xs = xs"
-    apply (induct xs, simp_all)
-    by (metis Int_Un_distrib Un_commute Un_empty_left Un_left_absorb no_FV)
+  fix xs :: "'a wf_trm list" assume "\<forall>x\<in>set xs. v \<notin> FV x"
+  thus "map (wf_trm_subst v t) xs = xs"
+    by (induct xs, simp_all)
 qed
 
 definition wf_pred_vars :: "'a::ranked_alphabet wf_pred \<Rightarrow> nat set" where
   "wf_pred_vars P = pred_vars (Rep_wf_pred P)"
 
-lemma no_wf_pred_vars [simp]: "X \<inter> wf_pred_vars \<phi> = {} \<Longrightarrow> wf_pred_subst X t \<phi> = \<phi>"
+lemma no_wf_pred_vars [simp]: "v \<notin> wf_pred_vars \<phi> \<Longrightarrow> wf_pred_subst v t \<phi> = \<phi>"
   apply (induct \<phi>)
-  by (metis Abs_wf_pred_inverse Diff_Compl no_pred_vars o_eq_dest_lhs wf_pred_subst_def wf_pred_vars_def)
+  by (metis Abs_wf_pred_inverse no_pred_vars o_eq_dest_lhs wf_pred_subst_def wf_pred_vars_def)
 
 ML {*
 
@@ -379,19 +383,31 @@ proof (induct rule: trm_simple_induct, auto)
     by metis
 qed
 
-definition setMem :: "nat \<Rightarrow> 'a \<Rightarrow> 'a mem \<Rightarrow> 'a mem" where
-  "setMem x s mem \<equiv> \<lambda>v. if v = x then s else mem v"
+definition set_mem :: "nat \<Rightarrow> 'a \<Rightarrow> 'a mem \<Rightarrow> 'a mem" where
+  "set_mem x s mem \<equiv> \<lambda>v. if v = x then s else mem v"
 
 definition assign ::
   "('a::ranked_alphabet, 'b) interp \<Rightarrow> nat \<Rightarrow> 'a trm \<Rightarrow> 'b mem \<Rightarrow> 'b mem"
   where
-  "assign D x s mem = setMem x (eval_trm D mem s) mem"
+  "assign D x s mem = set_mem x (eval_trm D mem s) mem"
+
+definition halt_null :: "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'b mem \<Rightarrow> 'b mem"
+  where
+  "halt_null D mem \<equiv> \<lambda>v. if v \<notin> output_vars TYPE('a) then mf D NULL [] else mem v"
+
+definition wf_assign ::
+  "('a::ranked_alphabet, 'b) interp \<Rightarrow> nat \<Rightarrow> 'a wf_trm \<Rightarrow> 'b mem \<Rightarrow> 'b mem"
+  where
+  "wf_assign D x s mem = set_mem x (eval_wf_trm D mem s) mem"
+
+lemma wf_assign_is_assign: "s \<in> trms \<Longrightarrow> wf_assign D x (Abs_wf_trm s) mem = assign D x s mem"
+  by (metis Abs_wf_trm_inverse assign_def eval_wf_trm_def wf_assign_def)
 
 lemma eval_assign1:
-  assumes ys: "y \<notin> FV' s" and xy: "x \<noteq> y"
-  shows "assign D y t (assign D x s mem) = assign D x s (assign D y (trm_subst {x} s t) mem)"
+  assumes xy: "x \<noteq> y" and ys: "y \<notin> FV' s"
+  shows "assign D y t (assign D x s mem) = assign D x s (assign D y (trm_subst x s t) mem)"
   apply (induct t rule: trm_simple_induct)
-  apply (simp add: assign_def setMem_def)
+  apply (simp add: assign_def set_mem_def)
   apply default
   apply default
   apply default
@@ -402,51 +418,73 @@ lemma eval_assign1:
 proof
   fix f ts v
   assume "\<forall>t\<in>set ts. assign D y t (assign D x s mem) =
-                      assign D x s (assign D y (trm_subst {x} s t) mem)"
+                      assign D x s (assign D y (trm_subst x s t) mem)"
   hence "\<forall>t\<in>set ts. assign D y t (assign D x s mem) v =
-                     assign D x s (assign D y (trm_subst {x} s t) mem) v"
+                     assign D x s (assign D y (trm_subst x s t) mem) v"
     by auto
   thus "assign D y (App f ts) (assign D x s mem) v =
-        assign D x s (assign D y (App f (map (trm_subst {x} s) ts)) mem) v"
-    apply (simp add: assign_def setMem_def o_def)
+        assign D x s (assign D y (App f (map (trm_subst x s) ts)) mem) v"
+    apply (simp add: assign_def set_mem_def o_def)
     by (smt eval_trm_eq_mem map_eq_conv xy ys)
 qed
 
+lemma eval_wf_assign1:
+  assumes xy: "x \<noteq> y" and ys: "y \<notin> FV s"
+  shows "wf_assign D y t (wf_assign D x s mem) = wf_assign D x s (wf_assign D y (wf_trm_subst x s t) mem)"
+  apply (insert xy ys, induct s, induct t)
+  by (metis FV_is_FV' Rep_wf_trm_cases Rep_wf_trm_inverse eval_assign1 trm_subst_wf wf_assign_is_assign wf_trm_subst_def)
+
 lemma eval_assign2:
-  assumes ys: "x \<notin> FV' s" and xy: "x \<noteq> y"
+  assumes xy: "x \<noteq> y" and xs: "x \<notin> FV' s"
   shows "assign D y t (assign D x s mem) =
-         assign D y (trm_subst {x} s t) (assign D x s mem)"
+         assign D y (trm_subst x s t) (assign D x s mem)"
   apply (induct t rule: trm_simple_induct)
-  apply (simp add: assign_def setMem_def)
+  apply (simp add: assign_def set_mem_def)
   apply default
   apply default
   apply default
-  apply (smt eval_trm_eq_mem ys)
+  apply (smt eval_trm_eq_mem xs)
   apply auto
 proof
   fix f ts v
   assume "\<forall>t\<in>set ts. assign D y t (assign D x s mem) =
-                      assign D y (trm_subst {x} s t) (assign D x s mem)"
+                      assign D y (trm_subst x s t) (assign D x s mem)"
   hence "\<forall>t\<in>set ts. assign D y t (assign D x s mem) v =
-                     assign D y (trm_subst {x} s t) (assign D x s mem) v"
+                     assign D y (trm_subst x s t) (assign D x s mem) v"
     by auto
   thus "assign D y (App f ts) (assign D x s mem) v =
-        assign D y (App f (map (trm_subst {x} s) ts)) (assign D x s mem) v"
-    apply (simp add: assign_def setMem_def o_def)
-    by (smt eval_trm_eq_mem map_eq_conv xy ys)
+        assign D y (App f (map (trm_subst x s) ts)) (assign D x s mem) v"
+    apply (simp add: assign_def set_mem_def o_def)
+    by (smt eval_trm_eq_mem map_eq_conv xy xs)
 qed
 
-lemma eval_assign3: "assign D x t (assign D x s mem) = assign D x (trm_subst {x} s t) mem"
-proof (induct t rule: trm_simple_induct, simp add: assign_def setMem_def, auto, default)
+lemma eval_wf_assign2:
+  assumes xy: "x \<noteq> y" and xs: "x \<notin> FV s"
+  shows "wf_assign D y t (wf_assign D x s mem) =
+         wf_assign D y (wf_trm_subst x s t) (wf_assign D x s mem)"
+  apply (insert xy xs, induct t, induct s)
+  by (metis Abs_wf_trm_inverse FV_is_FV' eval_assign2 trm_subst_wf wf_assign_is_assign wf_trm_subst_def)
+
+lemma eval_assign3: "assign D x t (assign D x s mem) = assign D x (trm_subst x s t) mem"
+proof (induct t rule: trm_simple_induct, simp add: assign_def set_mem_def, auto, default)
   fix f ts v
-  assume "\<forall>t\<in>set ts. assign D x t (assign D x s mem) = assign D x (trm_subst {x} s t) mem"
-  hence "\<forall>t\<in>set ts. assign D x t (assign D x s mem) v = assign D x (trm_subst {x} s t) mem v"
+  assume "\<forall>t\<in>set ts. assign D x t (assign D x s mem) = assign D x (trm_subst x s t) mem"
+  hence "\<forall>t\<in>set ts. assign D x t (assign D x s mem) v = assign D x (trm_subst x s t) mem v"
     by auto
   hence "v = x \<longrightarrow> map (eval_trm D (\<lambda>v. if v = x then eval_trm D mem s else mem v)) ts =
-                  map (eval_trm D mem \<circ> trm_subst {x} s) ts"
-    by (auto simp add: assign_def setMem_def)
-  thus "assign D x (App f ts) (assign D x s mem) v = assign D x (App f (map (trm_subst {x} s) ts)) mem v"
-    by (auto simp add: assign_def setMem_def o_def, smt map_eq_conv)
+                  map (eval_trm D mem \<circ> trm_subst x s) ts"
+    by (auto simp add: assign_def set_mem_def)
+  thus "assign D x (App f ts) (assign D x s mem) v = assign D x (App f (map (trm_subst x s) ts)) mem v"
+    by (auto simp add: assign_def set_mem_def o_def, smt map_eq_conv)
 qed
+
+lemma eval_wf_assign3:
+  "wf_assign D x t (wf_assign D x s mem) = wf_assign D x (wf_trm_subst x s t) mem"
+  apply (induct t, induct s)
+  by (metis Rep_wf_trm_cases Rep_wf_trm_inverse eval_assign3 trm_subst_wf wf_assign_is_assign wf_trm_subst_def)
+
+lemma eval_halt:
+  "x \<notin> output_vars TYPE('a::ranked_alphabet) \<Longrightarrow> halt_null D mem = halt_null D (assign D x (App (NULL::'a) []) mem)"
+  by (auto simp add: halt_null_def assign_def set_mem_def)
 
 end

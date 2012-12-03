@@ -6,7 +6,7 @@ begin
 subsection {* Schematic Kleene Algebra Expressions *}
 (* +------------------------------------------------------------------------+ *)
 
-datatype 'a skat_expr = SKLeaf "nat set" "'a wf_trm"
+datatype 'a skat_expr = SKLeaf nat "'a wf_trm"
                       | SKPlus "'a skat_expr" "'a skat_expr" (infixl ":\<oplus>:" 70)
                       | SKMult "'a skat_expr" "'a skat_expr" (infixl ":\<odot>:" 80)
                       | SKStar "'a skat_expr"
@@ -15,7 +15,7 @@ datatype 'a skat_expr = SKLeaf "nat set" "'a wf_trm"
                       | SKZero
 
 primrec reads :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
-  "reads (SKLeaf X s) = FV s"
+  "reads (SKLeaf x s) = FV s"
 | "reads (SKPlus x y) = reads x \<union> reads y"
 | "reads (SKMult x y) = reads x \<union> reads y"
 | "reads (SKStar x) = reads x"
@@ -24,7 +24,7 @@ primrec reads :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
 | "reads SKZero = {}"
 
 primrec writes :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
-  "writes (SKLeaf X s) = X"
+  "writes (SKLeaf x s) = {x}"
 | "writes (SKPlus x y) = writes x \<union> writes y"
 | "writes (SKMult x y) = writes x \<union> writes y"
 | "writes (SKStar x) = writes x"
@@ -33,7 +33,7 @@ primrec writes :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
 | "writes SKZero = {}"
 
 primrec touches :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
-  "touches (SKLeaf X s) = X \<union> FV s"
+  "touches (SKLeaf x s) = {x} \<union> FV s"
 | "touches (SKPlus x y) = touches x \<union> touches y"
 | "touches (SKMult x y) = touches x \<union> touches y"
 | "touches (SKStar x) = touches x"
@@ -43,11 +43,6 @@ primrec touches :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
 
 lemma touches_rw: "touches t = writes t \<union> reads t"
   by (induct t, auto)
-
-(*
-fun SKNot :: "'a skat_expr \<Rightarrow> 'a skat_expr" where
-  "SKNot (SKBool P) = SKBool (BNot P)"
-*)
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Quotient Type *}
@@ -92,12 +87,10 @@ inductive skat_con :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat_expr 
 | test_plus: "skat_con (SKBool (BAnd x y)) (SKMult (SKBool x) (SKBool y))"
 | test_mult: "skat_con (SKBool (BOr x y)) (SKPlus (SKBool x) (SKBool y))"
 
-| assign1: "y \<inter> FV s = {} \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf y (t[x|s]) :\<odot>: SKLeaf x s)"
-| assign2: "x \<inter> FV s = {} \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf x s :\<odot>: SKLeaf y (t[x|s]))"
+| assign1: "\<lbrakk>x \<noteq> y; y \<notin> FV s\<rbrakk> \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf y (t[x|s]) :\<odot>: SKLeaf x s)"
+| assign2: "\<lbrakk>x \<noteq> y; x \<notin> FV s\<rbrakk> \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf x s :\<odot>: SKLeaf y (t[x|s]))"
 | assign3: "skat_con (SKLeaf x s :\<odot>: SKLeaf x t) (SKLeaf x (t[x|s]))"
 | assign4: "skat_con (SKBool (bexpr_map (wf_pred_subst x t) \<phi>) :\<odot>: SKLeaf x t) (SKLeaf x t :\<odot>: SKBool \<phi>)"
-| assign5: "X \<inter> FV s = {} \<Longrightarrow> skat_con (SKLeaf (X \<union> Y) s) (SKLeaf X s :\<odot>: SKLeaf Y s)"
-| assign6: "skat_con SKOne (SKLeaf {} s)"
 
 lemma skat_con_eq: "x = y \<Longrightarrow> skat_con x y" by (simp add: skat_con.refl)
 
@@ -114,15 +107,9 @@ qed
 subsection {* Lifting Definitions *}
 (* +------------------------------------------------------------------------+ *)
 
-lift_definition skat_set_assign :: "nat set \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a skat"
-  (infix "::=" 100) is SKLeaf
+lift_definition skat_assign :: "nat \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a skat"
+  (infix ":=" 100) is SKLeaf
   by (rule skat_con.refl)
-
-definition skat_assign :: "nat \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a skat" (infix ":=" 100) where
-  "x := s \<equiv> {x} ::= s"
-
-definition halt :: "'a::ranked_alphabet skat" where
-  "halt = (- output_vars TYPE('a)) ::= null"
 
 lift_definition skat_mult :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat \<Rightarrow> 'a skat" (infixl "\<cdot>" 80) is SKMult
   by (rule mult_compat, assumption+)
@@ -213,7 +200,7 @@ proof simp_all
 qed
 
 primrec skat_unfold :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat" ("\<lfloor>_\<rfloor>" [111] 110) where
-  "skat_unfold (SKLeaf x y) = x ::= y"
+  "skat_unfold (SKLeaf x y) = x := y"
 | "skat_unfold (SKPlus x y) = skat_unfold x + skat_unfold y"
 | "skat_unfold (SKMult x y) = skat_unfold x \<cdot> skat_unfold y"
 | "skat_unfold (SKBool p) = test_unfold p"
@@ -230,6 +217,12 @@ primrec atoms :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat_expr set" 
 | "atoms SKZero = {}"
 | "atoms (SKStar x) = atoms x"
 
+lemma FV_null [simp]: "FV null = {}"
+  apply (simp add: null_def FV_def)
+  apply (subst Abs_wf_trm_inverse)
+  apply (metis NULL_arity NULL_fun trms_const)
+  by simp
+
 lemma read_atoms: "a \<in> atoms s \<Longrightarrow> reads a \<subseteq> reads s"
   by (induct s, auto)
 
@@ -241,7 +234,7 @@ lemma touch_atoms: "a \<in> atoms s \<Longrightarrow> touches a \<subseteq> touc
 
 lemma unfold_is_abs: "\<lfloor>y\<rfloor> = abs_skat y"
 proof (induct y, simp_all)
-  fix X s show "X ::= s = abs_skat (SKLeaf X s)"
+  fix x s show "x := s = abs_skat (SKLeaf x s)"
     by (transfer, metis skat_con.refl)
 next
   fix s t show "abs_skat s + abs_skat t = abs_skat (s :\<oplus>: t)"
@@ -276,69 +269,26 @@ lemma unfold_transfer: "\<lfloor>x\<rfloor> = \<lfloor>y\<rfloor> \<longleftrigh
 subsection {* Assignment Rules *}
 (* +------------------------------------------------------------------------+ *)
 
-lemma skat_set_assign1: "Y \<inter> FV s = {} \<Longrightarrow> (X ::= s \<cdot> Y ::= t) = (Y ::= t[X|s] \<cdot> X ::= s)"
-  by (transfer, rule assign1, assumption)
+lemma skat_assign1: "\<lbrakk>x \<noteq> y; y \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t[x|s] \<cdot> x := s)"
+  by (transfer, rule skat_con.assign1)
 
-lemma skat_set_assign1_var: "\<lbrakk>u = t[X|s]; Y \<inter> FV s = {}\<rbrakk> \<Longrightarrow> (X ::= s \<cdot> Y ::= t) = (Y ::= u \<cdot> X ::= s)"
-  by (erule ssubst, rule skat_set_assign1, assumption)
+lemma skat_assign2: "\<lbrakk>x \<noteq> y; x \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (x := s \<cdot> y := t[x|s])"
+  by (transfer, rule skat_con.assign2)
 
-lemma skat_assign1: "y \<notin> FV s \<Longrightarrow> (x := s \<cdot> y := t) = (y := t[{x}|s] \<cdot> x := s)"
-  by (simp add: skat_assign_def, rule skat_set_assign1, blast)
+lemma skat_assign3: "(x := s \<cdot> x := t) = (x := t[x|s])"
+  by (transfer, rule skat_con.assign3)
 
-lemma skat_set_assign2: "X \<inter> FV s = {} \<Longrightarrow> (X ::= s \<cdot> Y ::= t) = (X ::= s \<cdot> Y ::= t[X|s])"
-  by (transfer, rule assign2, assumption)
+lemma skat_assign4: "(pred (\<phi>[x|t]) \<cdot> x := t) = (x := t \<cdot> pred \<phi>)"
+  by (transfer, metis assign4 bexpr_map.simps(1) o_apply)
 
-lemma skat_assign2: "x \<notin> FV s \<Longrightarrow> (x := s \<cdot> y := t) = (x := s \<cdot> y := t[{x}|s])"
-  by (simp add: skat_assign_def, rule skat_set_assign2, blast)
-
-lemma skat_set_assign3: "(X ::= s \<cdot> X ::= t) = (X ::= t[X|s])"
-  by (transfer, rule assign3)
-
-lemma skat_assign3: "(x := s \<cdot> x := t) = (x := t[{x}|s])"
-  by (simp add: skat_assign_def, rule skat_set_assign3)
-
-lemma skat_set_assign4_expr: "(pred_expr (bexpr_map (\<lambda>\<psi>. \<psi>[X|t]) \<phi>) \<cdot> X ::= t) = (X ::= t \<cdot> pred_expr \<phi>)"
-  by (transfer, rule assign4)
-
-lemma skat_set_assign4_expr_var: "\<psi> = bexpr_map (\<lambda>\<gamma>. \<gamma>[X|t]) \<phi> \<Longrightarrow> pred_expr \<psi> \<cdot> X ::= t = X ::= t \<cdot> pred_expr \<phi>"
-  by (erule ssubst, rule skat_set_assign4_expr)
-
-lemma skat_set_assign4: "(pred (\<phi>[X|t]) \<cdot> X ::= t) = (X ::= t \<cdot> pred \<phi>)"
-  apply (simp add: pred_to_expr)
-  by (metis bexpr_map.simps(1) skat_set_assign4_expr)
-
-lemma skat_set_assign4_var: "\<psi> = \<phi>[X|t] \<Longrightarrow> pred \<psi> \<cdot> X ::= t = X ::= t \<cdot> pred \<phi>"
-  by (erule ssubst, rule skat_set_assign4)
-
-lemma skat_assign4: "(pred (\<phi>[{x}|t]) \<cdot> x := t) = (x := t \<cdot> pred \<phi>)"
-  by (simp add: skat_assign_def, rule skat_set_assign4)
-
-lemma skat_assign4_var: "\<psi> = \<phi>[{x}|t] \<Longrightarrow> (pred \<psi> \<cdot> x := t) = (x := t \<cdot> pred \<phi>)"
+lemma skat_assign4_var: "\<psi> = \<phi>[x|t] \<Longrightarrow> (pred \<psi> \<cdot> x := t) = (x := t \<cdot> pred \<phi>)"
   by (erule ssubst, rule skat_assign4)
 
-lemma skat_set_assign_comm: "\<lbrakk>X \<inter> FV t = {}; Y \<inter> FV s = {}\<rbrakk> \<Longrightarrow> (X ::= s \<cdot> Y ::= t) = (Y ::= t \<cdot> X ::= s)"
-  by (metis no_FV skat_set_assign1)
-
-lemma skat_assign_comm: "\<lbrakk>x \<notin> FV t; y \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t \<cdot> x := s)"
-  by (insert skat_assign1[of y s x t], simp)
-
-lemma skat_set_pred_comm: "X \<inter> wf_pred_vars \<phi> = {} \<Longrightarrow> pred \<phi> \<cdot> X ::= s = X ::= s \<cdot> pred \<phi>"
-  by (insert skat_set_assign4[of X s \<phi>], simp)
+lemma skat_assign_comm: "\<lbrakk>x \<noteq> y; x \<notin> FV t; y \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t \<cdot> x := s)"
+  by (insert skat_assign1[of x y s t], simp)
 
 lemma skat_pred_comm: "x \<notin> wf_pred_vars \<phi> \<Longrightarrow> pred \<phi> \<cdot> x := s = x := s \<cdot> pred \<phi>"
-  by (insert skat_set_pred_comm[of "{x}" \<phi> s], simp add: skat_assign_def)
-
-lemma skat_set_assign5: "X \<inter> FV s = {} \<Longrightarrow> ((X \<union> Y) ::= s) = (X ::= s \<cdot> Y ::= s)"
-  by (transfer, rule assign5, assumption)
-
-lemma skat_set_assign5_var: "\<lbrakk>Z = X \<union> Y; X \<inter> FV s = {}\<rbrakk> \<Longrightarrow> Z ::= s = X ::= s \<cdot> Y ::= s"
-  by (erule ssubst, rule skat_set_assign5)
-
-lemma FV_null [simp]: "FV null = {}"
-  apply (simp add: null_def FV_def)
-  apply (subst Abs_wf_trm_inverse)
-  apply (metis NULL_arity NULL_fun trms_const)
-  by simp
+  by (metis no_wf_pred_vars skat_assign4)
 
 lemma null_Rep [simp]: "Rep_wf_trm null = App NULL []"
   apply (simp add: null_def, subst Abs_wf_trm_inverse)
@@ -350,7 +300,7 @@ lemma null_Abs [simp]: "Abs_wf_trm (App NULL []) = null"
 
 lemma skat_null_zero: "(x := s \<cdot> x := null) = (x := null)"
 proof -
-  have "(x := s \<cdot> x := null) = (x := null[{x}|s])"
+  have "(x := s \<cdot> x := null) = (x := null[x|s])"
     by (rule skat_assign3)
   also have "... = x := null"
     by (simp add: wf_trm_subst_def)
@@ -358,17 +308,7 @@ proof -
 qed
 
 lemma skat_null_comm: "(x := null \<cdot> y := null) = (y := null \<cdot> x := null)"
-  by (rule skat_assign_comm, simp_all)
-
-lemma skat_set_halt:
-  "X \<inter> output_vars TYPE('a::ranked_alphabet) = {} \<Longrightarrow> (halt::'a skat) = X ::= null \<cdot> halt"
-  by (simp add: halt_def, subst skat_set_assign5_var[of _ "X" "- output_vars TYPE('a)"], auto)
-
-lemma skat_halt: "x \<notin> output_vars TYPE('a::ranked_alphabet) \<Longrightarrow> (halt::'a skat) = x := null \<cdot> halt"
-  by (insert skat_set_halt[of "{x}"], auto simp add: skat_assign_def)
-
-lemma skat_set_assign6[simp]: "{} ::= x = \<one>"
-  by (transfer, metis assign6 skat_con.sym)
+  by (metis FV_null empty_iff skat_assign_comm)
 
 (* +------------------------------------------------------------------------+ *)
 subsection {* Interpretations *}
@@ -906,7 +846,7 @@ lemma kat3:
   by (simp add: kat2[OF bt ct] kat1[OF bt ct])
 
 locale kat_homomorphism =
-  fixes f :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat"
+  fixes f :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'b::ranked_alphabet skat"
   assumes homo_plus: "f (x :\<oplus>: y) = f x + f y"
   and homo_test_plus: "f (SKBool (P :+: Q)) = f (SKBool P) + f (SKBool Q)"
   and homo_mult: "f (x :\<odot>: y) = f x \<cdot> f y"
@@ -1011,31 +951,14 @@ lemma no_touch_comm:
   shows "\<lfloor>s\<rfloor> \<cdot> \<lfloor>t\<rfloor> = \<lfloor>t\<rfloor> \<cdot> \<lfloor>s\<rfloor>"
 proof (rule skat_comm, rule skat_comm[symmetric])
   fix sa ta assume asm1: "sa \<in> atoms s" and asm2: "ta \<in> atoms t"
-  let ?opts = "((\<exists>X s. sa = SKLeaf X s) \<or> (\<exists>P. sa = SKBool (BLeaf P)))
-             \<and> ((\<exists>X s. ta = SKLeaf X s) \<or> (\<exists>P. ta = SKBool (BLeaf P)))"
+  let ?opts = "((\<exists>x s. sa = SKLeaf x s) \<or> (\<exists>P. sa = SKBool (BLeaf P)))
+             \<and> ((\<exists>x s. ta = SKLeaf x s) \<or> (\<exists>P. ta = SKBool (BLeaf P)))"
 
   have "\<lbrakk>touches sa \<inter> touches ta = {}; ?opts\<rbrakk> \<Longrightarrow> \<lfloor>ta\<rfloor> \<cdot> \<lfloor>sa\<rfloor> = \<lfloor>sa\<rfloor> \<cdot> \<lfloor>ta\<rfloor>"
-  proof auto
-    fix X and s :: "'a wf_trm" and Y and t :: "'a wf_trm"
-    assume "(X \<union> FV s) \<inter> (Y \<union> FV t) = {}"
-    thus "Y ::= t \<cdot> X ::= s = X ::= s \<cdot> Y ::= t"
-      by (auto intro: skat_set_assign_comm)
-  next
-    fix X and s :: "'a wf_trm" and P :: "'a wf_pred"
-    assume asm: "(X \<union> FV s) \<inter> wf_pred_vars P = {}"
-    thus "pred P \<cdot> X ::= s = X ::= s \<cdot> pred P"
-      by (auto intro: skat_set_pred_comm)
-  next
-    fix P :: "'a wf_pred" and X and s :: "'a wf_trm"
-    assume "wf_pred_vars P \<inter> (X \<union> FV s) = {}"
-    thus "X ::= s \<cdot> pred P = pred P \<cdot> X ::= s"
-      by (auto intro: skat_set_pred_comm HOL.sym)
-  next
-    fix P Q :: "'a wf_pred"
-    assume "wf_pred_vars P \<inter> wf_pred_vars Q = {}"
-    thus "pred Q \<cdot> pred P = pred P \<cdot> pred Q"
-      by (metis skt.test_mult_comm pred_closed)
-  qed
+    apply (auto intro: skat_assign_comm skat_pred_comm)
+    apply (rule HOL.sym)
+    apply (auto intro: skat_pred_comm)
+    by (metis skt.test_mult_comm pred_closed)
 
   moreover have "touches sa \<inter> touches ta = {}"
     by (insert no_touch asm1 asm2 touch_atoms, blast)
@@ -1046,87 +969,79 @@ proof (rule skat_comm, rule skat_comm[symmetric])
   ultimately show "\<lfloor>ta\<rfloor> \<cdot> \<lfloor>sa\<rfloor> = \<lfloor>sa\<rfloor> \<cdot> \<lfloor>ta\<rfloor>" by auto
 qed
 
-fun eliminate :: "nat set \<Rightarrow> 'a::ranked_alphabet skat_expr => 'a skat_expr" where
-  "eliminate X (SKLeaf Y s) = SKLeaf (Y - X) s"
-| "eliminate X (SKBool p) = (SKBool p)"
-| "eliminate X (s :\<odot>: t) = eliminate X s :\<odot>: eliminate X t"
-| "eliminate X (s :\<oplus>: t) = eliminate X s :\<oplus>: eliminate X t"
-| "eliminate X (SKStar s) = SKStar (eliminate X s)"
-| "eliminate X SKOne = SKOne"
-| "eliminate X SKZero = SKZero"
+fun eliminate :: "nat \<Rightarrow> 'a::ranked_alphabet skat_expr => 'a skat_expr" where
+  "eliminate x (SKLeaf y s) = (if x = y then SKOne else (SKLeaf y s))"
+| "eliminate x (SKBool p) = (SKBool p)"
+| "eliminate x (s :\<odot>: t) = eliminate x s :\<odot>: eliminate x t"
+| "eliminate x (s :\<oplus>: t) = eliminate x s :\<oplus>: eliminate x t"
+| "eliminate x (SKStar s) = SKStar (eliminate x s)"
+| "eliminate x SKOne = SKOne"
+| "eliminate x SKZero = SKZero"
 
 lemma eliminate_homo: "\<And>X. kat_homomorphism (\<lambda>s. \<lfloor>eliminate X s\<rfloor>)"
   by (default, simp_all, metis pred_expr_closed pred_expr_unfold)
 
-lemma not_read_elim [intro!]: "X \<inter> reads s = {} \<Longrightarrow> touches (eliminate X s) \<inter> X = {}"
-  by (induct s, auto)
+lemma non_output_infinite: "\<not> finite (- output_vars TYPE('a::ranked_alphabet))"
+  by (smt finite_compl infinite_UNIV_nat output_finite)
+
+lemma inf_inj_image: "\<lbrakk>inj f; \<not> finite X\<rbrakk> \<Longrightarrow> \<not> finite (f ` X)"
+  by (metis (lifting) finite_imageD injD inj_onI)
+
+(*
+lemma not_read_elim [intro!]: "x \<notin> reads s \<Longrightarrow> x \<notin> touches (eliminate x s)"
+  by (induct s, auto, smt atoms.simps(8) halt_atoms_inf)
 
 lemma eliminate_comm:
-  "X \<inter> reads s = {} \<Longrightarrow> \<lfloor>eliminate X s\<rfloor> \<cdot> X ::= null = X ::= null \<cdot> \<lfloor>eliminate X s\<rfloor>"
+  "\<lbrakk>finite (atoms s); x \<notin> reads s\<rbrakk> \<Longrightarrow> \<lfloor>eliminate x s\<rfloor> \<cdot> x := null = x := null \<cdot> \<lfloor>eliminate x s\<rfloor>"
 proof -
-  assume no_read: "X \<inter> reads s = {}"
-  have "\<lfloor>eliminate X s\<rfloor> \<cdot> \<lfloor>SKLeaf X null\<rfloor> = \<lfloor>SKLeaf X null\<rfloor> \<cdot> \<lfloor>eliminate X s\<rfloor>"
-    apply (rule no_touch_comm, insert no_read, subst touches_def) back
-    by (auto simp del: touches_def)
+  assume fin_atoms: "finite (atoms s)" and no_read: "x \<notin> reads s"
+  have "\<lfloor>eliminate x s\<rfloor> \<cdot> \<lfloor>SKLeaf x null\<rfloor> = \<lfloor>SKLeaf x null\<rfloor> \<cdot> \<lfloor>eliminate x s\<rfloor>"
+    by (rule no_touch_comm, simp, rule not_read_elim, simp_all add: fin_atoms no_read)
   thus ?thesis
     by simp
 qed
 
 lemma eliminate_variables:
-  assumes no_reads: "X \<inter> reads p = {}"
-  shows "\<lfloor>p\<rfloor> \<cdot> X ::= null = \<lfloor>eliminate X p\<rfloor> \<cdot> X ::= null"
+  assumes fin_atoms: "finite (atoms p)"
+  assumes no_reads: "x \<notin> reads p"
+  shows "\<lfloor>p\<rfloor> \<cdot> x := null = \<lfloor>eliminate x p\<rfloor> \<cdot> x := null"
 proof -
-  have "(\<And>a. a \<in> atoms p \<Longrightarrow> \<lfloor>a\<rfloor> \<cdot> X ::= null = X ::= null \<cdot> \<lfloor>eliminate X a\<rfloor>)"
+  have "(\<And>a. a \<in> atoms p \<Longrightarrow> \<lfloor>a\<rfloor> \<cdot> x := null = x := null \<cdot> \<lfloor>eliminate x a\<rfloor>)"
   proof -
     fix a assume asm: "a \<in> atoms p"
-    hence "(\<exists>X s. a = SKLeaf X s) \<or> (\<exists>P. a = SKBool (BLeaf P))"
+    hence "(\<exists>x s. a = SKLeaf x s) \<or> (\<exists>P. a = SKBool (BLeaf P))"
       by (metis atoms_oneof)
-    moreover from asm have "X \<inter> reads a = {}"
+    moreover from asm have "x \<notin> reads a"
       by (metis disjoint_iff_not_equal no_reads read_atoms set_rev_mp)
-    ultimately show "\<lfloor>a\<rfloor> \<cdot> X ::= null = X ::= null \<cdot> \<lfloor>eliminate X a\<rfloor>"
-    proof auto
-      fix Y s assume asm2: "X \<inter> FV s = {}"
-      have "Y ::= s \<cdot> X ::= null = ((X \<inter> Y) \<union> (Y - X)) ::= s \<cdot> X ::= null"
-        by (rule arg_cong, blast)
-      also have "... = (X \<inter> Y) ::= s \<cdot> (Y - X) ::= s \<cdot> X ::= null"
-        by (rule arg_cong, rule skat_set_assign5, insert asm2, blast)
-      also have "... = (X \<inter> Y) ::= s \<cdot> X ::= null \<cdot> (Y - X) ::= s"
-        by (smt FV_null Int_empty_right asm2 skat_set_assign_comm skd.mult_assoc)
-      also have "... = (X \<inter> Y) ::= s \<cdot> ((X \<inter> Y) ::= null \<cdot> X ::= null) \<cdot> (Y - X) ::= s"
-        by (subst skat_set_assign5_var[symmetric], insert asm2, auto)
-      also have "... = (X \<inter> Y) ::= null \<cdot> X ::= null \<cdot> (Y - X) ::= s"
-        by (metis FV_null inf_bot_right no_FV skat_set_assign3 skd.mult_assoc)
-      also have "... = X ::= null \<cdot> (Y - X) ::= s"
-        by (metis FV_null Int_empty_right Un_commute skat_set_assign5 sup_inf_absorb)
-      finally show "Y ::= s \<cdot> X ::= null = X ::= null \<cdot> (Y - X) ::= s" .
-    next
-      fix P assume "X \<inter> wf_pred_vars P = {}"
-      thus "pred P \<cdot> X ::= null = X ::= null \<cdot> pred P"
-        by (metis skat_set_pred_comm)
-    qed
+    ultimately show "\<lfloor>a\<rfloor> \<cdot> x := null = x := null \<cdot> \<lfloor>eliminate x a\<rfloor>"
+      apply auto
+      apply (metis skat_null_zero skd.mult_oner)
+      apply (metis FV_null empty_iff skat_assign_comm)
+      by (metis skat_pred_comm)
   qed
-  with metatheorem[OF skat_unfold_homo eliminate_homo[of X] this]
+  with metatheorem[OF skat_unfold_homo eliminate_homo[of x] this]
   show ?thesis
-    by (metis eliminate_comm no_reads)
+    by (metis eliminate_comm no_reads fin_atoms)
 qed
 
 lemma eliminate_variables_halt:
-  assumes no_reads: "X \<inter> reads p = {}"
-  and non_output: "X \<inter> output_vars TYPE('a::ranked_alphabet) = {}"
-  shows "\<lfloor>p\<rfloor> \<cdot> (halt::'a skat) = \<lfloor>eliminate X p\<rfloor> \<cdot> halt"
+  assumes fin_atoms: "finite (atoms p)"
+  and no_reads: "x \<notin> reads p"
+  and non_output: "x \<notin> output_vars TYPE('a::ranked_alphabet) "
+  shows "\<lfloor>p\<rfloor> \<cdot> (halt::'a skat) = \<lfloor>eliminate x p\<rfloor> \<cdot> halt"
 proof -
-  have "\<lfloor>p\<rfloor> \<cdot> halt = \<lfloor>p\<rfloor> \<cdot> X ::= null \<cdot> halt"
-    by (metis non_output skat_set_halt skd.mult_assoc)
-  also have "... = \<lfloor>eliminate X p\<rfloor> \<cdot> X ::= null \<cdot> halt"
-    by (metis eliminate_variables[OF no_reads])
-  also have "... = \<lfloor>eliminate X p\<rfloor> \<cdot> halt"
-    by (metis non_output skat_set_halt skd.mult_assoc)
+  have "\<lfloor>p\<rfloor> \<cdot> halt = \<lfloor>p\<rfloor> \<cdot> x := null \<cdot> halt"
+    by (metis non_output skat_halt skd.mult_assoc)
+  also have "... = \<lfloor>eliminate x p\<rfloor> \<cdot> x := null \<cdot> halt"
+    by (metis eliminate_variables[OF fin_atoms no_reads])
+  also have "... = \<lfloor>eliminate x p\<rfloor> \<cdot> halt"
+    by (metis non_output skat_halt skd.mult_assoc)
   finally show ?thesis .
 qed
 
 lemma skat_comm_assign_con:
-  "\<lbrakk>X \<inter> FV t = {}; Y \<inter> FV s = {}\<rbrakk> \<Longrightarrow> skat_con (SKLeaf X s :\<odot>: SKLeaf Y t) (SKLeaf Y t :\<odot>: SKLeaf X s)"
-  by (auto simp add: unfold_transfer[symmetric] intro: skat_set_assign_comm)
+  "\<lbrakk>x \<noteq> y; x \<notin> FV t; y \<notin> FV s\<rbrakk> \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf y t :\<odot>: SKLeaf x s)"
+  by (auto simp add: unfold_transfer[symmetric] intro: skat_assign_comm)
 
 lemma skat_comm_no_touch_con:
   "touches t \<inter> touches s = {} \<Longrightarrow> skat_con (s :\<odot>: t) (t :\<odot>: s)"
@@ -1148,9 +1063,10 @@ lemma skat_fold_tac_simp:
   by simp
 
 lemma eliminate_variables_con:
-  assumes nr: "x \<notin> reads (s::'a skat_expr)" and Xo: "x \<notin> output_vars TYPE('a::ranked_alphabet)"
-  shows "\<lfloor>(s :\<odot>: SKLeaf (- output_vars TYPE('a)) null)\<rfloor> = \<lfloor>(eliminate {x} s :\<odot>: SKLeaf (- output_vars TYPE('a)) null)\<rfloor>"
-  apply (insert eliminate_variables_halt[of "{x}" s] nr Xo)
+  assumes fa: "finite (atoms s)"
+  and nr: "x \<notin> reads (s::'a skat_expr)" and xo: "x \<notin> output_vars TYPE('a::ranked_alphabet)"
+  shows "\<lfloor>(s :\<odot>: SKHalt)\<rfloor> = \<lfloor>(eliminate x s :\<odot>: SKHalt)\<rfloor>"
+  apply (insert eliminate_variables_halt[of s x] nr xo fa)
   by (auto simp add: unfold_transfer[symmetric] halt_def)
 
 ML {*
@@ -1259,5 +1175,8 @@ Scan.lift Parse.nat >>
 *}
 
 declare skat_assign_def [skat_simp]
+*)
+
+ML_val {* Transfer.gen_frees_tac *}
 
 end

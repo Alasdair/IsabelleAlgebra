@@ -285,7 +285,7 @@ primrec (in kat) kat_bexpr_unfold :: "'a bexpr \<Rightarrow> 'a" where
 lemma (in kat) kat_bexpr_fold_leaf: "x \<in> tests A \<Longrightarrow> x = kat_bexpr_unfold (BLeaf x)"
   by (rule kat_bexpr_unfold.simps(1)[symmetric])
 
-lemma (in kat) kat_bexpr_test: "kat_bexpr_leaves \<alpha> \<subseteq> tests A \<Longrightarrow> kat_bexpr_unfold \<alpha> \<in> tests A"
+lemma (in kat) kat_bexpr_test: "bexpr_leaves \<alpha> \<subseteq> tests A \<Longrightarrow> kat_bexpr_unfold \<alpha> \<in> tests A"
   apply (induct \<alpha>, simp_all)
   by (metis test_join_closed test_meet_closed test_one_closed test_zero_closed complement_closed)+
 
@@ -507,7 +507,7 @@ Scan.succeed (fn ctxt =>
   end)
 *}
 
-lemma (in kat) test: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> 1 + x\<cdot>x\<^sup>\<star>\<cdot>x\<^sup>\<star> \<sqsubseteq> x\<^sup>\<star>"
+lemma (in kat) test1: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> 1 + x\<cdot>x\<^sup>\<star>\<cdot>x\<^sup>\<star> \<sqsubseteq> x\<^sup>\<star>"
   by (kat_explode, metis mult_assoc star_trans_eq star_unfoldl)
 
 lemma (in kat) test2: "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> (x + (x + y + x)) + x = (x + x) + (y + (x + x))"
@@ -553,7 +553,6 @@ begin
     apply (metis add_closed bt complement_closed dioid.mult_closed ka_dioid test_subset_var)
     by (smt bt complement_closed ct distl distr mult_assoc mult_closed test_mult_comm test_subset_var)
 
-  (*
   lemma hoare_while:
     assumes bt: "b \<in> tests A" and ct: "c \<in> tests A" and pc: "p \<in> carrier A"
     shows "b\<cdot>c \<lbrace>p\<rbrace> c \<Longrightarrow> c \<lbrace> WHILE b DO p WEND \<rbrace> !b \<cdot> c"
@@ -561,19 +560,26 @@ begin
     apply (metis bt complement_closed test_meet_closed)
     apply (metis bt complement_closed mult_closed star_closed test_subset_var)
   proof -
-    assume "b\<cdot>c \<in> tests A" and "c \<in> tests A" and "p \<in> carrier A" and "b \<cdot> c \<cdot> p = b \<cdot> c \<cdot> p \<cdot> c"
+    assume "b\<cdot>c \<in> tests A" and "c \<in> tests A" and "p \<in> carrier A" and asm: "b \<cdot> c \<cdot> p = b \<cdot> c \<cdot> p \<cdot> c"
     hence "c\<cdot>b\<cdot>p \<sqsubseteq> c\<cdot>b\<cdot>p\<cdot>c"
       by (metis (lifting) bt mult_closed nat_refl test_mult_comm test_subset_var)
+    hence "c\<cdot>(b\<cdot>p)\<^sup>\<star> \<sqsubseteq> (c\<cdot>b\<cdot>p)\<^sup>\<star>\<cdot>c"
+      by (metis (lifting) bt ct mult_assoc mult_closed pc star_sim2 test_subset_var)
     hence "c\<cdot>(b\<cdot>p)\<^sup>\<star> \<sqsubseteq> c\<cdot>(b\<cdot>p)\<^sup>\<star>\<cdot>c"
-      sorry
+      by (smt asm bt ct mult_assoc mult_closed pc star_closed star_sim test_meet_idem test_mult_comm test_subset_var)
     thus "c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b) = c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b)\<cdot>(!b\<cdot>c)"
       by (smt bt complement_closed ct mult_double_iso mult_assoc mult_closed mult_oner nat_antisym nat_refl one_closed pc star_closed test_meet_idem test_mult_comm test_subset_var test_under_one)
   qed
 
   lemma hoare_skip: "b \<in> tests A \<Longrightarrow> b \<lbrace> SKIP \<rbrace> b"
     by (metis (lifting) complement2 hoare_triple_def mult_oner one_closed test_subset_var)
-      *)
 
 end
 
+notation
+  Groups.plus_class.plus (infixl "+" 65) and
+  Groups.one_class.one ("1") and
+  Groups.zero_class.zero ("0")
+
 end
+

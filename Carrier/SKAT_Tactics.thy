@@ -2,29 +2,14 @@ theory SKAT_Tactics
   imports SKAT
 begin
 
-lemma "X \<inter> FV s = {} \<Longrightarrow> (X ::= s)\<^sup>+ = X ::= s"
-proof -
-  assume "X \<inter> FV s = {}"
-  hence "X ::= s + X ::= s \<cdot> X ::= s \<sqsubseteq> X ::= s"
-    by (metis Un_absorb skat_set_assign5 skd.add_idem skd.nat_refl)
-  hence "X ::= s \<cdot> (X ::= s)\<^sup>\<star> \<sqsubseteq> X ::= s"
-    by (rule ska.star_inductr[rule_format,simplified])
-  hence "(X ::= s)\<^sup>+ \<sqsubseteq> X ::= s"
-    by (metis skat_star1_def)
-  moreover have "X ::= s \<sqsubseteq> (X ::= s)\<^sup>+"
-    by (metis ska.star_ref skat_star1_def skd.mult_isol skd.mult_oner)
-  ultimately show ?thesis
-    by (metis skd.nat_antisym)
-qed
-
 lemma skat_star_elim:
-  assumes "X \<inter> touches t = {}"
-  shows "(X ::= s \<cdot> \<lfloor>t\<rfloor>)\<^sup>\<star> \<cdot> X ::= null = \<lfloor>t\<rfloor>\<^sup>\<star> \<cdot> X ::= null"
+  assumes "x \<notin> touches t"
+  shows "(x := s \<cdot> \<lfloor>t\<rfloor>)\<^sup>\<star> \<cdot> x := null = \<lfloor>t\<rfloor>\<^sup>\<star> \<cdot> x := null"
   apply (subst ska.star_elim[symmetric,simplified])
-  apply (metis FV_null inf_bot_right no_FV skat_set_assign3)
+  apply (metis skat_null_zero)
   apply skat_comm
-  apply (smt assms disjoint_iff_not_equal set_rev_mp touch_atoms)
-  apply (metis FV_null inf_bot_right no_FV skat_set_assign3)
+  apply (metis assms set_mp touch_atoms)
+  apply (metis skat_null_zero)
   by auto
 
 definition seq :: "'a::ranked_alphabet skat list \<Rightarrow> 'a skat" where

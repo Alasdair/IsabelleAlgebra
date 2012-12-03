@@ -987,22 +987,20 @@ lemma non_output_infinite: "\<not> finite (- output_vars TYPE('a::ranked_alphabe
 lemma inf_inj_image: "\<lbrakk>inj f; \<not> finite X\<rbrakk> \<Longrightarrow> \<not> finite (f ` X)"
   by (metis (lifting) finite_imageD injD inj_onI)
 
-(*
 lemma not_read_elim [intro!]: "x \<notin> reads s \<Longrightarrow> x \<notin> touches (eliminate x s)"
-  by (induct s, auto, smt atoms.simps(8) halt_atoms_inf)
+  by (induct s, auto)
 
 lemma eliminate_comm:
-  "\<lbrakk>finite (atoms s); x \<notin> reads s\<rbrakk> \<Longrightarrow> \<lfloor>eliminate x s\<rfloor> \<cdot> x := null = x := null \<cdot> \<lfloor>eliminate x s\<rfloor>"
+  "x \<notin> reads s \<Longrightarrow> \<lfloor>eliminate x s\<rfloor> \<cdot> x := null = x := null \<cdot> \<lfloor>eliminate x s\<rfloor>"
 proof -
-  assume fin_atoms: "finite (atoms s)" and no_read: "x \<notin> reads s"
+  assume no_read: "x \<notin> reads s"
   have "\<lfloor>eliminate x s\<rfloor> \<cdot> \<lfloor>SKLeaf x null\<rfloor> = \<lfloor>SKLeaf x null\<rfloor> \<cdot> \<lfloor>eliminate x s\<rfloor>"
-    by (rule no_touch_comm, simp, rule not_read_elim, simp_all add: fin_atoms no_read)
+    by (rule no_touch_comm, simp, rule not_read_elim, simp add: no_read)
   thus ?thesis
     by simp
 qed
 
 lemma eliminate_variables:
-  assumes fin_atoms: "finite (atoms p)"
   assumes no_reads: "x \<notin> reads p"
   shows "\<lfloor>p\<rfloor> \<cdot> x := null = \<lfloor>eliminate x p\<rfloor> \<cdot> x := null"
 proof -
@@ -1021,21 +1019,53 @@ proof -
   qed
   with metatheorem[OF skat_unfold_homo eliminate_homo[of x] this]
   show ?thesis
-    by (metis eliminate_comm no_reads fin_atoms)
+    by (metis eliminate_comm no_reads)
+qed
+
+fun halt :: "nat list \<Rightarrow> 'a::ranked_alphabet skat" where
+  "halt (x#xs) = x := null \<cdot> halt xs"
+| "halt [] = \<one>"
+
+lemma halt_snoc: "halt (x#xs) = halt xs \<cdot> x := null"
+  apply (induct xs, auto)
+  by (metis skd.mult_onel skd.mult_oner, metis (lifting) skat_null_comm skd.mult_assoc)
+
+lemma halt_first: "halt (x#xs) = x := null \<cdot> halt (x#xs)"
+  by (metis (lifting) halt.simps(1) skat_null_zero skd.mult_assoc)
+
+lemma halt_append: "halt (xs @ ys) = halt xs \<cdot> halt ys"
+  by (induct xs, auto, (metis skd.mult_onel skd.mult_assoc)+)
+
+lemma halt_set: "x \<in> set xs \<Longrightarrow> halt xs = x := null \<cdot> halt xs"
+proof -
+  assume "x \<in> set xs"
+  then obtain ys and zs where xs_split: "xs = ys @ x#zs"
+    by (metis (lifting) split_list_first)
+  hence "halt xs = halt (ys @ x#zs)"
+    by metis
+  also have "... = halt ys \<cdot> halt (x#zs)"
+    by (metis halt_append)
+  also have "... = halt ys \<cdot> x := null \<cdot> halt (x#zs)"
+    by (metis halt_first skd.mult_assoc)
+  also have "... = x := null \<cdot> halt ys \<cdot> halt (x#zs)"
+    by (metis halt.simps(1) halt_snoc)
+  also have "... = x := null \<cdot> halt xs"
+    by (metis append_Cons halt.simps(1) halt_append xs_split)
+  finally show ?thesis .
 qed
 
 lemma eliminate_variables_halt:
-  assumes fin_atoms: "finite (atoms p)"
+  assumes x_in_xs: "x \<in> set xs"
   and no_reads: "x \<notin> reads p"
   and non_output: "x \<notin> output_vars TYPE('a::ranked_alphabet) "
-  shows "\<lfloor>p\<rfloor> \<cdot> (halt::'a skat) = \<lfloor>eliminate x p\<rfloor> \<cdot> halt"
+  shows "\<lfloor>p\<rfloor> \<cdot> (halt xs :: 'a skat) = \<lfloor>eliminate x p\<rfloor> \<cdot> halt xs"
 proof -
-  have "\<lfloor>p\<rfloor> \<cdot> halt = \<lfloor>p\<rfloor> \<cdot> x := null \<cdot> halt"
-    by (metis non_output skat_halt skd.mult_assoc)
-  also have "... = \<lfloor>eliminate x p\<rfloor> \<cdot> x := null \<cdot> halt"
-    by (metis eliminate_variables[OF fin_atoms no_reads])
-  also have "... = \<lfloor>eliminate x p\<rfloor> \<cdot> halt"
-    by (metis non_output skat_halt skd.mult_assoc)
+  have "\<lfloor>p\<rfloor> \<cdot> halt xs = \<lfloor>p\<rfloor> \<cdot> x := null \<cdot> halt xs"
+    by (metis halt_set skd.mult_assoc x_in_xs)
+  also have "... = \<lfloor>eliminate x p\<rfloor> \<cdot> x := null \<cdot> halt xs"
+    by (metis eliminate_variables no_reads)
+  also have "... = \<lfloor>eliminate x p\<rfloor> \<cdot> halt xs"
+    by (metis halt_set skd.mult_assoc x_in_xs)
   finally show ?thesis .
 qed
 
@@ -1055,19 +1085,16 @@ lemma skat_comm_con:
   apply (rule HOL.sym)
   apply (rule skat_comm)
   apply (rule HOL.sym)
-  apply (auto simp only: skat_unfold.simps[symmetric] unfold_transfer intro: atoms_comm)
-  done
+  by (auto simp only: skat_unfold.simps[symmetric] unfold_transfer intro: atoms_comm)
 
 lemma skat_fold_tac_simp:
   "skat_unfold (SKBool (p :\<cdot>: q)) = skat_unfold (SKBool p :\<odot>: SKBool q)"
   by simp
 
 lemma eliminate_variables_con:
-  assumes fa: "finite (atoms s)"
-  and nr: "x \<notin> reads (s::'a skat_expr)" and xo: "x \<notin> output_vars TYPE('a::ranked_alphabet)"
-  shows "\<lfloor>(s :\<odot>: SKHalt)\<rfloor> = \<lfloor>(eliminate x s :\<odot>: SKHalt)\<rfloor>"
-  apply (insert eliminate_variables_halt[of s x] nr xo fa)
-  by (auto simp add: unfold_transfer[symmetric] halt_def)
+  assumes x_in_xs: "x \<in> set xs" and nr: "x \<notin> reads (s::'a skat_expr)" and xo: "x \<notin> output_vars TYPE('a::ranked_alphabet)"
+  shows "\<lfloor>s\<rfloor> \<cdot> halt xs = \<lfloor>eliminate x s\<rfloor> \<cdot> halt xs"
+  by (metis eliminate_variables_halt nr x_in_xs xo)
 
 ML {*
 
@@ -1116,13 +1143,13 @@ fun comm_rules_tac n =
   ORELSE rtac @{thm skat_comm_no_touch_con} n
 
 fun skat_comm_tac solver = Subgoal.FOCUS_PARAMS (fn {context, ...} =>
-  skat_transfer_tac context 1
-  THEN rtac @{thm skat_comm_con} 1
-  THEN full_simp_tac (HOL_basic_ss addsimps @{thms atoms.simps}) 1
-  THEN safe_tac context
-  THEN ALLGOALS (asm_full_simp_tac (HOL_basic_ss addsimps @{thms triv_forall_equality}))
-  THEN ALLGOALS (comm_rules_tac)
-  THEN ALLGOALS (solver context))
+  DETERM (skat_transfer_tac context 1
+    THEN rtac @{thm skat_comm_con} 1
+    THEN full_simp_tac (HOL_basic_ss addsimps @{thms atoms.simps}) 1
+    THEN safe_tac context
+    THEN ALLGOALS (asm_full_simp_tac (HOL_basic_ss addsimps @{thms triv_forall_equality}))
+    THEN ALLGOALS (comm_rules_tac))
+  THEN REPEAT (CHANGED (solver context 1)))
 
 fun all_tac_solver _ _ = all_tac
 
@@ -1134,10 +1161,11 @@ fun eliminate_variable_tac v = Subgoal.FOCUS (fn {context, ...} =>
   asm_full_simp_tac (HOL_basic_ss addsimps SkatSimpRules.get context) 1
   THEN skat_fold_tac context 1
   THEN DETERM (EqSubst.eqsubst_tac context [0] [Drule.instantiate' [] [SOME (nat_cterm v)] @{thm eliminate_variables_con}] 1)
+  THEN asm_full_simp_tac (simpset_of context) 1
   THEN asm_full_simp_tac (simpset_of context addsimps @{thms FV_def wf_pred_vars_def}) 1
   THEN TRY (wf_simp_tac (simpset_of context) context 1)
   THEN asm_full_simp_tac (simpset_of context addsimps AlphabetRules.get context) 1
-  THEN asm_full_simp_tac (simpset_of context addsimps @{thms mult_oner mult_onel}) 1)
+  THEN asm_full_simp_tac (simpset_of context addsimps @{thms skd.mult_oner skd.mult_onel}) 1)
 
 *}
 
@@ -1173,10 +1201,5 @@ method_setup eliminate_variable = {*
 Scan.lift Parse.nat >>
   (fn v => fn ctxt => SIMPLE_METHOD (eliminate_variable_tac v ctxt 1))
 *}
-
-declare skat_assign_def [skat_simp]
-*)
-
-ML_val {* Transfer.gen_frees_tac *}
 
 end

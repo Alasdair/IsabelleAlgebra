@@ -1,55 +1,8 @@
 theory KozenExample
-  imports Ranked_Alphabet List
+  imports SKAT_Tactics List
 begin
 
 (* Kozen and Angus's example *)
-
-lemma zip_elim_var: "x\<cdot>y = y \<Longrightarrow> qes (x#xs) \<cdot> seq (y#ys) = qes xs \<cdot> seq (y#ys)"
-  by (metis (lifting) seq_cons skd.mult_assoc zip_left)
-
-lemma test_under_one: "p \<in> carrier tests \<Longrightarrow> p \<sqsubseteq> \<one>"
-  by (metis skt.test_under_one)
-
-lemma test_double_compl: "p \<in> carrier tests \<Longrightarrow> p = !(!p)"
-  by (metis kat_comp_simp not_closed skt.test_double_compl)
-
-lemma de_morgan1: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> !p \<cdot> !q = !(p + q)"
-  by (smt kat_comp_simp skt.de_morgan1 test_plus_closed)
-
-lemma test_meet_def: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> p \<cdot> q = !(!p + !q)"
-  by (metis (lifting) de_morgan1 not_closed test_double_compl)
-
-lemma de_morgan2: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> !p + !q = !(p \<cdot> q)"
-  by (smt not_closed test_double_compl test_meet_def test_plus_closed)
-
-lemma test_compl_anti: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> p \<sqsubseteq> q \<longleftrightarrow> !q \<sqsubseteq> !p"
-  by (metis kat_comp_simp skt.test_compl_anti)
-
-lemma test_join_def: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> p + q = !(!p \<cdot> !q)"
-  by (metis (lifting) de_morgan2 not_closed test_double_compl)
-
-lemma ba_3: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> p = (p \<cdot> q) + (p \<cdot> !q)"
-  by (metis Ranked_Alphabet.mult_oner complement_one skd.distl)
-
-lemma ba_5: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> (p + q) \<cdot> !p = q \<cdot> !p"
-  by (metis (lifting) complement_zero skd.add_zerol skd.distr)
-
-lemma compl_1: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> !p = !(p + q) + !(p + !q)"
-  by (metis (lifting) ba_3 de_morgan1 not_closed)
-
-lemma ba_1: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests; r \<in> carrier tests\<rbrakk> \<Longrightarrow> p + q + !q = r + !r"
-  by (metis Ranked_Alphabet.mult_oner complement_one ska.star_unfoldl_eq skd.add_assoc skd.add_comm skt.test_star)
-
-lemma ba_2: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> p + p = p + !(q + !q)"
-  by (metis complement_one kat_comp_simp skd.add_idem skd.add_zeror skt.test_not_one test_one_closed)
-
-lemma ba_4: "\<lbrakk>p \<in> carrier tests; q \<in> carrier tests\<rbrakk> \<Longrightarrow> p = (p + !q) \<cdot> (p + q)"
-  by (metis complement_zero not_closed skd.add_zeror skt.test_dist2 skt.test_mult_comm)
-
-lemma shunting:
-  assumes pc: "p \<in> carrier tests" and qc: "q \<in> carrier tests" and rc: "r \<in> carrier tests"
-  shows "p \<cdot> q \<sqsubseteq> r \<longleftrightarrow> q \<sqsubseteq> !p + r"
-  by (metis kat_comp_simp pc qc rc skt.shunting)
 
 fun break' :: "'a list \<Rightarrow> nat \<Rightarrow> 'a list \<Rightarrow> ('a list \<times> 'a list)" where
   "break' ac 0 xs = (rev ac, xs)"
@@ -127,13 +80,13 @@ begin
 
   definition NULL_kzp :: "kzp" where "NULL_kzp \<equiv> bot_kzp"
 
-  declare funs_kzp_def [skat_alphabet]
-    and rels_kzp_def [skat_alphabet]
-    and NULL_kzp_def [skat_alphabet]
+  declare funs_kzp_def [alphabet]
+    and rels_kzp_def [alphabet]
+    and NULL_kzp_def [alphabet]
 
   definition output_vars_kzp :: "kzp itself \<Rightarrow> nat set" where "output_vars_kzp x \<equiv> {0}"
 
-  declare output_vars_kzp_def[skat_alphabet]
+  declare output_vars_kzp_def [alphabet]
 
   instance proof
     show "finite (UNIV::kzp set)" by (simp add: kzp_UNIV)
@@ -155,6 +108,12 @@ begin
 
     show "arity (NULL::kzp) = 0"
       by (simp add: NULL_kzp_def)
+
+    show "\<exists>x. x \<in> output_vars TYPE(kzp)"
+      by (metis (mono_tags) insertI1 output_vars_kzp_def)
+
+    show "finite (output_vars TYPE(kzp))"
+      by (metis (hide_lams, mono_tags) atLeastLessThan0 finite_atLeastLessThan finite_insert output_vars_kzp_def)
   qed
 end
 
@@ -180,6 +139,9 @@ declare f_def [skat_simp]
   and vx_def [skat_simp]
 
 (* Sequences *)
+
+lemma "1 := var 2 \<cdot> 2 := f (var 3) \<cdot> halt [1,2,3] = 2 := f (var 3) \<cdot> halt [1,2,3]"
+  by (eliminate_variable 1)
 
 abbreviation loop where "loop v \<equiv> skat_star (seq v)"
 

@@ -1,5 +1,5 @@
 theory KAT
-  imports Kleene_Algebra Galois_Connection
+  imports Kleene_Algebra Galois_Connection Boolean_Algebra_Extras
 begin
 
 record 'a test_algebra = "'a kleene_algebra" +
@@ -274,35 +274,18 @@ begin
 
 end
 
-(*
-datatype 'a kat_bexpr =
-    BLeaf 'a
-  | BPlus "'a kat_bexpr" "'a kat_bexpr"
-  | BTimes "'a kat_bexpr" "'a kat_bexpr"
-  | BOne
-  | BZero
-  | BNeg "'a kat_bexpr"
+primrec (in kat) kat_bexpr_unfold :: "'a bexpr \<Rightarrow> 'a" where
+  "kat_bexpr_unfold (BLeaf x) = x"
+| "kat_bexpr_unfold (BOr x y) = kat_bexpr_unfold x + kat_bexpr_unfold y"
+| "kat_bexpr_unfold (BAnd x y) = kat_bexpr_unfold x \<cdot> kat_bexpr_unfold y"
+| "kat_bexpr_unfold BOne = 1"
+| "kat_bexpr_unfold BZero = 0"
+| "kat_bexpr_unfold (BNot x) = !(kat_bexpr_unfold x)"
 
-primrec (in kat) bexpr_unfold :: "'a kat_bexpr \<Rightarrow> 'a" where
-  "bexpr_unfold (BLeaf x) = x"
-| "bexpr_unfold (BPlus x y) = bexpr_unfold x + bexpr_unfold y"
-| "bexpr_unfold (BTimes x y) = bexpr_unfold x \<cdot> bexpr_unfold y"
-| "bexpr_unfold BOne = 1"
-| "bexpr_unfold BZero = 0"
-| "bexpr_unfold (BNeg x) = !(bexpr_unfold x)"
+lemma (in kat) kat_bexpr_fold_leaf: "x \<in> tests A \<Longrightarrow> x = kat_bexpr_unfold (BLeaf x)"
+  by (rule kat_bexpr_unfold.simps(1)[symmetric])
 
-lemma (in kat) bexpr_fold_leaf: "x \<in> tests A \<Longrightarrow> x = bexpr_unfold (BLeaf x)"
-  by (rule bexpr_unfold.simps(1)[symmetric])
-
-primrec bexpr_leaves :: "'a kat_bexpr \<Rightarrow> 'a set" where
-  "bexpr_leaves (BLeaf x) = {x}"
-| "bexpr_leaves (BPlus x y) = bexpr_leaves x \<union> bexpr_leaves y"
-| "bexpr_leaves (BTimes x y) = bexpr_leaves x \<union> bexpr_leaves y"
-| "bexpr_leaves BOne = {}"
-| "bexpr_leaves BZero = {}"
-| "bexpr_leaves (BNeg x) = bexpr_leaves x"
-
-lemma (in kat) bexpr_test: "bexpr_leaves \<alpha> \<subseteq> tests A \<Longrightarrow> bexpr_unfold \<alpha> \<in> tests A"
+lemma (in kat) kat_bexpr_test: "kat_bexpr_leaves \<alpha> \<subseteq> tests A \<Longrightarrow> kat_bexpr_unfold \<alpha> \<in> tests A"
   apply (induct \<alpha>, simp_all)
   by (metis test_join_closed test_meet_closed test_one_closed test_zero_closed complement_closed)+
 
@@ -311,10 +294,10 @@ ML {*
 fun test_fold_tac leaves = Subgoal.FOCUS (fn {context, prems, ...} =>
   let
     val witnesses = Locale.get_witnesses context
-    val subst_thm = hd (witnesses RL @{thms kat.bexpr_fold_leaf})
+    val subst_thm = hd (witnesses RL @{thms kat.kat_bexpr_fold_leaf})
     val subst_thms = prems RL [subst_thm]
-    val unfolds = witnesses RL @{thms kat.bexpr_unfold.simps[symmetric]}
-    val to_leaves_thm = hd (witnesses RL @{thms kat.bexpr_test})
+    val unfolds = witnesses RL @{thms kat.kat_bexpr_unfold.simps[symmetric]}
+    val to_leaves_thm = hd (witnesses RL @{thms kat.kat_bexpr_test})
   in
     Method.insert_tac subst_thms 1
     THEN REPEAT (etac @{thm ssubst} 1)
@@ -332,42 +315,47 @@ Scan.succeed (fn ctxt =>
 lemma (in kat) test_closure_example: "\<lbrakk>x \<in> tests A; y \<in> tests A\<rbrakk> \<Longrightarrow> 1\<cdot>y\<cdot>!(y + 0 + !x) \<in> tests A"
   by test_closure
 
-datatype 'a kexpr = KLeaf 'a
-                  | KPlus "'a kexpr" "'a kexpr"
-                  | KTimes "'a kexpr" "'a kexpr"
-                  | KStar "'a kexpr"
-                  | KBool "'a kat_bexpr"
+datatype 'a kat_expr = KATLeaf 'a
+                     | KATPlus "'a kat_expr" "'a kat_expr"
+                     | KATTimes "'a kat_expr" "'a kat_expr"
+                     | KATStar "'a kat_expr"
+                     | KATBool "'a bexpr"
 
-primrec (in kat) kexpr_unfold :: "'a kexpr \<Rightarrow> 'a" where
-  "kexpr_unfold (KLeaf x) = x"
-| "kexpr_unfold (KPlus x y) = kexpr_unfold x + kexpr_unfold y"
-| "kexpr_unfold (KTimes x y) = kexpr_unfold x \<cdot> kexpr_unfold y"
-| "kexpr_unfold (KStar x) = (kexpr_unfold x)\<^sup>\<star>"
-| "kexpr_unfold (KBool x) = bexpr_unfold x"
+no_notation
+  Groups.plus_class.plus (infixl "+" 65) and
+  Groups.one_class.one ("1") and
+  Groups.zero_class.zero ("0")
 
-lemma (in kat) kexpr_fold_leaf: "x \<in> carrier A \<Longrightarrow> x = kexpr_unfold (KLeaf x)"
-  by (rule kexpr_unfold.simps(1)[symmetric])
+primrec (in kat) kat_expr_unfold :: "'a kat_expr \<Rightarrow> 'a" where
+  "kat_expr_unfold (KATLeaf x) = x"
+| "kat_expr_unfold (KATPlus x y) = kat_expr_unfold x + kat_expr_unfold y"
+| "kat_expr_unfold (KATTimes x y) = kat_expr_unfold x \<cdot> kat_expr_unfold y"
+| "kat_expr_unfold (KATStar x) = (kat_expr_unfold x)\<^sup>\<star>"
+| "kat_expr_unfold (KATBool x) = kat_bexpr_unfold x"
 
-primrec kexpr_leaves :: "'a kexpr \<Rightarrow> 'a set" where
-  "kexpr_leaves (KLeaf x) = {x}"
-| "kexpr_leaves (KPlus x y) = kexpr_leaves x \<union> kexpr_leaves y"
-| "kexpr_leaves (KTimes x y) = kexpr_leaves x \<union> kexpr_leaves y"
-| "kexpr_leaves (KStar x) = kexpr_leaves x"
-| "kexpr_leaves (KBool x) = {}"
+lemma (in kat) kat_expr_fold_leaf: "x \<in> carrier A \<Longrightarrow> x = kat_expr_unfold (KATLeaf x)"
+  by (rule kat_expr_unfold.simps(1)[symmetric])
 
-primrec kexpr_bexpr_leaves :: "'a kexpr \<Rightarrow> 'a set" where
-  "kexpr_bexpr_leaves (KLeaf x) = {}"
-| "kexpr_bexpr_leaves (KPlus x y) = kexpr_bexpr_leaves x \<union> kexpr_bexpr_leaves y"
-| "kexpr_bexpr_leaves (KTimes x y) = kexpr_bexpr_leaves x \<union> kexpr_bexpr_leaves y"
-| "kexpr_bexpr_leaves (KStar x) = kexpr_bexpr_leaves x"
-| "kexpr_bexpr_leaves (KBool x) = bexpr_leaves x"
+primrec kat_expr_leaves :: "'a kat_expr \<Rightarrow> 'a set" where
+  "kat_expr_leaves (KATLeaf x) = {x}"
+| "kat_expr_leaves (KATPlus x y) = kat_expr_leaves x \<union> kat_expr_leaves y"
+| "kat_expr_leaves (KATTimes x y) = kat_expr_leaves x \<union> kat_expr_leaves y"
+| "kat_expr_leaves (KATStar x) = kat_expr_leaves x"
+| "kat_expr_leaves (KATBool x) = {}"
 
-lemma (in kat) kexpr_closed:
-  "\<lbrakk>kexpr_leaves \<alpha> \<subseteq> carrier A; kexpr_bexpr_leaves \<alpha> \<subseteq> tests A\<rbrakk> \<Longrightarrow> kexpr_unfold \<alpha> \<in> carrier A"
+primrec kat_expr_bexpr_leaves :: "'a kat_expr \<Rightarrow> 'a set" where
+  "kat_expr_bexpr_leaves (KATLeaf x) = {}"
+| "kat_expr_bexpr_leaves (KATPlus x y) = kat_expr_bexpr_leaves x \<union> kat_expr_bexpr_leaves y"
+| "kat_expr_bexpr_leaves (KATTimes x y) = kat_expr_bexpr_leaves x \<union> kat_expr_bexpr_leaves y"
+| "kat_expr_bexpr_leaves (KATStar x) = kat_expr_bexpr_leaves x"
+| "kat_expr_bexpr_leaves (KATBool x) = bexpr_leaves x"
+
+lemma (in kat) kat_expr_closed:
+  "\<lbrakk>kat_expr_leaves \<alpha> \<subseteq> carrier A; kat_expr_bexpr_leaves \<alpha> \<subseteq> tests A\<rbrakk> \<Longrightarrow> kat_expr_unfold \<alpha> \<in> carrier A"
   apply (induct \<alpha>, simp_all)
-  by (metis add_closed mult_closed star_closed bexpr_test test_subset_var)+
+  by (metis add_closed mult_closed star_closed kat_bexpr_test test_subset_var)+
 
-lemma (in kat) bexpr_to_kexpr: "bexpr_unfold \<alpha> = kexpr_unfold (KBool \<alpha>)" by simp
+lemma (in kat) bexpr_to_kat_expr: "kat_bexpr_unfold \<alpha> = kat_expr_unfold (KATBool \<alpha>)" by simp
 
 ML {*
 
@@ -388,14 +376,14 @@ fun rem_alpha_eq (x::xs) = x :: rem_alpha_eq (delete_alpha_eq x xs)
 fun kat_fold_tac leaves = Subgoal.FOCUS (fn {context, prems, ...} =>
   let
     val witnesses = Locale.get_witnesses context
-    val subst_thm = hd (witnesses RL @{thms kat.kexpr_fold_leaf})
+    val subst_thm = hd (witnesses RL @{thms kat.kat_expr_fold_leaf})
     val subst_thms = prems RL [subst_thm]
-    val to_kexpr_thm = hd (witnesses RL @{thms kat.bexpr_to_kexpr})
-    val folds = witnesses RL @{thms kat.kexpr_unfold.simps[symmetric]}
-    val to_leaves_thm = hd (witnesses RL @{thms kat.kexpr_closed})
+    val to_kat_expr_thm = hd (witnesses RL @{thms kat.bexpr_to_kat_expr})
+    val folds = witnesses RL @{thms kat.kat_expr_unfold.simps[symmetric]}
+    val to_leaves_thm = hd (witnesses RL @{thms kat.kat_expr_closed})
   in
     DETERM
-      (TRY (simp_tac (HOL_basic_ss addsimps [to_kexpr_thm]) 1)
+      (TRY (simp_tac (HOL_basic_ss addsimps [to_kat_expr_thm]) 1)
       THEN Method.insert_tac subst_thms 1
       THEN REPEAT (etac @{thm ssubst} 1)
       THEN asm_full_simp_tac (HOL_basic_ss addsimps folds) 1)
@@ -422,59 +410,59 @@ fun mk_apptree ct =
   case safe_dest_funargs ct [] of
     (f, xs) => App (f, map mk_apptree xs)
 
-fun get_kexpr_unfolds ct =
+fun get_kat_expr_unfolds ct =
   case safe_dest_funargs ct [] of
     (f, xs) =>
-      if f aconvc @{cterm "kat.kexpr_unfold"}
+      if f aconvc @{cterm "kat.kat_expr_unfold"}
       then [ct]
-      else List.concat (map get_kexpr_unfolds xs)
+      else List.concat (map get_kat_expr_unfolds xs)
 
-val get_kexprs_ct = map Thm.dest_arg o get_kexpr_unfolds
+val get_kat_exprs_ct = map Thm.dest_arg o get_kat_expr_unfolds
 
-datatype kexpr = KLeaf of cterm
-               | KPlus of kexpr * kexpr
-               | KTimes of kexpr * kexpr
-               | KStar of kexpr
-               | KBool of cterm;
+datatype kat_expr = KLeaf of cterm
+                  | KPlus of kat_expr * kat_expr
+                  | KTimes of kat_expr * kat_expr
+                  | KStar of kat_expr
+                  | KBool of cterm;
 
-fun mk_kexpr ct =
+fun mk_kat_expr ct =
   case safe_dest_funargs ct [] of
     (f, [x]) =>
-      if f aconvc @{cterm KLeaf}
+      if f aconvc @{cterm KATLeaf}
       then KLeaf x
       else
-        if f aconvc @{cterm KBool}
+        if f aconvc @{cterm KATBool}
         then KBool x
-        else KStar (mk_kexpr x)
+        else KStar (mk_kat_expr x)
   | (f, [x, y]) =>
-      if f aconvc @{cterm KPlus}
-      then KPlus (mk_kexpr x, mk_kexpr y)
-      else KTimes (mk_kexpr x, mk_kexpr y)
+      if f aconvc @{cterm KATPlus}
+      then KPlus (mk_kat_expr x, mk_kat_expr y)
+      else KTimes (mk_kat_expr x, mk_kat_expr y)
 
-val get_kexprs = map mk_kexpr o get_kexprs_ct
+val get_kat_exprs = map mk_kat_expr o get_kat_exprs_ct
 
-fun kexpr_explode kexpr =
-  case kexpr of
-    (KPlus (k1, k2)) => kexpr :: (kexpr_explode k1 @ kexpr_explode k2)
-  | (KTimes (k1, k2)) => kexpr :: (kexpr_explode k1 @ kexpr_explode k2)
-  | (KStar k) => kexpr :: kexpr_explode k
-  | _ => [kexpr]
+fun kat_expr_explode kat_expr =
+  case kat_expr of
+    (KPlus (k1, k2)) => kat_expr :: (kat_expr_explode k1 @ kat_expr_explode k2)
+  | (KTimes (k1, k2)) => kat_expr :: (kat_expr_explode k1 @ kat_expr_explode k2)
+  | (KStar k) => kat_expr :: kat_expr_explode k
+  | _ => [kat_expr]
 
-fun kexpr_ct (KLeaf ct) = Thm.apply @{cterm KLeaf} ct
-  | kexpr_ct (KPlus (k1, k2)) =
-      Thm.apply (Thm.apply @{cterm KPlus} (kexpr_ct k1)) (kexpr_ct k2)
-  | kexpr_ct (KTimes (k1, k2)) =
-      Thm.apply (Thm.apply @{cterm KTimes} (kexpr_ct k1)) (kexpr_ct k2)
-  | kexpr_ct (KStar k) = Thm.apply @{cterm KStar} (kexpr_ct k)
-  | kexpr_ct (KBool ct) = Thm.apply @{cterm KBool} ct
+fun kat_expr_ct (KLeaf ct) = Thm.apply @{cterm KATLeaf} ct
+  | kat_expr_ct (KPlus (k1, k2)) =
+      Thm.apply (Thm.apply @{cterm KATPlus} (kat_expr_ct k1)) (kat_expr_ct k2)
+  | kat_expr_ct (KTimes (k1, k2)) =
+      Thm.apply (Thm.apply @{cterm KATTimes} (kat_expr_ct k1)) (kat_expr_ct k2)
+  | kat_expr_ct (KStar k) = Thm.apply @{cterm KATStar} (kat_expr_ct k)
+  | kat_expr_ct (KBool ct) = Thm.apply @{cterm KATBool} ct
 
 fun get_explosions context ct =
-  get_kexprs ct
-  |> map kexpr_explode
+  get_kat_exprs ct
+  |> map kat_expr_explode
   |> List.concat
-  |> map kexpr_ct
+  |> map kat_expr_ct
   |> rem_alpha_eq
-  |> map (Thm.apply @{cterm "\<lambda>x. kat.kexpr_unfold A x \<in> carrier A"})
+  |> map (Thm.apply @{cterm "\<lambda>x. kat.kat_expr_unfold A x \<in> carrier A"})
 
 fun my_subgoal_tac ct i =
   case inst_thm @{thm mp[rule_format]} ct of
@@ -487,8 +475,8 @@ val explode_tac = Subgoal.FOCUS (fn {context, concl, ...} =>
 fun kat_closure_tac ctxt i =
   let
     val witnesses = Locale.get_witnesses ctxt
-    val unfolds1 = witnesses RL @{thms kat.kexpr_unfold.simps}
-    val unfolds2 = witnesses RL @{thms kat.bexpr_unfold.simps}
+    val unfolds1 = witnesses RL @{thms kat.kat_expr_unfold.simps}
+    val unfolds2 = witnesses RL @{thms kat.kat_bexpr_unfold.simps}
   in
     test_fold_tac false ctxt i
     THEN DETERM (kat_fold_tac true ctxt i)
@@ -506,8 +494,8 @@ method_setup kat_explode = {*
 Scan.succeed (fn ctxt =>
   let
     val witnesses = Locale.get_witnesses ctxt
-    val unfolds1 = witnesses RL @{thms kat.kexpr_unfold.simps}
-    val unfolds2 = witnesses RL @{thms kat.bexpr_unfold.simps}
+    val unfolds1 = witnesses RL @{thms kat.kat_expr_unfold.simps}
+    val unfolds2 = witnesses RL @{thms kat.kat_bexpr_unfold.simps}
   in
     test_fold_tac false ctxt 1
     THEN kat_fold_tac false ctxt 1
@@ -518,7 +506,6 @@ Scan.succeed (fn ctxt =>
     |> SIMPLE_METHOD
   end)
 *}
-
 
 lemma (in kat) test: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> 1 + x\<cdot>x\<^sup>\<star>\<cdot>x\<^sup>\<star> \<sqsubseteq> x\<^sup>\<star>"
   by (kat_explode, metis mult_assoc star_trans_eq star_unfoldl)
@@ -566,7 +553,7 @@ begin
     apply (metis add_closed bt complement_closed dioid.mult_closed ka_dioid test_subset_var)
     by (smt bt complement_closed ct distl distr mult_assoc mult_closed test_mult_comm test_subset_var)
 
-(*
+  (*
   lemma hoare_while:
     assumes bt: "b \<in> tests A" and ct: "c \<in> tests A" and pc: "p \<in> carrier A"
     shows "b\<cdot>c \<lbrace>p\<rbrace> c \<Longrightarrow> c \<lbrace> WHILE b DO p WEND \<rbrace> !b \<cdot> c"
@@ -578,17 +565,15 @@ begin
     hence "c\<cdot>b\<cdot>p \<sqsubseteq> c\<cdot>b\<cdot>p\<cdot>c"
       by (metis (lifting) bt mult_closed nat_refl test_mult_comm test_subset_var)
     hence "c\<cdot>(b\<cdot>p)\<^sup>\<star> \<sqsubseteq> c\<cdot>(b\<cdot>p)\<^sup>\<star>\<cdot>c"
-      
-      by (smt add_idem bt ct star_closed meet_semilattice.meet_comm mult_assoc mult_closed nat_order_def pc test_meet test_meet_idem test_ms test_subset_var)
+      sorry
     thus "c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b) = c\<cdot>((b\<cdot>p)\<^sup>\<star>\<cdot>!b)\<cdot>(!b\<cdot>c)"
       by (smt bt complement_closed ct mult_double_iso mult_assoc mult_closed mult_oner nat_antisym nat_refl one_closed pc star_closed test_meet_idem test_mult_comm test_subset_var test_under_one)
   qed
-*)
 
   lemma hoare_skip: "b \<in> tests A \<Longrightarrow> b \<lbrace> SKIP \<rbrace> b"
     by (metis (lifting) complement2 hoare_triple_def mult_oner one_closed test_subset_var)
+      *)
 
 end
-*)
 
 end

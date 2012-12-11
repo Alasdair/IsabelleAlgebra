@@ -539,6 +539,100 @@ begin
   lemma leq_one_multr: "\<lbrakk>x \<in> carrier A; y \<in> carrier A; y \<sqsubseteq> 1; x \<sqsubseteq> x\<cdot>y\<rbrakk> \<Longrightarrow> x = x\<cdot>y"
     by (metis mult_closed mult_isol mult_oner one_closed order_antisym)
 
+  definition atoms :: "'a set" where
+    "atoms \<equiv> {x. x covers 0 \<and> x \<in> carrier A}"
+
+  lemma atoms_closed: "atoms \<subseteq> carrier A"
+    by (auto simp add: atoms_def)
+
+  lemma atoms_closed_var: "x \<in> atoms \<Longrightarrow> x \<in> carrier A"
+    by (metis (lifting) atoms_closed set_rev_mp)
+
 end
+
+locale atomistic_quantale = unital_quantale +
+  assumes atomistic: "x \<in> carrier A \<Longrightarrow> \<exists>X\<subseteq>atoms. x = \<Sigma> X"
+  and cbl: "complete_boolean_lattice A"
+
+begin
+
+  lemma atomic: "\<lbrakk>x \<in> carrier A\<rbrakk> \<Longrightarrow> x \<noteq> 0 \<Longrightarrow> \<exists>a\<in>atoms. a \<sqsubseteq> x"
+  proof -
+    assume "x \<in> carrier A" and "x \<noteq> 0"
+    moreover then obtain X where X_atoms: "X \<subseteq> atoms" and xX: "x = \<Sigma> X"
+      by (metis atomistic)
+    ultimately have "\<exists>a\<in>atoms. a \<sqsubseteq> \<Sigma> X"
+      by (metis UnCI all_not_in_conv atoms_closed empty_lub le_sup_iff lub_least subset_Un_eq)
+    thus ?thesis
+      by (simp add: xX)
+  qed
+
+  lemma "\<Sigma> atoms = \<top>"
+    
+    nitpick
+    apply (simp add: atoms_def covers_op_def less_def)
+    apply (rule the_lub_leq)
+    apply (auto simp add: is_lub_simp)
+    
+    apply auto
+    nitpick
+    
+    
+    
+
+  lemma "\<lbrakk>x \<in> carrier A; y \<in> carrier A; p \<in> atoms\<rbrakk> \<Longrightarrow> p\<rightharpoondown>x \<sqsubseteq> y \<longleftrightarrow> x \<sqsubseteq> p\<cdot>y"
+    nitpick
+
+  lemma
+    "p \<in> atoms \<Longrightarrow> meet_preserving A A (op \<cdot> p)"
+    apply (rule cl_upper_meet_preserving)
+    apply (simp add: cl_upper_adjoint_def)
+    apply (simp add: complete_lattice_connection_def)
+    apply auto
+    apply (simp add: galois_connection_def)
+    apply auto
+    apply (metis quantale_order)
+    apply (rule_tac x = "op \<cdot> 0" in exI)
+    apply auto
+    apply (metis (lifting) mult_type one_closed typed_application)
+    apply (metis atoms_closed_var mult_type typed_application)
+    apply (auto simp add: atoms_def covers_op_def less_def)
+    defer
+    
+    
+    
+    
+    
+    
+
+  lemma "\<exists>X\<subseteq>atoms. x = \<Pi> X"
+    
+
+  lemma "\<lbrakk>X \<subseteq> carrier A\<rbrakk> \<Longrightarrow> \<Pi> X \<cdot> p = \<Pi>{x\<cdot>p|x. x \<in> X}"
+    nitpick
+    oops
+
+  lemma
+    assumes X_subset: "X \<subseteq> carrier A" and p_atom [intro!]: "p \<in> atoms"
+    shows "\<Pi> X \<cdot> p = \<Pi>{x\<cdot>p|x. x \<in> X}"
+  proof -
+    have "\<Pi> X \<in> carrier A"
+      by (metis X_subset glb_closed glb_ex)
+    then obtain Y where Y_atoms: "Y \<subseteq> atoms" and X_to_Y: "\<Pi> X = \<Sigma> Y"
+      by (metis atomistic)
+    hence "\<Pi> X \<cdot> p = \<Sigma> Y \<cdot> p"
+      by simp
+    also have "... = \<Sigma>{y\<cdot>p|y. y \<in> Y}" using Y_atoms
+      by (subst inf_distr) (auto intro: atoms_closed_var arg_cong simp add: image_def)
+    also have "... = \<Pi>{x\<cdot>p|x. x \<in> X}"
+      
+      
+      
+      
+
+end
+
+locale commutative_quantale = unital_quantale +
+  assumes "\<lbrakk>x \<in> carrier A; y \<in> carrier A\<rbrakk> \<Longrightarrow> x\<cdot>y = y\<cdot>x"
 
 end

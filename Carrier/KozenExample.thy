@@ -140,8 +140,18 @@ declare f_def [skat_simp]
 
 (* Sequences *)
 
+lemma "1 := var 2 \<cdot> 3 := var 4 = 3 := var 4 \<cdot> 1 := var 2"
+  by skat_comm
+
 lemma "1 := var 2 \<cdot> 2 := f (var 3) \<cdot> halt [1,2,3] = 2 := f (var 3) \<cdot> halt [1,2,3]"
-  by (eliminate_variable 1)
+  apply (tactic {* asm_full_simp_tac (HOL_basic_ss addsimps SkatSimpRules.get @{context}) 1 *})
+  apply (tactic {* skat_fold_tac @{context} 1 *})
+  apply (subst eliminate_variables_con[of 1])
+  apply simp
+  apply (simp add: FV_def wf_pred_vars_def)
+  apply wf_simp
+  apply (tactic {* asm_full_simp_tac (simpset_of @{context} addsimps AlphabetRules.get @{context}) 1 *})
+  apply (tactic {* asm_full_simp_tac (simpset_of @{context} addsimps @{thms skd.mult_oner skd.mult_onel}) 1 *})
 
 abbreviation loop where "loop v \<equiv> skat_star (seq v)"
 
@@ -276,10 +286,11 @@ declare a_def [skat_simp]
 lemma a_test [intro]: "a n \<in> carrier tests"
   by (simp add: a_def P_def, rule pred_closed)
 
-lemma a_comm: "a n \<cdot> a m = a m \<cdot> a n" by skat_comm
+lemma a_comm: "a n \<cdot> a m = a m \<cdot> a n"
+  by skat_comm
 
 lemma a_assign: "n \<noteq> m \<Longrightarrow> a n \<cdot> m := x = m := x \<cdot> a n"
-  by (skat_comm, auto)
+  by skat_comm
 
 definition b :: "nat \<Rightarrow> kzp skat" where
   "b i \<equiv> P (f (var i))"
@@ -321,9 +332,9 @@ declare r_def [skat_simp]
 
 lemma p_to_r: "p n n \<cdot>p n n = r n n"
   apply skat_simp
-  apply (subst skat_set_assign3)
+  apply (subst skat_assign3)
   apply (simp add: wf_trm_subst_def)
-  by (tactic {* touch_simp_tac @{context} 1 *})
+  by wf_simp
 
 abbreviation x1 where "x1 \<equiv> 1 := vx"
 
@@ -352,116 +363,14 @@ definition y :: "nat \<Rightarrow> kzp skat" where
 
 declare y_def [skat_simp]
 
-ML {*
-fun NTIMES 0 _ = all_tac
-  | NTIMES n tac = tac THEN (NTIMES (n - 1) tac)
-
-fun commr_tac s c m = Subgoal.FOCUS (fn {context, ...} =>
-  let
-    val move_right_tac = EVERY
-      [ EqSubst.eqsubst_tac context [0] @{thms zip_comm} 1
-      , skat_comm_tac context 1
-      , EqSubst.eqsubst_tac context [0] @{thms zip_left} 1
-      ]
-  in
-    DETERM (zip_tac s c context 1)
-    THEN (if m = 0
-          then (CHANGED (REPEAT move_right_tac))
-          else (NTIMES m move_right_tac))
-    THEN unzip_tac context 1
-    THEN seq_deselect_tac 1
-  end)
-*}
-
-method_setup commr1 = {*
-Scan.lift Parse.nat  -- Scan.lift Parse.nat -- Scan.lift (Scan.optional Parse.nat 0) >>
-  (fn ((s, c), m) => fn ctxt => SIMPLE_METHOD' (commr_tac s c m ctxt))
-*}
-
-method_setup comml1 = {*
-Scan.lift Parse.nat  -- Scan.lift Parse.nat -- Scan.lift (Scan.optional Parse.nat 0) >>
-  (fn ((s, c), m) => fn ctxt =>
-    let
-      val move_left_tac = EVERY
-        [ EqSubst.eqsubst_tac ctxt [0] @{thms zip_comm} 1
-        , skat_comm_tac ctxt 1
-        , EqSubst.eqsubst_tac ctxt [0] @{thms zip_right} 1
-        ]
-    in
-      DETERM (zip_tac s (c - 1) ctxt 1)
-      THEN (if m = 0
-            then (CHANGED (REPEAT move_left_tac))
-            else (NTIMES m move_left_tac))
-      THEN unzip_tac ctxt 1
-      THEN seq_deselect_tac 1
-      |> SIMPLE_METHOD
-    end)
-*}
-
-ML_val {* Subgoal.FOCUS *}
-
-ML {*
-fun seq_comm_step_tac ctxt n =
-  rtac @{thm conjI} n THEN simp_tac (simpset_of ctxt) n
-  THEN rtac @{thm conjI} n THEN simp_tac (simpset_of ctxt) n
-  THEN REPEAT (rtac @{thm comms_cons} n THEN skat_comm_tac ctxt n)
-  THEN rtac @{thm comms_nil} n
-  THEN simp_tac (simpset_of ctxt) n
-
-fun destroy [] = (fn x => x)
-  | destroy (f::fs) = f o Thm.dest_comb #> destroy fs
-
-fun safe_dest_comb ctrm = SOME (Thm.dest_comb ctrm)
-  handle CTERM _ => NONE
-
-fun safe_destroy [] ctrm = SOME ctrm
-  | safe_destroy (f::fs) ctrm =
-    case (safe_dest_comb ctrm) of
-      NONE => NONE
-    | SOME x => safe_destroy fs (f x);
-
-fun ml_list ctrm =
-  case (safe_destroy [fst, snd] ctrm) of
-    NONE => []
-  | SOME x => x :: ml_list (destroy [snd] ctrm);
-
-fun find_index _ [] = 0
-  | find_index x (y::ys) =
-    (if x aconvc y then 0 else 1 + find_index x ys)
-
-fun seq_comm_get_index concl =
-  let
-    val ys = concl |> destroy [snd, snd, snd] |> ml_list
-    val xs = concl |> destroy [snd, fst, snd, snd] |> ml_list
-  in
-    find_index (hd xs) ys
-  end
-
-val seq_comm1_tac = Subgoal.FOCUS (fn {concl, context, ...} =>
-  let
-    val index = nat_cterm (seq_comm_get_index concl)
-    val exI_index = Drule.instantiate' [SOME @{ctyp "nat"}] [NONE, SOME index] @{thm exI}
-  in
-    EVERY [rtac @{thm comm_step} 1, rtac exI_index 1, seq_comm_step_tac context 1]
-    ORELSE commr_tac 1 1 0 context 1
-  end
-  handle CTERM _ => no_tac)
-
-val seq_comm_tac = Subgoal.FOCUS (fn {context, ...} =>
-  REPEAT1 (seq_comm1_tac context 1))
-*}
-
-method_setup seq_comm = {* Scan.succeed (fn ctxt => SIMPLE_METHOD' (seq_comm_tac ctxt)) *}
-
-lemma null_simp [simp]: "X ::= exp \<cdot> X ::= null = X ::= null"
-  by (metis FV_null Int_empty_right no_FV skat_set_assign3)
-
 no_notation
   one_class.one ("1") and
   dioid.one ("1\<index>") and
   dioid.zero ("0\<index>") and
   zero_class.zero ("0") and
   plus_class.plus (infixl "+" 65)
+
+abbreviation halt where "halt \<equiv> SKAT.halt [1,2,3,4]"
 
 definition scheme1 :: "kzp skat list" where "scheme1 \<equiv>
   [ 1 := vx
@@ -524,6 +433,7 @@ declare Nat.One_nat_def [simp del]
 declare foldr.simps[skat_simp]
 declare o_def[skat_simp]
 declare id_def[skat_simp]
+declare halt.simps(1) [simp del]
 
 lemma seq_merge: "seq (Vx#Vy#Vxs) = seq (Vx\<cdot>Vy#Vxs)"
   sorry
@@ -557,9 +467,6 @@ lemma kozen5_seq1: "seq [q211,q311,a3] = seq [q211,q311,a2]"
 
 lemma kozen5_seq2: "seq [q211,q311,!a3] = seq [q211,q311,!a2]"
   sorry
-
-lemma [simp]: "X ::= v \<cdot> X ::= null = X ::= null"
-  by (metis FV_null inf_bot_right no_FV skat_set_assign3)
 
 lemma plus_indiv: "\<lbrakk>vx1 = x2; y1 = y2\<rbrakk> \<Longrightarrow> (vx1::kzp skat) + y1 = x2 + y2"
   by auto
@@ -603,7 +510,11 @@ proof -
     apply (rule arg_cong) back
     apply (rule plus_indiv)+
     apply (auto simp add: seq_head_elim_var[OF a_test])
-    apply seq_comm+
+    apply cong
+    apply skat_comm
+    apply cong
+    apply skat_comm
+    apply seq_comm
     by (auto simp add: seq_foldr mult_oner p_def output_vars_kzp_def)
 
   also have "... = seq

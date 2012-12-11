@@ -6,11 +6,11 @@ begin
 subsection {* Schematic Kleene Algebra Expressions *}
 (* +------------------------------------------------------------------------+ *)
 
-datatype 'a skat_expr = SKLeaf nat "'a wf_trm"
+datatype 'a skat_expr = SKLeaf nat "'a trm"
                       | SKPlus "'a skat_expr" "'a skat_expr" (infixl ":\<oplus>:" 70)
                       | SKMult "'a skat_expr" "'a skat_expr" (infixl ":\<odot>:" 80)
                       | SKStar "'a skat_expr"
-                      | SKBool "'a wf_pred bexpr"
+                      | SKBool "'a pred bexpr"
                       | SKOne
                       | SKZero
 
@@ -19,7 +19,7 @@ primrec reads :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
 | "reads (SKPlus x y) = reads x \<union> reads y"
 | "reads (SKMult x y) = reads x \<union> reads y"
 | "reads (SKStar x) = reads x"
-| "reads (SKBool p) = \<Union> (wf_pred_vars ` bexpr_leaves p)"
+| "reads (SKBool p) = \<Union> (pred_vars ` bexpr_leaves p)"
 | "reads SKOne = {}"
 | "reads SKZero = {}"
 
@@ -37,7 +37,7 @@ primrec touches :: "'a::ranked_alphabet skat_expr \<Rightarrow> nat set" where
 | "touches (SKPlus x y) = touches x \<union> touches y"
 | "touches (SKMult x y) = touches x \<union> touches y"
 | "touches (SKStar x) = touches x"
-| "touches (SKBool p) = \<Union> (wf_pred_vars ` bexpr_leaves p)"
+| "touches (SKBool p) = \<Union> (pred_vars ` bexpr_leaves p)"
 | "touches SKOne = {}"
 | "touches SKZero = {}"
 
@@ -90,7 +90,7 @@ inductive skat_con :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat_expr 
 | assign1: "\<lbrakk>x \<noteq> y; y \<notin> FV s\<rbrakk> \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf y (t[x|s]) :\<odot>: SKLeaf x s)"
 | assign2: "\<lbrakk>x \<noteq> y; x \<notin> FV s\<rbrakk> \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf x s :\<odot>: SKLeaf y (t[x|s]))"
 | assign3: "skat_con (SKLeaf x s :\<odot>: SKLeaf x t) (SKLeaf x (t[x|s]))"
-| assign4: "skat_con (SKBool (bexpr_map (wf_pred_subst x t) \<phi>) :\<odot>: SKLeaf x t) (SKLeaf x t :\<odot>: SKBool \<phi>)"
+| assign4: "skat_con (SKBool (bexpr_map (pred_subst x t) \<phi>) :\<odot>: SKLeaf x t) (SKLeaf x t :\<odot>: SKBool \<phi>)"
 
 lemma skat_con_eq: "x = y \<Longrightarrow> skat_con x y" by (simp add: skat_con.refl)
 
@@ -107,7 +107,7 @@ qed
 subsection {* Lifting Definitions *}
 (* +------------------------------------------------------------------------+ *)
 
-lift_definition skat_assign :: "nat \<Rightarrow> 'a::ranked_alphabet wf_trm \<Rightarrow> 'a skat"
+lift_definition skat_assign :: "nat \<Rightarrow> 'a::ranked_alphabet trm \<Rightarrow> 'a skat"
   (infix ":=" 100) is SKLeaf
   by (rule skat_con.refl)
 
@@ -140,24 +140,24 @@ no_notation
 definition skat_star1 :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat" ("_\<^sup>+" [101] 100) where
   "skat_star1 x = x\<cdot>x\<^sup>\<star>"
 
-lift_definition test :: "'a::ranked_alphabet wf_pred bterm \<Rightarrow> 'a skat" is SKBool
+lift_definition test :: "'a::ranked_alphabet pred bterm \<Rightarrow> 'a skat" is SKBool
   by (rule skat_con.test_ba, assumption)
 
-lift_definition pred_expr :: "'a::ranked_alphabet wf_pred bexpr \<Rightarrow> 'a skat" is SKBool
+lift_definition pred_expr :: "'a::ranked_alphabet pred bexpr \<Rightarrow> 'a skat" is SKBool
   by (metis skat_con.refl)
 
-lift_definition skat_bexpr_not :: "'a::ranked_alphabet wf_pred bexpr \<Rightarrow> 'a skat" is "SKBool \<circ> BNot"
+lift_definition skat_bexpr_not :: "'a::ranked_alphabet pred bexpr \<Rightarrow> 'a skat" is "SKBool \<circ> BNot"
   by auto
 
 definition skat_not :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat" ("!") where
   "!x \<equiv> if (\<exists>P. x = abs_skat (SKBool P)) then skat_bexpr_not (SOME P. x = abs_skat (SKBool P)) else undefined"
 
-lift_definition pred :: "'a::ranked_alphabet wf_pred \<Rightarrow> 'a skat" is "SKBool \<circ> BLeaf" by auto
+lift_definition pred :: "'a::ranked_alphabet pred \<Rightarrow> 'a skat" is "SKBool \<circ> BLeaf" by auto
 
 lemma pred_to_expr: "pred \<phi> = pred_expr (BLeaf \<phi>)"
   by (simp add: pred_def pred_expr_def)
 
-primrec test_unfold :: "'a::ranked_alphabet wf_pred bexpr \<Rightarrow> 'a skat" where
+primrec test_unfold :: "'a::ranked_alphabet pred bexpr \<Rightarrow> 'a skat" where
   "test_unfold (BLeaf x) = pred x"
 | "test_unfold (BOr x y) = test_unfold x + test_unfold y"
 | "test_unfold (BAnd x y) = test_unfold x \<cdot> test_unfold y"
@@ -218,10 +218,7 @@ primrec atoms :: "'a::ranked_alphabet skat_expr \<Rightarrow> 'a skat_expr set" 
 | "atoms (SKStar x) = atoms x"
 
 lemma FV_null [simp]: "FV null = {}"
-  apply (simp add: null_def FV_def)
-  apply (subst Abs_wf_trm_inverse)
-  apply (metis NULL_arity NULL_fun trms_const)
-  by simp
+  by (simp add: null_def)
 
 lemma read_atoms: "a \<in> atoms s \<Longrightarrow> reads a \<subseteq> reads s"
   by (induct s, auto)
@@ -287,23 +284,15 @@ lemma skat_assign4_var: "\<psi> = \<phi>[x|t] \<Longrightarrow> (pred \<psi> \<c
 lemma skat_assign_comm: "\<lbrakk>x \<noteq> y; x \<notin> FV t; y \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t \<cdot> x := s)"
   by (insert skat_assign1[of x y s t], simp)
 
-lemma skat_pred_comm: "x \<notin> wf_pred_vars \<phi> \<Longrightarrow> pred \<phi> \<cdot> x := s = x := s \<cdot> pred \<phi>"
-  by (metis no_wf_pred_vars skat_assign4)
-
-lemma null_Rep [simp]: "Rep_wf_trm null = App NULL []"
-  apply (simp add: null_def, subst Abs_wf_trm_inverse)
-  apply (metis NULL_arity NULL_fun trms_const)
-  by auto
-
-lemma null_Abs [simp]: "Abs_wf_trm (App NULL []) = null"
-  by (metis null_def)
+lemma skat_pred_comm: "x \<notin> pred_vars \<phi> \<Longrightarrow> pred \<phi> \<cdot> x := s = x := s \<cdot> pred \<phi>"
+  by (metis no_pred_vars skat_assign4)
 
 lemma skat_null_zero: "(x := s \<cdot> x := null) = (x := null)"
 proof -
   have "(x := s \<cdot> x := null) = (x := null[x|s])"
     by (rule skat_assign3)
   also have "... = x := null"
-    by (simp add: wf_trm_subst_def)
+    by (simp add: null_def)
   finally show ?thesis .
 qed
 
@@ -1069,6 +1058,63 @@ proof -
   finally show ?thesis .
 qed
 
+lemma skat_comm_pred_con:
+  fixes x y :: "'a::ranked_alphabet pred bexpr"
+  shows "skat_con (SKBool x :\<odot>: SKBool y) (SKBool y :\<odot>: SKBool x)"
+proof -
+  have "pred_expr x \<in> carrier tests" and "pred_expr y \<in> carrier tests"
+    by (metis pred_expr_closed)+
+  hence "pred_expr x \<cdot> pred_expr y = pred_expr y \<cdot> pred_expr x"
+    by (metis skt.test_mult_comm)
+  thus ?thesis
+    by (transfer fixing: x y)
+qed
+
+lemma skat_comm_assign_pred_con:
+  fixes P :: "'a::ranked_alphabet pred bexpr"
+  assumes xP: "x \<notin> reads (SKBool P)"
+  shows "skat_con (SKBool P :\<odot>: SKLeaf x s) (SKLeaf x s :\<odot>: SKBool P)"
+proof (auto simp add: unfold_transfer[symmetric] pred_expr_unfold, insert xP, induct P)
+  fix P :: "'a pred" assume "x \<notin> reads (SKBool (BLeaf P))"
+  thus "pred_expr (BLeaf P) \<cdot> x := s = x := s \<cdot> pred_expr (BLeaf P)"
+    by (simp add: pred_to_expr[symmetric], metis skat_pred_comm)
+next
+  fix P1 P2 :: "'a pred bexpr"
+  assume ind_hyp1: "x \<notin> reads (SKBool P1) \<Longrightarrow> pred_expr P1 \<cdot> x := s = x := s \<cdot> pred_expr P1"
+  and ind_hyp2: "x \<notin> reads (SKBool P2) \<Longrightarrow> pred_expr P2 \<cdot> x := s = x := s \<cdot> pred_expr P2"
+  and "x \<notin> reads (SKBool (P1 :+: P2))"
+  hence "x \<notin> reads (SKBool P1)" and "x \<notin> reads (SKBool P2)"
+    by auto
+  thus "pred_expr (P1 :+: P2) \<cdot> x := s = x := s \<cdot> pred_expr (P1 :+: P2)"
+    by (smt ind_hyp1 ind_hyp2 pred_expr_unfold skd.distl skd.distr test_unfold.simps(2))
+next
+  fix P :: "'a pred bexpr"
+  assume ind_hyp: "x \<notin> reads (SKBool P) \<Longrightarrow> pred_expr P \<cdot> x := s = x := s \<cdot> pred_expr P"
+  and "x \<notin> reads (SKBool (BNot P))"
+  hence "x \<notin> reads (SKBool P)"
+    by auto
+  from ind_hyp[OF this] show "pred_expr (BNot P) \<cdot> x := s = x := s \<cdot> pred_expr (BNot P)"
+    apply (simp add: pred_expr_unfold[symmetric])
+    apply (subst kat3[symmetric])
+    apply (metis pred_expr_closed pred_expr_unfold)
+    by auto
+next
+  fix P1 P2 :: "'a pred bexpr"
+  assume ind_hyp1: "x \<notin> reads (SKBool P1) \<Longrightarrow> pred_expr P1 \<cdot> x := s = x := s \<cdot> pred_expr P1"
+  and ind_hyp2: "x \<notin> reads (SKBool P2) \<Longrightarrow> pred_expr P2 \<cdot> x := s = x := s \<cdot> pred_expr P2"
+  and "x \<notin> reads (SKBool (P1 :\<cdot>: P2))"
+  hence "x \<notin> reads (SKBool P1)" and "x \<notin> reads (SKBool P2)"
+    by auto
+  thus "pred_expr (P1 :\<cdot>: P2) \<cdot> x := s = x := s \<cdot> pred_expr (P1 :\<cdot>: P2)"
+    by (smt ind_hyp1 ind_hyp2 pred_expr_unfold skd.mult_assoc test_unfold.simps(3))
+next
+  show "pred_expr bexpr.BOne \<cdot> x := s = x := s \<cdot> pred_expr bexpr.BOne"
+    by (metis pred_expr_unfold skd.mult_onel skd.mult_oner test_unfold.simps(5))
+next
+  show "pred_expr bexpr.BZero \<cdot> x := s = x := s \<cdot> pred_expr bexpr.BZero"
+    by (metis pred_expr_unfold skd.mult_zerol skd.mult_zeror test_unfold.simps(6))
+qed
+
 lemma skat_comm_assign_con:
   "\<lbrakk>x \<noteq> y; x \<notin> FV t; y \<notin> FV s\<rbrakk> \<Longrightarrow> skat_con (SKLeaf x s :\<odot>: SKLeaf y t) (SKLeaf y t :\<odot>: SKLeaf x s)"
   by (auto simp add: unfold_transfer[symmetric] intro: skat_assign_comm)
@@ -1139,7 +1185,10 @@ fun skat_transfer_tac ctxt n =
   end
 
 fun comm_rules_tac n =
-  rtac @{thm skat_comm_assign_con} n
+  rtac @{thm skat_comm_pred_con} n
+  ORELSE rtac @{thm skat_comm_assign_pred_con} n
+  ORELSE rtac @{thm skat_comm_assign_pred_con[symmetric]} n
+  ORELSE rtac @{thm skat_comm_assign_con} n
   ORELSE rtac @{thm skat_comm_no_touch_con} n
 
 fun skat_comm_tac solver = Subgoal.FOCUS_PARAMS (fn {context, ...} =>
@@ -1149,21 +1198,20 @@ fun skat_comm_tac solver = Subgoal.FOCUS_PARAMS (fn {context, ...} =>
     THEN safe_tac context
     THEN ALLGOALS (asm_full_simp_tac (HOL_basic_ss addsimps @{thms triv_forall_equality}))
     THEN ALLGOALS (comm_rules_tac))
-  THEN REPEAT (CHANGED (solver context 1)))
+  THEN ALLGOALS (solver context))
 
 fun all_tac_solver _ _ = all_tac
 
-fun wf_simp_solver ctxt n =
-  asm_full_simp_tac (simpset_of ctxt addsimps @{thms FV_def wf_pred_vars_def}) n
-  THEN wf_simp_tac (simpset_of ctxt) ctxt n
+fun simp_solver ctxt n = REPEAT (CHANGED
+  (asm_full_simp_tac (simpset_of ctxt) n ))
 
 fun eliminate_variable_tac v = Subgoal.FOCUS (fn {context, ...} =>
   asm_full_simp_tac (HOL_basic_ss addsimps SkatSimpRules.get context) 1
   THEN skat_fold_tac context 1
   THEN DETERM (EqSubst.eqsubst_tac context [0] [Drule.instantiate' [] [SOME (nat_cterm v)] @{thm eliminate_variables_con}] 1)
   THEN asm_full_simp_tac (simpset_of context) 1
-  THEN asm_full_simp_tac (simpset_of context addsimps @{thms FV_def wf_pred_vars_def}) 1
-  THEN TRY (wf_simp_tac (simpset_of context) context 1)
+  THEN asm_full_simp_tac (simpset_of context addsimps @{thms FV_def pred_vars_def}) 1
+  THEN TRY (simp_tac (simpset_of context) 1)
   THEN asm_full_simp_tac (simpset_of context addsimps AlphabetRules.get context) 1
   THEN asm_full_simp_tac (simpset_of context addsimps @{thms skd.mult_oner skd.mult_onel}) 1)
 
@@ -1180,20 +1228,18 @@ Scan.succeed (fn ctxt => SIMPLE_METHOD' (skat_comm_tac all_tac_solver ctxt))
 *}
 
 method_setup skat_comm = {*
-Scan.succeed (fn ctxt => SIMPLE_METHOD' (skat_comm_tac wf_simp_solver ctxt))
+Scan.succeed (fn ctxt => SIMPLE_METHOD' (skat_comm_tac simp_solver ctxt))
 *}
 
 method_setup skat_simp = {*
 Scan.succeed (fn ctxt =>
   asm_full_simp_tac (simpset_of ctxt addsimps SkatSimpRules.get ctxt) 1
-  THEN TRY (wf_simp_tac (simpset_of ctxt) ctxt 1)
   |> SIMPLE_METHOD)
 *}
 
 method_setup skat_reduce = {*
 Scan.succeed (fn ctxt =>
   simp_tac (HOL_basic_ss addsimps SkatSimpRules.get ctxt) 1
-  THEN TRY (wf_simp_tac HOL_basic_ss ctxt 1)
   |> SIMPLE_METHOD)
 *}
 
@@ -1201,5 +1247,15 @@ method_setup eliminate_variable = {*
 Scan.lift Parse.nat >>
   (fn v => fn ctxt => SIMPLE_METHOD (eliminate_variable_tac v ctxt 1))
 *}
+
+definition while :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat \<Rightarrow> 'a skat" ("WHILE _ DO _ WEND" [64,64] 63) where
+  "WHILE b DO p WEND = (b\<cdot>p)\<^sup>\<star>\<cdot>!b"
+
+definition if_then_else :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat \<Rightarrow> 'a skat \<Rightarrow> 'a skat"
+  ("IF _ THEN _ ELSE _ ENDIF" [64,64,64] 63) where
+  "IF b THEN p ELSE q ENDIF \<equiv> b\<cdot>p + (!b)\<cdot>q"
+
+notation
+  SKAT.skat_mult (infixl ";" 64)
 
 end

@@ -5,9 +5,9 @@ begin
 type_synonym 'a mems = "(nat \<Rightarrow> 'a) set"
 
 fun eval_bexpr ::
-  "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'a wf_pred bexpr \<Rightarrow> (nat \<Rightarrow> 'b) \<Rightarrow> bool"
+  "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'a pred bexpr \<Rightarrow> 'b mem \<Rightarrow> bool"
   where
-  "eval_bexpr D (BLeaf P) mem = eval_wf_pred D mem P"
+  "eval_bexpr D (BLeaf P) mem = eval_pred D mem P"
 | "eval_bexpr D (P :+: Q) mem = (eval_bexpr D P mem \<or> eval_bexpr D Q mem)"
 | "eval_bexpr D (P :\<cdot>: Q) mem = (eval_bexpr D P mem \<and> eval_bexpr D Q mem)"
 | "eval_bexpr D (BNot P) mem = (\<not> eval_bexpr D P mem)"
@@ -17,13 +17,16 @@ fun eval_bexpr ::
 definition filter_set :: "('a \<Rightarrow> bool) \<Rightarrow> 'a set \<Rightarrow> 'a set" where
   "filter_set p X \<equiv> \<Union>x\<in>X. if p x then {x} else {}"
 
+lemma filter_set_inter: "filter_set P a = a \<inter> filter_set P UNIV"
+  by (auto simp add: filter_set_def) (metis empty_iff singleton_iff)+
+
 definition set_mems :: "nat \<Rightarrow> ('a mem \<Rightarrow> 'a) \<Rightarrow> 'a mems \<Rightarrow> 'a mems" where
   "set_mems x f \<Delta> \<equiv> (\<lambda>mem. set_mem x (f mem) mem) ` \<Delta>"
 
-definition wf_assigns ::
-  "('a::ranked_alphabet, 'b) interp \<Rightarrow> nat \<Rightarrow> 'a wf_trm \<Rightarrow> 'b mems \<Rightarrow> 'b mems"
+definition assigns ::
+  "('a::ranked_alphabet, 'b) interp \<Rightarrow> nat \<Rightarrow> 'a trm \<Rightarrow> 'b mems \<Rightarrow> 'b mems"
   where
-  "wf_assigns D x s mems = set_mems x (\<lambda>mem. eval_wf_trm D mem s) mems"
+  "assigns D x s mems = set_mems x (\<lambda>mem. eval_trm D mem s) mems"
 
 lemma finite_set_mems: assumes "finite \<Delta>" shows "finite (set_mems x f \<Delta>)"
   by (induct rule: finite_subset_induct_var[OF assms(1), of "\<Delta>"], simp_all add: set_mems_def)
@@ -31,27 +34,51 @@ lemma finite_set_mems: assumes "finite \<Delta>" shows "finite (set_mems x f \<D
 lemma card_set_mems: "finite \<Delta> \<Longrightarrow> card (set_mems X f \<Delta>) \<le> card \<Delta>"
   by (simp add: set_mems_def, smt card_image_le)
 
-lemma wf_assign_image: "wf_assigns D x t mems = wf_assign D x t ` mems"
-  by (auto simp add: wf_assigns_def set_mems_def wf_assign_def[symmetric])
+lemma assign_image: "assigns D x t mems = assign D x t ` mems"
+  by (auto simp add: assigns_def set_mems_def assign_def[symmetric])
 
-lemma eval_wf_assigns1:
+lemma eval_assigns1:
   assumes xy: "x \<noteq> y" and ys: "y \<notin> FV s"
-  shows "wf_assigns D y t (wf_assigns D x s mems) = wf_assigns D x s (wf_assigns D y (t[x|s]) mems)"
-  by (auto simp add: wf_assign_image image_def, (metis eval_wf_assign1 xy ys)+)
+  shows "assigns D y t (assigns D x s mems) = assigns D x s (assigns D y (t[x|s]) mems)"
+  by (auto simp add: assign_image image_def, (metis eval_assign1 xy ys)+)
 
-lemma eval_wf_assigns2:
+lemma eval_assigns2:
   assumes xy: "x \<noteq> y" and xs: "x \<notin> FV s"
-  shows "wf_assigns D y t (wf_assigns D x s mems) =
-         wf_assigns D y (t[x|s]) (wf_assigns D x s mems)"
-  by (auto simp add: wf_assign_image image_def, (metis eval_wf_assign2 xy xs)+)
+  shows "assigns D y t (assigns D x s mems) =
+         assigns D y (t[x|s]) (assigns D x s mems)"
+  by (auto simp add: assign_image image_def, (metis eval_assign2 xy xs)+)
 
-lemma eval_wf_assigns3: "wf_assigns D x t (wf_assigns D x s mems) = wf_assigns D x (t[x|s]) mems"
-  by (auto simp add: wf_assign_image image_def, (metis eval_wf_assign3)+)
+lemma eval_assigns3: "assigns D x t (assigns D x s mems) = assigns D x (t[x|s]) mems"
+  by (auto simp add: assign_image image_def, (metis eval_assign3)+)
+
+lemma eval_assigns4: "filter_set (\<lambda>mem. eval_pred D mem P) (assigns D x t \<Delta>) =
+                         assigns D x t (filter_set (\<lambda>mem. eval_pred D mem (P[x|t])) \<Delta>)"
+  by (auto simp add: assign_image image_def filter_set_def) (metis empty_iff eval_assign4 singleton_iff)+
+
+lemma eval_assign4_bexpr:
+  fixes D :: "('a::ranked_alphabet, 'b) interp"
+  shows "eval_bexpr D P (assign D x t mem) = eval_bexpr D (bexpr_map (\<lambda>a. a[x|t]) P) mem"
+  by (induct P, simp_all, rule eval_assign4, auto)
+
+lemma eval_assigns4_bexpr:
+  "filter_set (eval_bexpr D P) (assigns D x t \<Delta>) =
+   assigns D x t (filter_set (eval_bexpr D (bexpr_map (\<lambda>a. a[x|t]) P)) \<Delta>)"
+  apply (auto simp add: assign_image image_def filter_set_def)
+  defer
+  apply (metis eval_assign4_bexpr)
+  apply (rule_tac x = xb in bexI)
+  defer
+  apply assumption
+  apply auto
+  apply (metis empty_iff singleton_iff)
+  apply (subgoal_tac "eval_bexpr D P (assign D x t xb)")
+  apply (metis eval_assign4_bexpr)
+  by (metis empty_iff)
 
 fun eval_skat_expr ::
   "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'a skat_expr \<Rightarrow> 'b mems \<Rightarrow> 'b mems"
   where
-  "eval_skat_expr D (SKLeaf x s) \<Delta> = wf_assigns D x s \<Delta>"
+  "eval_skat_expr D (SKLeaf x s) \<Delta> = assigns D x s \<Delta>"
 | "eval_skat_expr D (SKBool P) \<Delta> = filter_set (eval_bexpr D P) \<Delta>"
 | "eval_skat_expr D (s :\<odot>: t) \<Delta> = eval_skat_expr D t (eval_skat_expr D s \<Delta>)"
 | "eval_skat_expr D (s :\<oplus>: t) \<Delta> = eval_skat_expr D s \<Delta> \<union> eval_skat_expr D t \<Delta>"
@@ -70,7 +97,7 @@ lemma eval_iter1: "eval_skat_expr D s (iter n (eval_skat_expr D s) \<Delta>)
   by (induct n, auto)
 
 lemma eval_mod1: "eval_skat_expr D s {} = {}"
-proof (induct s, simp_all add: wf_assigns_def set_mems_def, intro allI)
+proof (induct s, simp_all add: assigns_def set_mems_def, intro allI)
   fix s n assume "eval_skat_expr D s {} = {}"
   thus "iter n (eval_skat_expr D s) {} = {}"
     by (induct n, auto)
@@ -80,7 +107,7 @@ next
 qed
 
 lemma eval_mod2: "eval_skat_expr D s (\<Delta> \<union> \<Gamma>) = eval_skat_expr D s \<Delta> \<union> eval_skat_expr D s \<Gamma>"
-  apply (induct s arbitrary: \<Delta> \<Gamma>, simp_all add: wf_assigns_def set_mems_def filter_set_def)
+  apply (induct s arbitrary: \<Delta> \<Gamma>, simp_all add: assigns_def set_mems_def filter_set_def)
   apply (metis image_Un)
   apply (metis Un_assoc Un_left_commute)
 proof -
@@ -156,9 +183,9 @@ qed
 
 lemma eval_jp: "eval_skat_expr D s (\<Union>X) = \<Union>(eval_skat_expr D s ` X)"
 proof (induct s arbitrary: X)
-  fix x and s :: "'b wf_trm" and X
+  fix x and s :: "'b trm" and X
   show "eval_skat_expr D (SKLeaf x s) (\<Union>X) = \<Union>eval_skat_expr D (SKLeaf x s) ` X"
-    by (auto simp add: wf_assigns_def set_mems_def)
+    by (auto simp add: assigns_def set_mems_def)
 next
   fix s t :: "'b skat_expr" and X
   assume "\<And>X. eval_skat_expr D s (\<Union>X) = \<Union>eval_skat_expr D s ` X"
@@ -196,7 +223,7 @@ next
       by (metis asm iter_jp)
   qed
 next
-  fix P :: "'b wf_pred bexpr" and X
+  fix P :: "'b pred bexpr" and X
   show "eval_skat_expr D (SKBool P) (\<Union>X) = \<Union>eval_skat_expr D (SKBool P) ` X"
     by (auto simp add: filter_set_def)
 next
@@ -351,7 +378,7 @@ next
   thus "\<forall>\<Delta>. eval_skat_expr D (z :\<odot>: SKStar x :\<oplus>: y) \<Delta> = eval_skat_expr D y \<Delta>"
     by (metis eval_star_inductr)
 next
-  fix x y :: "'a wf_pred bexpr" assume "hunt_con x y"
+  fix x y :: "'a pred bexpr" assume "hunt_con x y"
   hence "\<forall>\<Delta>. eval_bexpr D x \<Delta> = eval_bexpr D y \<Delta>"
     by (metis hunt_con_eval)
   hence "eval_bexpr D x = eval_bexpr D y"
@@ -365,25 +392,25 @@ next
   fix x y show "\<forall>\<Delta>. eval_skat_expr D (SKBool (x :+: y)) \<Delta> = eval_skat_expr D (SKBool x :\<oplus>: SKBool y) \<Delta>"
     by (auto, (metis empty_iff singleton_iff)+)
 next
-  fix x y :: nat and s t :: "'a wf_trm" assume "x \<noteq> y" and "y \<notin> FV s"
+  fix x y :: nat and s t :: "'a trm" assume "x \<noteq> y" and "y \<notin> FV s"
   thus "\<forall>\<Delta>. eval_skat_expr D (SKLeaf x s :\<odot>: SKLeaf y t) \<Delta> =
             eval_skat_expr D (SKLeaf y (t[x|s]) :\<odot>: SKLeaf x s) \<Delta>"
-    by (simp, metis eval_wf_assigns1)
+    by (simp, metis eval_assigns1)
 next
-  fix x y :: nat and s t :: "'a wf_trm" assume "x \<noteq> y" and "x \<notin> FV s"
+  fix x y :: nat and s t :: "'a trm" assume "x \<noteq> y" and "x \<notin> FV s"
   thus "\<forall>\<Delta>. eval_skat_expr D (SKLeaf x s :\<odot>: SKLeaf y t) \<Delta> =
             eval_skat_expr D (SKLeaf x s :\<odot>: SKLeaf y (t[x|s])) \<Delta>"
-    by (simp, metis eval_wf_assigns2)
+    by (simp, metis eval_assigns2)
 next
   fix x s t
   show "\<forall>\<Delta>. eval_skat_expr D (SKLeaf x s :\<odot>: SKLeaf x t) \<Delta> =
             eval_skat_expr D (SKLeaf x (t[x|s])) \<Delta>"
-    by (simp, metis eval_wf_assigns3)
+    by (simp, metis eval_assigns3)
 next
   fix x t \<phi>
-  show "\<forall>\<Delta>. eval_skat_expr D (SKBool (bexpr_map (wf_pred_subst x t) \<phi>) :\<odot>: SKLeaf x t) \<Delta> =
+  show "\<forall>\<Delta>. eval_skat_expr D (SKBool (bexpr_map (pred_subst x t) \<phi>) :\<odot>: SKLeaf x t) \<Delta> =
             eval_skat_expr D (SKLeaf x t :\<odot>: SKBool \<phi>) \<Delta>"
-    sorry
+    by (simp del: filter_set_def, metis eval_assigns4_bexpr)
 qed
 
 lift_definition eval ::
@@ -398,11 +425,15 @@ proof -
     by auto
 qed
 
+definition eval_pred :: "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'a skat \<Rightarrow> 'b mem \<Rightarrow> bool" where
+  "eval_pred D b mem \<equiv> mem \<in> eval D b {mem}"
+
 definition expr_determ ::
   "('a::ranked_alphabet, 'b) interp \<Rightarrow> 'a skat_expr \<Rightarrow> bool"
   where
-  "expr_determ D s \<equiv> \<forall>\<Delta>. \<exists>mem. eval_skat_expr D s \<Delta> = {mem}"
+  "expr_determ D s \<equiv> \<forall>start. \<exists>!end. eval_skat_expr D s {start} = {end}"
 
+(*
 fun skat_prog :: "'a::ranked_alphabet prog \<Rightarrow> 'a skat" where
   "skat_prog (If \<phi> x y) = pred \<phi> \<cdot> skat_prog x + !(pred \<phi>) \<cdot> skat_prog y"
 | "skat_prog (While \<phi> x) = (pred \<phi> \<cdot> skat_prog x)\<^sup>\<star> \<cdot> !(pred \<phi>)"
@@ -425,15 +456,34 @@ proof (induct pgm)
   thus "skat_prog (Seq pgms) = \<lfloor>skat_expr_prog (Seq pgms)\<rfloor>"
     by (induct pgms, auto)
 qed auto
+*)
 
-context valid_interp
+lemma pred_expr_to_test [simp]: "pred_expr \<circ> rep_bterm = test"
+  by (rule ext, simp add: o_def test_def pred_expr_def)
+
+lemma test_to_pred_expr [simp]: "test \<circ> abs_bterm = pred_expr"
+  apply (rule ext, simp add: o_def test_def pred_expr_def)
+  by (metis o_eq_dest_lhs pred_expr_test pred_expr_unfold skat_unfold.simps(4) test_to_pred_expr unfold_is_abs)
+
+lemma test_range: "range pred_expr = range test"
+  by (metis test_to_pred_expr equalityI image_compose image_subsetI pred_expr_to_test rangeI)
+
+lemma pred_exists: "p \<in> carrier tests \<Longrightarrow> \<exists>P. p = pred_expr P"
+proof -
+  assume p_test: "p \<in> carrier tests"
+  hence "p \<in> range pred_expr"
+    by (simp add: tests_def test_set_def test_range[symmetric])
+  thus "\<exists>P. p = pred_expr P"
+    by (metis (lifting) image_iff)
+qed
+
+locale interp = fixes D :: "('a::ranked_alphabet,'b) interp"
+
+context interp
 begin
 
   definition module :: "'b mems \<Rightarrow> 'a skat \<Rightarrow> 'b mems" (infix "\<Colon>" 75) where
     "module \<Delta> x \<equiv> eval D x \<Delta>"
-
-  definition mod_le :: "'b mems \<Rightarrow> 'b mems \<Rightarrow> bool" (infix "\<preceq>" 60) where
-    "x \<preceq> y \<equiv> x \<union> y = y"
 
   (* Properties from Kleene modules and linear languages by Hans Leiss *)
 
@@ -455,12 +505,10 @@ begin
   lemma mod_mult: "a \<Colon> (r \<cdot> s) = (a \<Colon> r) \<Colon> s"
     by (simp add: module_def, transfer, simp)
 
-  lemma "a \<union> b \<Colon> r \<preceq> b \<Longrightarrow> a \<Colon> r\<^sup>\<star> \<preceq> b"
-    apply (simp add: module_def mod_le_def)
-    apply transfer
-    by (metis (lifting) eval_mod3 sup.commute)
+  lemma mod_star: "a \<union> b \<Colon> r \<subseteq> b \<Longrightarrow> a \<Colon> r\<^sup>\<star> \<subseteq> b"
+    by (simp add: module_def subset_Un_eq, transfer, rule eval_mod3, blast)
 
-  lemma mod_assign: "\<Delta> \<Colon> x := s = wf_assigns D x s \<Delta>"
+  lemma mod_assign: "\<Delta> \<Colon> x := s = assigns D x s \<Delta>"
     apply (simp add: module_def)
     apply transfer
     apply simp
@@ -483,6 +531,10 @@ begin
   lemma mod_star_eval: "\<Delta> \<Colon> \<lfloor>s\<rfloor>\<^sup>\<star> = (\<Union>n. iter n (eval_skat_expr D s) \<Delta>)"
     by (subgoal_tac "\<lfloor>s\<rfloor>\<^sup>\<star> = \<lfloor>SKStar s\<rfloor>", simp only: mod_eval, transfer, auto)
 
+(*
+  lemma "\<not> finite (\<Delta> \<Colon> skat_prog pgm) \<Longrightarrow> \<not> terminates D pgm"
+  proof (induct pgm)
+
   definition terminates :: "'a prog \<Rightarrow> bool" where
     "terminates prgm \<equiv> \<exists>steps. \<forall>mem. eval_prog steps D mem prgm \<noteq> None"
 
@@ -503,7 +555,7 @@ begin
   next
     fix x s
     show "deterministic (skat_prog (Assign x s))"
-      by (simp add: deterministic_def mod_assign wf_assigns_def set_mems_def)
+      by (simp add: deterministic_def mod_assign assigns_def set_mems_def)
   next
     fix \<phi> pgm1 pgm2
     assume "deterministic (skat_prog pgm1)"
@@ -536,10 +588,79 @@ begin
         
     qed
   qed
-end
+      *)
 
-definition deterministic :: "'a::ranked_alphabet skat \<Rightarrow> bool" where
-  "deterministic s \<equiv> \<forall>D. valid_interp D \<longrightarrow> valid_interp.deterministic D s"
+  lemma mod_test_and:
+    assumes b_test: "b \<in> carrier tests" shows "a \<Colon> b = a \<inter> UNIV \<Colon> b"
+  proof -
+    obtain B where b_def: "b = pred_expr B"
+      by (metis b_test pred_exists)
+    have "a \<Colon> pred_expr B = filter_set (eval_bexpr D B) a"
+      by (simp add: mod_pred_expr)
+    also have "... = a \<inter> filter_set (eval_bexpr D B) UNIV"
+      by (rule filter_set_inter)
+    also have "... = a \<inter> UNIV \<Colon> pred_expr B"
+      by (simp add: mod_pred_expr)
+    finally show ?thesis
+      by (metis b_def)
+  qed
+
+  definition hoare_triple :: "'b mems \<Rightarrow> 'a skat \<Rightarrow> 'b mems \<Rightarrow> bool" ("_ \<lbrace> _ \<rbrace> _" [54,54,54] 53) where
+    "P \<lbrace> p \<rbrace> Q \<equiv> P \<Colon> p \<subseteq> Q"
+
+  lemma hoare_composition: "\<lbrakk>P \<lbrace>p\<rbrace> Q; Q \<lbrace>q\<rbrace> R\<rbrakk> \<Longrightarrow> P \<lbrace>p\<cdot>q\<rbrace> R"
+    apply (simp add: hoare_triple_def mod_mult)
+    apply (simp add: module_def eval.rep_eq)
+    by (metis eval_iso subset_trans)
+
+  lemma hoare_weakening: "\<lbrakk>P' \<subseteq> P; P \<lbrace> p \<rbrace> Q; Q \<subseteq> Q'\<rbrakk> \<Longrightarrow> P' \<lbrace> p \<rbrace> Q'"
+    by (metis hoare_triple_def hoare_composition mod_mult mod_one order_refl subset_trans)
+
+  lemma hoare_if:
+    assumes b_test: "b \<in> carrier tests"
+    and then_branch: "P \<inter> (UNIV \<Colon> b) \<lbrace> p \<rbrace> Q"
+    and else_branch: "P \<inter> (UNIV \<Colon> !b) \<lbrace> q \<rbrace> Q"
+    shows "P \<lbrace> IF b THEN p ELSE q ENDIF \<rbrace> Q"
+  proof -
+    obtain B where b_def: "b = pred_expr B"
+      by (metis b_test pred_exists)
+    hence "P \<inter> (UNIV \<Colon> pred_expr B) \<lbrace> p \<rbrace> Q" and "P \<inter> (UNIV \<Colon> pred_expr (BNot B)) \<lbrace> q \<rbrace> Q"
+      by (metis then_branch) (metis b_def else_branch pred_expr_not)
+    hence "P \<lbrace> IF pred_expr B THEN p ELSE q ENDIF \<rbrace> Q"
+      apply (simp add: if_then_else_def hoare_triple_def mod_plus mod_mult)
+      by (metis (lifting) filter_set_inter mod_pred_expr)
+    thus ?thesis
+      by (metis b_def)
+  qed
+
+  lemma hoare_assignment': "P \<lbrace> x := s \<rbrace> P \<Colon> x := s"
+    by (simp add: hoare_triple_def)
+
+  lemma hoare_assignment'_var: "Q = P \<Colon> x := s \<Longrightarrow> P \<lbrace> x := s \<rbrace> Q"
+    by (metis hoare_assignment')
+
+  definition satisfies :: "nat \<Rightarrow> ('b \<Rightarrow> bool) \<Rightarrow> 'b mems" where
+    "satisfies x p \<equiv> {mem. p (mem x)}"
+
+  value assigns
+
+  abbreviation assigns_notation :: "'b mems \<Rightarrow> nat \<Rightarrow> 'a trm \<Rightarrow> 'b mems"
+    ("_[_|_]" [100,100,100] 101) where
+    "P[x|t] \<equiv> assigns D x t P"
+
+  lemma hoare_assignment: "P \<lbrace> x := s \<rbrace> P[x|s]"
+    by (rule hoare_assignment'_var, simp add: module_def, transfer, simp)
+
+  lemma hoare_assignment_var: "Q = P[x|s] \<Longrightarrow> P \<lbrace> x := s \<rbrace> Q"
+    by (metis hoare_assignment)
+
+  lemma hoare_while:
+    assumes b_test: "b \<in> carrier tests"
+    and loop_condition: "P \<inter> (UNIV \<Colon> b) \<lbrace>p\<rbrace> P"
+    shows "P \<lbrace> WHILE b DO p WEND \<rbrace> P \<inter> (UNIV \<Colon> !b)"
+    sorry
+
+end
 
 end
 

@@ -2,9 +2,9 @@ theory SKAT_Euclid
   imports SKAT_Eval GCD
 begin
 
-datatype alph = mod_alph | plus_alph | nat_alph nat | eq_alph
+datatype alph = mod_alph | plus_alph | mult_alph | minus_alph | nat_alph nat | eq_alph
 
-lemma alph_UNIV: "UNIV = {mod_alph,eq_alph,plus_alph} \<union> (nat_alph ` UNIV)"
+lemma alph_UNIV: "UNIV = {mod_alph,eq_alph,plus_alph,mult_alph,minus_alph} \<union> (nat_alph ` UNIV)"
   by (auto simp add: image_def, metis alph.exhaust)
 
 instantiation alph :: ranked_alphabet
@@ -13,11 +13,13 @@ begin
   fun arity_alph :: "alph \<Rightarrow> nat" where
     "arity_alph mod_alph = 2"
   | "arity_alph plus_alph = 2"
+  | "arity_alph mult_alph = 2"
+  | "arity_alph minus_alph = 2"
   | "arity_alph eq_alph = 2"
   | "arity_alph is_gcd_alph = 0"
   | "arity_alph (nat_alph _) = 0"
 
-  definition funs_alph :: "alph set" where "funs_alph \<equiv> {mod_alph,plus_alph} \<union> (nat_alph ` UNIV)"
+  definition funs_alph :: "alph set" where "funs_alph \<equiv> {mod_alph,plus_alph,mult_alph,minus_alph} \<union> (nat_alph ` UNIV)"
 
   definition rels_alph :: "alph set" where "rels_alph \<equiv> {eq_alph}"
 
@@ -70,14 +72,17 @@ definition EQ :: "alph trm \<Rightarrow> alph trm \<Rightarrow> alph pred" where
 definition NAT :: "nat \<Rightarrow> alph trm" where
   "NAT n \<equiv> App (nat_alph n) []"
 
-declare MOD_def [skat_simp]
-  and PLUS_def [skat_simp]
-  and EQ_def [skat_simp]
-  and NAT_def [skat_simp]
+definition MULT :: "alph trm \<Rightarrow> alph trm \<Rightarrow> alph trm" where
+  "MULT a b = (App mult_alph [a, b])"
+
+definition MINUS :: "alph trm \<Rightarrow> alph trm \<Rightarrow> alph trm" where
+  "MINUS a b = (App minus_alph [a, b])"
 
 fun euclid_funs :: "alph \<Rightarrow> nat list \<Rightarrow> nat" where
   "euclid_funs mod_alph [x, y] = x mod y"
 | "euclid_funs plus_alph [x, y] = x + y"
+| "euclid_funs mult_alph [x, y] = x * y"
+| "euclid_funs minus_alph [x, y] = x - y"
 | "euclid_funs (nat_alph n) [] = n"
 | "euclid_funs _ _ = 0"
 
@@ -131,11 +136,9 @@ lemma skat_assign3_var: "r = t[x|s] \<Longrightarrow> (x := s \<cdot> x := t) = 
 
 lemma variable_update: "satisfies x (op = n) \<lbrace> x := NAT m \<rbrace> satisfies x (op = m)"
   apply (simp add: satisfies_assign)
-  apply (rule hoare_assignment'_var)
-  apply (subst mod_mult[symmetric])
-  apply (rule arg_cong) back
-  apply (rule skat_assign3_var[symmetric])
-  by (auto simp add: NAT_def)
+  apply (rule hoare_assignment)
+  apply (simp add: mod_assign[symmetric] mod_mult[symmetric])
+  sorry
 
   lemma while:
     assumes b_test: "b \<in> carrier tests"
@@ -173,6 +176,7 @@ declare pred_expr_closed [simp]
 lemma weakening [consumes 1]: "\<lbrakk>P \<lbrace> p \<rbrace> Q; P' \<subseteq> P; Q \<subseteq> Q'\<rbrakk> \<Longrightarrow> P' \<lbrace> p \<rbrace> Q'"
   by (metis (lifting) hoare_weakening)
 
+(*
 lemma simple_loop_example: "satisfies 0 (op = 0) \<lbrace> SIMPLE_LOOP \<rbrace> satisfies 0 (op = 5)"
 proof -
   let ?invariant = "satisfies 0 (\<lambda>x. x \<le> 5)"
@@ -197,6 +201,7 @@ proof -
   thus ?thesis
     by (rule strengthen_precondition, simp)
 qed
+*)
 
 fun initial_mem :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> nat" where
   "initial_mem x y 0 = x"
@@ -214,6 +219,50 @@ no_notation
 lemma (in interp) assignment: "P[x|s] \<subseteq> Q \<Longrightarrow> P \<lbrace> x := s \<rbrace> Q"
   by (metis hoare_triple_def mod_assign)
 
+definition while_inv :: "'a::ranked_alphabet skat \<Rightarrow> 'b mems \<Rightarrow> 'a skat \<Rightarrow> 'a skat" ("WHILE _ INVARIANT _ DO _ WEND" [64,64,64] 63) where
+  "WHILE b INVARIANT i DO p WEND = (b\<cdot>p)\<^sup>\<star>\<cdot>!b"
+
+lemma hoare_while_inv:
+  assumes b_test: "b \<in> carrier tests"
+  and Pi: "P \<subseteq> i" and iQ: "i \<inter> (UNIV \<Colon> !b) \<subseteq> Q"
+  and inv_loop: "i \<inter> (UNIV \<Colon> b) \<lbrace>p\<rbrace> i"
+  shows "P \<lbrace> WHILE b INVARIANT i DO p WEND \<rbrace> Q"
+  by (metis (hide_lams, no_types) Pi b_test iQ inv_loop weakening while while_def while_inv_def)
+
+
+ML {*
+
+structure HoareSimpRules = Named_Thms
+  (val name = @{binding "hoare_simp"}
+   val description = "Simplification rules for the hoare tactic")
+
+fun hoare_step_tac ctxt n =
+  rtac @{thm hoare_composition} n
+  ORELSE (rtac @{thm hoare_assignment} n THEN TRY (rtac @{thm subset_refl} n))
+  ORELSE (rtac @{thm hoare_while_inv} n THEN asm_full_simp_tac (simpset_of ctxt) 1)
+
+val hoare_tac = Subgoal.FOCUS (fn {context, ...} =>
+  REPEAT (hoare_step_tac context 1)
+  THEN auto_tac (map_simpset (fn ss => ss addsimps HoareSimpRules.get context) context))
+
+*}
+
+setup {* HoareSimpRules.setup *}
+
+method_setup hoare_auto = {*
+Scan.succeed (fn ctxt => SIMPLE_METHOD (REPEAT (CHANGED (hoare_tac ctxt 1))))
+*}
+
+declare assigns_def [hoare_simp]
+declare set_mems_def [hoare_simp]
+declare image_def [hoare_simp]
+declare set_mem_def [hoare_simp]
+declare satisfies_def [hoare_simp]
+declare MOD_def [hoare_simp]
+declare PLUS_def [hoare_simp]
+declare MINUS_def [hoare_simp]
+declare MULT_def [hoare_simp]
+
 lemma euclids_algorithm: "{mem. mem 0 = x \<and> mem 1 = y} \<lbrace> GCD \<rbrace> {mem. mem 0 = gcd x y}"
 proof -
   let ?invariant = "{mem. gcd (mem 0) (mem 1) = gcd x y}"
@@ -221,37 +270,60 @@ proof -
   have "?invariant \<lbrace> GCD \<rbrace> {mem. mem 0 = gcd x y \<and> mem 1 = 0}"
   proof (simp add: GCD_def, rule while, simp_all)
     show "{mem. mem 0 = gcd x y \<and> mem 1 = 0} = ?invariant \<inter> satisfies 1 (op = 0)"
-      by (auto simp add: satisfies_def)
+      by hoare_auto
 
     show "{mem. gcd (mem 0) (mem 1) = gcd x y} \<inter> satisfies 1 (op < 0)
             \<lbrace> 2 := Var 1 ; 1 := MOD (Var 0) (Var 1) ; 0 := Var 2 \<rbrace>
           {mem. gcd (mem 0) (mem 1) = gcd x y}"
-    proof (rule hoare_composition)+
-      show "?invariant \<inter> satisfies 1 (op < 0) \<lbrace> 2 := Var 1 \<rbrace> ?invariant \<inter> satisfies 1 (op < 0) \<inter> {mem. mem 1 = mem 2}"
-        apply (rule assignment)
-        by (auto simp add: assigns_def set_mems_def image_def set_mem_def satisfies_def)
-
-      show "?invariant \<inter> satisfies 1 (op < 0) \<inter> {mem. mem 1 = mem 2}
-              \<lbrace> 1 := MOD (Var 0) (Var 1) \<rbrace>
-            {mem. mem 1 = (mem 0) mod (mem 2)} \<inter> {mem. gcd (mem 0) (mem 2) = gcd x y} \<inter> satisfies 2 (op \<noteq> 0)"
-        apply (rule assignment)
-        by (auto simp add: assigns_def set_mems_def image_def set_mem_def satisfies_def MOD_def)
-
-      have "{mem. mem 1 = (mem 0) mod (mem 2)} \<inter> {mem. gcd (mem 0) (mem 2) = gcd x y}
-              \<lbrace> 0 := Var 2 \<rbrace>
-            ?invariant \<inter> {mem. mem 0 = mem 2}"
-        apply (rule assignment)
-        apply (auto simp add: assigns_def set_mems_def image_def set_mem_def satisfies_def)
-        by (metis gcd_red_nat)
-
-      thus "{mem. mem 1 = (mem 0) mod (mem 2)} \<inter> {mem. gcd (mem 0) (mem 2) = gcd x y} \<inter> satisfies 2 (op \<noteq> 0)
-              \<lbrace> 0 := Var 2 \<rbrace>
-            ?invariant"
-        by (rule weakening, auto)
-    qed
+      by (hoare_auto, metis gcd_red_nat)
   qed
   thus ?thesis
     by (rule weakening, auto)
 qed
+
+lemma euclids_algorithm_auto:
+   "{mem. mem 0 = x \<and> mem 1 = y} \<lbrace>
+   WHILE !(pred (EQ (Var 1) (NAT 0)))
+   INVARIANT {mem. gcd (mem 0) (mem 1) = gcd x y}
+   DO
+     2 := Var 1;
+     1 := MOD (Var 0) (Var 1);
+     0 := Var 2
+   WEND
+   \<rbrace> {mem. mem 0 = gcd x y}"
+  by hoare_auto (metis gcd_red_nat)
+
+lemma [simp]: "eval_trm EUCLID mem (NAT x) = x"
+  by (simp add: NAT_def)
+
+lemma [simp]: "UNIV \<Colon> pred_expr (BLeaf (EQ (Var n) (Var m))) = {mem. mem n = mem m}"
+  by (auto simp add: mod_pred_expr EQ_def) (metis empty_iff singleton_iff)+
+
+lemma [simp]: "UNIV \<Colon> pred_expr (BNot (BLeaf (EQ (Var n) (Var m)))) = {mem. mem n \<noteq> mem m}"
+  by (auto simp add: mod_pred_expr EQ_def) (metis empty_iff singleton_iff)+
+
+lemma repeated_addition:
+  "{mem. mem 0 = x \<and> mem 1 = y} \<lbrace>
+   2 := NAT 0;
+   3 := NAT 0;
+   (WHILE !(pred (EQ (Var 2) (Var 0)))
+   INVARIANT {mem. mem 3 = mem 2 * mem 1 \<and> mem 0 = x \<and> mem 1 = y}
+   DO
+     3 := PLUS (Var 3) (Var 1);
+     2 := PLUS (Var 2) (NAT 1)
+   WEND)
+   \<rbrace> {mem. mem 3 = (x * y)}"
+  by hoare_auto smt
+
+lemma factorial:
+  "{mem. mem 0 = x} \<lbrace>
+   1 := NAT 1;
+   (WHILE !(pred (EQ (Var 0) (NAT 0)))
+   INVARIANT {mem. fact x = mem 1 * fact (mem 0)}
+   DO
+     1 := MULT (Var 1) (Var 0); 0 := MINUS (Var 0) (NAT 1)
+   WEND)
+   \<rbrace> {mem. mem 1 = fact x}"
+  by hoare_auto (metis fact_reduce_nat)
 
 end

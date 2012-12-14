@@ -522,8 +522,7 @@ begin
   definition while :: "'a \<Rightarrow> 'a \<Rightarrow> 'a" ("WHILE _ DO _ WEND" [64,64] 63) where
     "WHILE b DO p WEND = (b\<cdot>p)\<^sup>\<star>\<cdot>!b"
 
-  abbreviation SKIP :: "'a" where "SKIP \<equiv> 1"
-
+(*
   definition hoare_triple :: "'a \<Rightarrow> 'a \<Rightarrow> 'a \<Rightarrow> bool" ("_ \<lbrace> _ \<rbrace> _" [54,54,54] 53) where
     "b \<lbrace> p \<rbrace> c \<equiv> b \<in> tests A \<and> c \<in> tests A \<and> p \<in> carrier A \<and> b\<cdot>p\<cdot>(!c) = 0"
 
@@ -574,6 +573,7 @@ begin
   lemma hoare_skip: "b \<in> tests A \<Longrightarrow> b \<lbrace> SKIP \<rbrace> b"
     by (metis (lifting) complement2 hoare_triple_def mult_oner one_closed test_subset_var)
 
+*)
 end
 
 notation

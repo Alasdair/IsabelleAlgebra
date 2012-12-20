@@ -2,6 +2,14 @@ theory TestAlg
   imports KAT Quantale
 begin
 
+context complete_boolean_lattice
+begin
+
+  lemma double_neg: "x \<in> carrier A \<Longrightarrow> !(!x) = x"
+    by (metis (lifting) ccompl_bot ccompl_closed ccompl_top ccompl_uniq join_comm meet_comm)
+
+end
+
 locale kat_module' =
   fixes K :: "'a test_algebra"
   and A :: "('b, 'c) ord_scheme"
@@ -15,7 +23,6 @@ sublocale kat_module' \<subseteq> A: complete_boolean_lattice A using cbl_subalg
 
 no_notation
   Groups.plus_class.plus (infixl "+" 65) and
-  Groups.one_class.one ("1") and
   Groups.zero_class.zero ("0") and
   Dioid.plus (infixl "+\<index>" 70) and
   Dioid.mult (infixl "\<cdot>\<index>" 80) and
@@ -54,19 +61,32 @@ end
 locale kat_module = kat_module' +
   assumes mod_plus: "\<lbrakk>p \<in> carrier K; q \<in> carrier K; m \<in> carrier A\<rbrakk> \<Longrightarrow> m \<Colon> (p + q) = m \<Colon> p \<squnion> m \<Colon> q"
   and mod_mult: "\<lbrakk>p \<in> carrier K; q \<in> carrier K; m \<in> carrier A\<rbrakk> \<Longrightarrow> m \<Colon> (p\<cdot>q) = m \<Colon> p \<Colon> q"
-  and mod_join: "\<lbrakk>p \<in> carrier K; P \<in> carrier A; Q \<in> carrier A\<rbrakk> \<Longrightarrow> P \<squnion> Q \<Colon> p = P \<Colon> p \<squnion> Q \<Colon> p"
-  and mod_one: "m \<in> carrier A \<Longrightarrow> m \<Colon> 1 = m"
-  and mod_zero: "m \<in> carrier A \<Longrightarrow> m \<Colon> 0 = \<bottom>"
-  and mod_test: "\<lbrakk>a \<in> tests K; m \<in> carrier A\<rbrakk> \<Longrightarrow> m \<Colon> a = m \<sqinter> \<top> \<Colon> a"
+  and mod_join: "\<lbrakk>p \<in> carrier K; P \<in> carrier A; Q \<in> carrier A\<rbrakk> \<Longrightarrow> (P \<squnion> Q) \<Colon> p = P \<Colon> p \<squnion> Q \<Colon> p"
+  and mod_zero: "m \<in> carrier A \<Longrightarrow> m \<Colon> 0 = complete_join_semilattice.bot A"
   and mod_star: "\<lbrakk>m \<in> carrier A; n \<in> carrier A; p \<in> carrier K\<rbrakk> \<Longrightarrow> m \<squnion> n \<Colon> p \<sqsubseteq>\<^bsub>A\<^esub> n \<Longrightarrow> m \<Colon> p\<^sup>\<star> \<sqsubseteq>\<^bsub>A\<^esub> n"
+  and mod_one: "m \<in> carrier A \<Longrightarrow> m \<Colon> 1 = m"
+  and mod_test: "\<lbrakk>a \<in> tests K; m \<in> carrier A\<rbrakk> \<Longrightarrow> m \<Colon> a = m \<sqinter> \<top> \<Colon> a"
+  and mod_meet: "\<lbrakk>p \<in> carrier K; P \<in> carrier A; Q \<in> carrier A\<rbrakk> \<Longrightarrow> P \<sqinter> Q \<Colon> p = P \<Colon> p \<sqinter> Q \<Colon> p"
 
 begin
 
-  lemma mb_boolean: "a \<in> tests K \<Longrightarrow> \<top> \<Colon> a = \<top> \<or> \<top> \<Colon> a = \<bottom>"
-    by (metis (lifting) A.bot_closed A.top_closed bot_oner mod_join mod_mult mod_zero mult_zerol test_subset_var zero_closed)
-
-  lemma "\<lbrakk>a \<in> tests K; m \<in> carrier A\<rbrakk> \<Longrightarrow> !(m \<Colon> a) = m \<Colon> !a"
-    by (metis (lifting) A.bot_closed bot_oner cbl_subalg ccompl_top complete_boolean_lattice.ccompl_closed local.complement_closed mb_boolean mod_join mod_zero zero_closed)
+  lemma one_element: "\<lbrakk>m \<in> carrier A; \<And>a m. \<lbrakk>a \<in> tests K; m \<in> carrier A\<rbrakk> \<Longrightarrow> !(m \<Colon> a) = m \<Colon> !a\<rbrakk> \<Longrightarrow> m = \<top>"
+  proof -
+    assume mc: "m \<in> carrier A" and mod_not: "\<And>a m. \<lbrakk>a \<in> tests K; m \<in> carrier A\<rbrakk> \<Longrightarrow> !(m \<Colon> a) = m \<Colon> !a"
+    have "m = !(!m)"
+      by (metis double_neg mc)
+    also have "... = !(!(m \<Colon> 1))"
+      by (metis (lifting) mc mod_one)
+    also have "... = !(m \<Colon> !1)"
+      by (metis mc mod_not test.top_closed)
+    also have "... = !(m \<Colon> 0)"
+      by (metis test_not_one)
+    also have "... = !\<bottom>"
+      by (metis mc mod_zero)
+    also have "... = \<top>"
+      by (metis A.bot_closed bot_onel ccompl_closed ccompl_top)
+    finally show ?thesis .
+  qed
 
   lemma mod_bot: "p \<in> carrier K \<Longrightarrow> \<bottom> \<Colon> p = \<bottom>"
   proof -
@@ -80,20 +100,19 @@ begin
     finally show ?thesis .
   qed
 
+      (*
   lemma mod_star2: "\<lbrakk>m \<in> carrier A; p \<in> carrier K; q \<in> carrier K\<rbrakk> \<Longrightarrow> m \<Colon> (p + q) \<sqsubseteq>\<^bsub>A\<^esub> m \<Longrightarrow> m \<Colon> p\<^sup>\<star> \<sqsubseteq>\<^bsub>A\<^esub> m"
     by (metis (lifting) A.bot_closed bot_oner mod_bot mod_join mod_zero prop_bot star_closed zero_closed)
+      *)
 
-  lemma mod_closed : "\<lbrakk>p \<in> carrier K; P \<in> carrier A\<rbrakk> \<Longrightarrow> P \<Colon> p \<in> carrier A"
+  lemma mod_closed [intro]: "\<lbrakk>p \<in> carrier K; P \<in> carrier A\<rbrakk> \<Longrightarrow> P \<Colon> p \<in> carrier A"
     by (metis mk_type typed_application)
 
-  lemma mod_meet: "\<lbrakk>p \<in> carrier K; P \<in> carrier A; Q \<in> carrier A\<rbrakk> \<Longrightarrow> P \<sqinter> Q \<Colon> p = P \<Colon> p \<sqinter> Q \<Colon> p"
-    by (metis bot_oner mod_closed mod_join mod_zero zero_closed)
-
   lemma mod_A_iso: "\<lbrakk>p \<in> carrier K; P \<in> carrier A; Q \<in> carrier A\<rbrakk> \<Longrightarrow> P \<sqsubseteq>\<^bsub>A\<^esub> Q \<Longrightarrow> P \<Colon> p \<sqsubseteq>\<^bsub>A\<^esub> Q \<Colon> p"
-    by (metis bot_oner mod_closed mod_join mod_zero zero_closed)
+    by (metis A.leq_def A.leq_def_left mod_closed mod_join)
 
   lemma mod_K_iso: "\<lbrakk>p \<in> carrier K; q \<in> carrier K; P \<in> carrier A\<rbrakk> \<Longrightarrow> p \<preceq> q \<Longrightarrow> P \<Colon> p \<sqsubseteq>\<^bsub>A\<^esub> P \<Colon> q"
-    by (metis A.bot_closed A.order_refl bot_oner mod_bot mod_join mod_zero zero_closed)
+    by (metis A.leq_def mod_closed mod_plus nat_order_def)
 
   declare A.order_refl [intro]
   declare A.bot_closed [intro]
@@ -109,22 +128,23 @@ begin
     and Pc: "P \<in> carrier A" and Qc: "Q \<in> carrier A" and Rc: "R \<in> carrier A"
     and p_triple: "P \<lbrace>p\<rbrace> Q" and q_triple: "Q \<lbrace>q\<rbrace> R"
     shows "P \<lbrace>p \<cdot> q\<rbrace> R"
-    by (metis (lifting, full_types) A.top_closed Pc Rc bot_oner hoare_triple_def mod_closed mod_join mod_zero mult_closed pc prop_top qc zero_closed)
+    by (smt A.join_assoc A.leq_def Pc Qc Rc hoare_triple_def mod_closed mod_join mod_mult p_triple pc q_triple qc)
 
   lemma hoare_skip: shows "P \<in> carrier A \<Longrightarrow> P \<lbrace> 1 \<rbrace> P"
     by (metis A.order_refl hoare_triple_def mod_one)
 
   lemma hoare_weakening:
-    assumes Pc: "P \<in> carrier A" and P'c: "P' \<in> carrier A" and Qc: "Q \<in> carrier A" and Q'c: "Q' \<in> carrier A"
-    and pc: "p \<in> carrier K"
-    shows "\<lbrakk>P \<lbrace> p \<rbrace> Q; P \<sqsubseteq>\<^bsub>A\<^esub> P'; Q \<sqsubseteq>\<^bsub>A\<^esub> Q'\<rbrakk> \<Longrightarrow> P' \<lbrace> p \<rbrace> Q'"
+    assumes Pc[intro]: "P \<in> carrier A" and P'c[intro]: "P' \<in> carrier A"
+    and Qc[intro]: "Q \<in> carrier A" and Q'c[intro]: "Q' \<in> carrier A"
+    and pc[intro]: "p \<in> carrier K"
+    shows "\<lbrakk>P \<lbrace> p \<rbrace> Q; P' \<sqsubseteq>\<^bsub>A\<^esub> P; Q \<sqsubseteq>\<^bsub>A\<^esub> Q'\<rbrakk> \<Longrightarrow> P' \<lbrace> p \<rbrace> Q'"
   proof -
     assume "Q \<sqsubseteq>\<^bsub>A\<^esub> Q'"
     hence a: "Q \<lbrace> 1 \<rbrace> Q'"
       by (metis Qc hoare_triple_def mod_one)
-    assume "P \<lbrace> p \<rbrace> Q" and "P \<sqsubseteq>\<^bsub>A\<^esub> P'"
+    assume "P \<lbrace> p \<rbrace> Q" and "P' \<sqsubseteq>\<^bsub>A\<^esub> P"
     hence b: "P' \<lbrace> p \<rbrace> Q"
-      by (metis P'c Pc bot_oner mod_join mod_zero zero_closed)
+      by (simp add: hoare_triple_def, rule_tac y = "P \<Colon> p" in A.order_trans) (metis P'c Pc mod_A_iso pc, auto)
     have "P' \<lbrace> p \<cdot> 1 \<rbrace> Q'"
       by (metis (lifting) P'c Q'c Qc a b hoare_composition one_closed pc)
     thus ?thesis
@@ -137,7 +157,7 @@ begin
     and then_branch: "P \<lbrace> p \<rbrace> Q"
     and else_branch: "P \<lbrace> q \<rbrace> Q"
     shows "P \<lbrace> p + q \<rbrace> Q"
-    by (smt A.dist2 A.leq_def A.leq_meet_def Pc Qc add_closed else_branch hoare_triple_def mod_closed mod_plus pc qc then_branch)
+    by (metis A.bin_lub_var Pc Qc else_branch hoare_triple_def mod_closed mod_plus pc qc then_branch)
 
   lemma hoare_if:
     assumes b_test: "b \<in> tests K"
@@ -320,17 +340,13 @@ begin
   qed
 
  lemma frame_rule:
-    assumes pc: "p \<in> carrier K" and Pc: "P \<in> carrier A" and Qc: "Q \<in> carrier A" and Rc: "R \<in> carrier A"
-    and p_local: "local_action p"
-    and p_triple: "P \<lbrace> p \<rbrace> Q"
-    shows "P \<otimes> R \<lbrace> p \<rbrace> Q \<otimes> R"
-   apply (insert p_triple, simp add: hoare_triple_def)
-   
-   
-   
-   
+   assumes pc: "p \<in> carrier K" and Pc: "P \<in> carrier A" and Qc: "Q \<in> carrier A" and Rc: "R \<in> carrier A"
+   and p_local: "local_action p"
+   and p_triple: "P \<lbrace> p \<rbrace> Q"
+   shows "P \<otimes> R \<lbrace> p \<rbrace> Q \<otimes> R"
+   sorry
 
 end
 
+end
 
-  

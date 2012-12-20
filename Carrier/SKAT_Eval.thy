@@ -499,39 +499,6 @@ begin
   lemma mod_star: "a \<union> b \<Colon> r \<subseteq> b \<Longrightarrow> a \<Colon> r\<^sup>\<star> \<subseteq> b"
     by (simp add: module_def subset_Un_eq, transfer, rule eval_mod3, blast)
 
-  lemma "a = (UNIV::'b mems)"
-  proof -
-    have a: "\<one> = \<lfloor>SKBool BOne\<rfloor>"
-      by simp
-    have "a = - (- a)"
-      by (metis double_complement)
-    also have "... = - (- (a \<Colon> \<one>))"
-      by (metis mod_one)
-    also have "... = - (- (a \<Colon> \<lfloor>SKBool BOne\<rfloor>))"
-      by (metis a)
-    also have "... = - (- (eval_skat_expr D (SKBool BOne) a))"
-      by (metis calculation double_compl eval_skat_expr.simps(6) skat_con_eval test_one)
-    also have "... = - (eval_skat_expr D (SKBool BOne) (- a))"
-      by (metis eval_skat_expr.simps(6) skat_con_eval test_one)
-    also have "... = - (eval_skat_expr D (SKBool BZero) a)"
-      apply (rule arg_cong) back
-      apply simp
-      
-      nitpick
-      apply simp
-    also have "... = - (eval_skat_expr D (SKBool BZero) a)"
-      apply simp
-      apply auto
-      
-      
-      apply (simp add: module_def)
-      
-      apply (transfer)
-      
-      
-      
-      
-
   lemma mod_assign: "\<Delta> \<Colon> x := s = assigns D x s \<Delta>"
     apply (simp add: module_def)
     apply transfer

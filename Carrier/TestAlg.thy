@@ -324,6 +324,10 @@ begin
     and p_local: "local_action p"
     and p_triple: "P \<lbrace> p \<rbrace> Q"
     shows "P \<otimes> R \<lbrace> p \<rbrace> Q \<otimes> R"
+   apply (insert p_triple, simp add: hoare_triple_def)
+   
+   
+   
    
 
 end

@@ -2,6 +2,8 @@ theory Trace
   imports Quantale
 begin
 
+
+
 datatype ('a, 'b) trace = tlink 'a 'b "('a, 'b) trace" | tend 'a
 
 fun fusion_product :: "('a, 'b) trace \<Rightarrow> ('a, 'b) trace \<Rightarrow> ('a, 'b) trace" where

@@ -83,18 +83,6 @@ declare f_def [skat_simp]
 
 (* Sequences *)
 
-lemma "1 := Var 2 \<cdot> 3 := Var 4 = 3 := Var 4 \<cdot> 1 := Var 2"
-  by skat_comm
-
-lemma "1 := Var 2 \<cdot> 2 := f (Var 3) \<cdot> halt [1,2,3] = 2 := f (Var 3) \<cdot> halt [1,2,3]"
-  apply (tactic {* asm_full_simp_tac (HOL_basic_ss addsimps SkatSimpRules.get @{context}) 1 *})
-  apply (tactic {* skat_fold_tac @{context} 1 *})
-  apply (subst eliminate_variables_con[of 1])
-  apply (simp add: output_vars_kzp_def)+
-  apply (tactic {* asm_full_simp_tac (simpset_of @{context} addsimps AlphabetRules.get @{context}) 1 *})
-  apply (tactic {* asm_full_simp_tac (simpset_of @{context} addsimps @{thms skd.mult_oner skd.mult_onel}) 1 *})
-  done
-
 abbreviation loop where "loop v \<equiv> skat_star (seq v)"
 
 (* Useful lemmas *)

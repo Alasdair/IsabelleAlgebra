@@ -269,8 +269,14 @@ subsection {* Assignment Rules *}
 lemma skat_assign1: "\<lbrakk>x \<noteq> y; y \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t[x|s] \<cdot> x := s)"
   by (transfer, rule skat_con.assign1)
 
+lemma skat_assign1_var: "\<lbrakk>x \<noteq> y; y \<notin> FV s; t' = t[x|s]\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (y := t' \<cdot> x := s)"
+  by (metis skat_assign1)
+
 lemma skat_assign2: "\<lbrakk>x \<noteq> y; x \<notin> FV s\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (x := s \<cdot> y := t[x|s])"
   by (transfer, rule skat_con.assign2)
+
+lemma skat_assign2_var: "\<lbrakk>x \<noteq> y; x \<notin> FV s; t' = t[x|s]\<rbrakk> \<Longrightarrow> (x := s \<cdot> y := t) = (x := s \<cdot> y := t')"
+  by (metis skat_assign2)
 
 lemma skat_assign3: "(x := s \<cdot> x := t) = (x := t[x|s])"
   by (transfer, rule skat_con.assign3)
@@ -1210,7 +1216,7 @@ fun eliminate_variable_tac v = Subgoal.FOCUS (fn {context, ...} =>
   THEN skat_fold_tac context 1
   THEN DETERM (EqSubst.eqsubst_tac context [0] [Drule.instantiate' [] [SOME (nat_cterm v)] @{thm eliminate_variables_con}] 1)
   THEN asm_full_simp_tac (simpset_of context) 1
-  THEN asm_full_simp_tac (simpset_of context addsimps @{thms FV_def pred_vars_def}) 1
+  THEN asm_full_simp_tac (simpset_of context) 1
   THEN TRY (simp_tac (simpset_of context) 1)
   THEN asm_full_simp_tac (simpset_of context addsimps AlphabetRules.get context) 1
   THEN asm_full_simp_tac (simpset_of context addsimps @{thms skd.mult_oner skd.mult_onel}) 1)
@@ -1257,5 +1263,66 @@ definition if_then_else :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat \<Rig
 
 notation
   SKAT.skat_mult (infixl ";" 64)
+
+definition biconditional ::
+  "'a::ranked_alphabet skat \<Rightarrow> 'a skat \<Rightarrow> 'a skat" (infixl "iff" 65)
+where
+  "x iff y = !x\<cdot>!y + x\<cdot>y"
+
+declare biconditional_def [skat_simp]
+
+lemma bicon_conj1: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> (x iff y)\<cdot>y = x\<cdot>y"
+  apply (simp add: biconditional_def skd.distr[simplified])
+  by (smt complement_zero de_morgan1 not_closed skd.add_comm skd.add_idem skd.add_zeror skd.mult_assoc test_double_compl)
+
+lemma bicon_conj2: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> y\<cdot>(x iff y) = x\<cdot>y"
+  by (smt biconditional_def complement_zero de_morgan1 de_morgan2 not_closed skd.add_zerol skd.distl skd.mult_assoc skt.test_meet_idem skt.test_mult_comm)
+
+lemma bicon_zero: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> (x iff y)\<cdot>(!x\<cdot>y) = \<zero>"
+  by (smt bicon_conj1 complement_zero not_closed skd.mult_assoc skd.mult_zeror skt.test_mult_comm)
+
+lemma bicon_comm: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> x iff y = y iff x"
+  by (metis (lifting) biconditional_def not_closed skt.test_mult_comm)
+
+lemma bicon_refl: "x \<in> carrier tests \<Longrightarrow> \<one> = x iff x"
+  by (simp add: biconditional_def) (metis complement_one not_closed skd.add_comm skt.test_meet_idem)
+
+lemma bicon_not: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> x iff y = !x iff !y"
+  by (metis (lifting) biconditional_def skd.add_comm test_double_compl)
+
+lemma skat_not_assign: "!(pred (\<phi>[x|t])); x := t = x := t; !(pred \<phi>)"
+  by (simp add: pred_to_expr, transfer, metis (no_types) assign4 bexpr_map.simps(1) bexpr_map.simps(3))
+
+lemma skat_iff_assign: "pred (\<phi>[x|t]) iff pred (\<psi>[x|t]); x := t = x := t; pred \<phi> iff pred \<psi>"
+  by (simp add: biconditional_def skd.distl skd.distr) (metis (no_types) skat_assign4 skat_not_assign skd.mult_assoc)
+
+lemma skat_iff_assign_var:
+  "\<lbrakk>\<phi>' = \<phi>[x|t]; \<psi>' = \<psi>[x|t]\<rbrakk> \<Longrightarrow> pred \<phi>' iff pred \<psi>'; x := t = x := t; pred \<phi> iff pred \<psi>"
+  by (metis skat_iff_assign)
+
+lemma skat_iff_left_assign_var:
+  "\<lbrakk>\<phi>' = \<phi>[x|t]; \<psi> = \<psi>[x|t]\<rbrakk> \<Longrightarrow> pred \<phi>' iff pred \<psi>; x := t = x := t; pred \<phi> iff pred \<psi>"
+  by (subst skat_iff_assign_var, auto)
+
+lemma eq_pred:
+  assumes x_FV: "x \<notin> FV s" and x_not_y: "x \<noteq> y"
+  shows "x := s ; y := s = x := s ; y := s ; (pred (Pred p [Var x]) iff pred (Pred p [Var y]))"
+proof -
+  have "x := s; y := s = pred (Pred p [s]) iff pred (Pred p [s]); x := s; y := s"
+    by (subst bicon_refl[symmetric]) (auto simp add: pred_closed skd.mult_onel)
+  also have "... = x := s; pred (Pred p [s]) iff pred (Pred p [Var x]); y := s"
+    by (subst skat_iff_assign_var, auto, metis assms no_FV)
+  also have "... = x := s; y := s; pred (Pred p [Var y]) iff pred (Pred p [Var x])"
+    apply (simp add: skd.mult_assoc)
+    apply (rule arg_cong) back
+    apply (subst skat_iff_left_assign_var[of "Pred p [s]" _ _ "Pred p [Var y]"])
+    apply simp
+    apply simp
+    apply (metis x_not_y)
+    by auto
+  also have "... = x := s; y := s; pred (Pred p [Var x]) iff pred (Pred p [Var y])"
+    by (subst bicon_comm) (auto simp add: pred_closed)
+  finally show ?thesis .
+qed
 
 end

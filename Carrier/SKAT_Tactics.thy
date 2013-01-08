@@ -177,7 +177,7 @@ fun commr_tac s c m = Subgoal.FOCUS (fn {context, ...} =>
   let
     val move_right_tac = EVERY
       [ EqSubst.eqsubst_tac context [0] @{thms zip_comm} 1
-      , skat_comm_tac wf_simp_solver context 1
+      , skat_comm_tac simp_solver context 1
       , EqSubst.eqsubst_tac context [0] @{thms zip_left} 1
       ]
   in
@@ -201,7 +201,7 @@ Scan.lift Parse.nat  -- Scan.lift Parse.nat -- Scan.lift (Scan.optional Parse.na
     let
       val move_left_tac = EVERY
         [ EqSubst.eqsubst_tac ctxt [0] @{thms zip_comm} 1
-        , skat_comm_tac wf_simp_solver ctxt 1
+        , skat_comm_tac simp_solver ctxt 1
         , EqSubst.eqsubst_tac ctxt [0] @{thms zip_right} 1
         ]
     in
@@ -262,7 +262,7 @@ ML {*
 fun seq_comm_step_tac ctxt n =
   rtac @{thm conjI} n THEN simp_tac (simpset_of ctxt) n
   THEN rtac @{thm conjI} n THEN simp_tac (simpset_of ctxt) n
-  THEN REPEAT (rtac @{thm comms_cons} n THEN skat_comm_tac wf_simp_solver ctxt n)
+  THEN REPEAT (rtac @{thm comms_cons} n THEN skat_comm_tac simp_solver ctxt n)
   THEN rtac @{thm comms_nil} n
   THEN simp_tac (simpset_of ctxt) n
 

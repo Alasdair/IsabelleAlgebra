@@ -4,61 +4,6 @@ begin
 
 (* Kozen and Angus's example *)
 
-fun break' :: "'a list \<Rightarrow> nat \<Rightarrow> 'a list \<Rightarrow> ('a list \<times> 'a list)" where
-  "break' ac 0 xs = (rev ac, xs)"
-| "break' ac (Suc n) [] = (rev ac, [])"
-| "break' ac (Suc n) (x#xs) = break' (x#ac) n xs"
-
-abbreviation break :: "nat \<Rightarrow> 'a list \<Rightarrow> ('a list \<times> 'a list)" where
-  "break \<equiv> break' []"
-
-inductive comms :: "'a::ranked_alphabet skat \<Rightarrow> 'a skat list \<Rightarrow> bool" where
-  comms_nil: "comms x []"
-| comms_cons: "\<lbrakk>x\<cdot>y = y\<cdot>x; comms x ys\<rbrakk> \<Longrightarrow> comms x (y#ys)"
-
-lemma comm_step:
-  assumes "\<exists>i. nth ys i = x \<and> comms x (fst (break i ys)) \<and> seq xs = seq (fst (break i ys) @ tl (snd (break i ys)))"
-  shows "seq (x#xs) = seq ys"
-  sorry
-
-(* Defining the alphabet *)
-
-definition biconditional ::
-  "'a::ranked_alphabet skat \<Rightarrow> 'a skat \<Rightarrow> 'a skat" (infixl "iff" 65)
-where
-  "x iff y = !x\<cdot>!y + x\<cdot>y"
-
-declare biconditional_def [skat_simp]
-
-lemma bicon_conj1: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> (x iff y)\<cdot>y = x\<cdot>y"
-  apply (simp add: biconditional_def skd.distr[simplified])
-  by (smt complement_zero de_morgan1 not_closed skd.add_comm skd.add_idem skd.add_zeror skd.mult_assoc test_double_compl)
-
-lemma bicon_conj2: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> y\<cdot>(x iff y) = x\<cdot>y"
-  by (smt biconditional_def complement_zero de_morgan1 de_morgan2 not_closed skd.add_zerol skd.distl skd.mult_assoc skt.test_meet_idem skt.test_mult_comm)
-
-lemma bicon_zero: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> (x iff y)\<cdot>(!x\<cdot>y) = \<zero>"
-  by (smt bicon_conj1 complement_zero not_closed skd.mult_assoc skd.mult_zeror skt.test_mult_comm)
-
-lemma bicon_comm: "\<lbrakk>x \<in> carrier tests; y \<in> carrier tests\<rbrakk> \<Longrightarrow> x iff y = y iff x"
-  by (metis (lifting) biconditional_def not_closed skt.test_mult_comm)
-
-definition concat_map where "concat_map f = concat \<circ> map f"
-
-declare concat_map_def [simp]
-
-fun linsert :: "nat \<Rightarrow> 'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
-  "linsert 0 x ys = x#ys"
-| "linsert (Suc n) x (y#ys) = y # linsert n x ys"
-
-fun permute_step :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list list" where
-  "permute_step x [] = [[x]]"
-| "permute_step x (y#ys) = (x#y#ys) # (map (op # y) (permute_step x ys))"
-
-fun permute :: "'a list \<Rightarrow> 'a list list" where
-  "permute [] = [[]]"
-| "permute (x#xs) = concat_map (permute_step x) (permute xs)"
-
 datatype kzp = f_kzp | g_kzp | P_kzp | bot_kzp | x_kzp
 
 lemma kzp_UNIV: "UNIV = {P_kzp,f_kzp,g_kzp,bot_kzp,x_kzp}"
@@ -89,8 +34,6 @@ begin
   declare output_vars_kzp_def [alphabet]
 
   instance proof
-    show "finite (UNIV::kzp set)" by (simp add: kzp_UNIV)
-
     show "(funs :: kzp set) \<inter> rels = {}"
       by (simp add: funs_kzp_def rels_kzp_def)
 
@@ -117,20 +60,20 @@ begin
   qed
 end
 
-definition f :: "kzp wf_trm \<Rightarrow> kzp wf_trm" where
-  "f x \<equiv> Abs_wf_trm (App f_kzp [Rep_wf_trm x])"
+definition f :: "kzp trm \<Rightarrow> kzp trm" where
+  "f x \<equiv> App f_kzp [x]"
 
-definition g :: "kzp wf_trm \<Rightarrow> kzp wf_trm \<Rightarrow> kzp wf_trm" where
-  "g x y \<equiv> Abs_wf_trm (App g_kzp [Rep_wf_trm x, Rep_wf_trm y])"
+definition g :: "kzp trm \<Rightarrow> kzp trm \<Rightarrow> kzp trm" where
+  "g x y \<equiv> App g_kzp [x, y]"
 
-definition P :: "kzp wf_trm \<Rightarrow> kzp skat" where
-  "P x \<equiv> pred (Abs_wf_pred (Pred P_kzp [x]))"
+definition P :: "kzp trm \<Rightarrow> kzp skat" where
+  "P x \<equiv> pred (Pred P_kzp [x])"
 
-definition vx :: "kzp wf_trm " where
-  "vx \<equiv> Abs_wf_trm (App x_kzp [])"
+definition vx :: "kzp trm " where
+  "vx \<equiv> App x_kzp []"
 
-definition bot :: "kzp wf_trm" where
-  "bot \<equiv> Abs_wf_trm (App bot_kzp [])"
+definition bot :: "kzp trm" where
+  "bot \<equiv> App bot_kzp []"
 
 declare f_def [skat_simp]
   and g_def [skat_simp]
@@ -140,18 +83,17 @@ declare f_def [skat_simp]
 
 (* Sequences *)
 
-lemma "1 := var 2 \<cdot> 3 := var 4 = 3 := var 4 \<cdot> 1 := var 2"
+lemma "1 := Var 2 \<cdot> 3 := Var 4 = 3 := Var 4 \<cdot> 1 := Var 2"
   by skat_comm
 
-lemma "1 := var 2 \<cdot> 2 := f (var 3) \<cdot> halt [1,2,3] = 2 := f (var 3) \<cdot> halt [1,2,3]"
+lemma "1 := Var 2 \<cdot> 2 := f (Var 3) \<cdot> halt [1,2,3] = 2 := f (Var 3) \<cdot> halt [1,2,3]"
   apply (tactic {* asm_full_simp_tac (HOL_basic_ss addsimps SkatSimpRules.get @{context}) 1 *})
   apply (tactic {* skat_fold_tac @{context} 1 *})
   apply (subst eliminate_variables_con[of 1])
-  apply simp
-  apply (simp add: FV_def wf_pred_vars_def)
-  apply wf_simp
+  apply (simp add: output_vars_kzp_def)+
   apply (tactic {* asm_full_simp_tac (simpset_of @{context} addsimps AlphabetRules.get @{context}) 1 *})
   apply (tactic {* asm_full_simp_tac (simpset_of @{context} addsimps @{thms skd.mult_oner skd.mult_onel}) 1 *})
+  done
 
 abbreviation loop where "loop v \<equiv> skat_star (seq v)"
 
@@ -169,112 +111,10 @@ proof -
     by (metis append_take_drop_id assms seq_mult)
 qed
 
-(* Denesting *)
-(*
-
-definition APPEND :: "'a list \<Rightarrow> 'a list \<Rightarrow> 'a list" where
-  "APPEND \<alpha> \<beta> = \<alpha> @ \<beta>"
-
-lemma seq_denest_break: "x\<^sup>\<star>\<cdot>loop ys = x\<^sup>\<star>\<cdot>loop (APPEND (drop_rev n ys) (take_rev n ys))"
-  by (simp only: APPEND_def take_drop_rev_id)
-
-lemma seq_denest: "x\<^sup>\<star>\<cdot>loop (ys @ [x\<^sup>\<star>]) = (x + seq ys)\<^sup>\<star>"
-  by (metis seq_mult seq_singleton ska.star_denest_1 ska.star_denest_2 skat_order_def skd.add_comm)
-
-lemma seq_match: "\<lbrakk>x = y; seq xs = seq ys\<rbrakk> \<Longrightarrow> seq (x # xs) = seq (y # ys)"
-  by (metis (lifting) drop_1_Cons seq_split take_1_Cons)
-
-lemma seq_cut: "seq xs = seq (take n xs) \<cdot> seq (drop n xs)"
-  by (metis append_take_drop_id seq_mult)
-
-lemma seq_cut_app: "seq xs = seq (APPEND (take n xs) (drop n xs))"
-  by (simp add: APPEND_def)
-
-lemma seq_cut_app_rev: "seq xs = seq (APPEND (drop_rev n xs) (take_rev n xs))"
-  by (simp only: APPEND_def take_drop_rev_id)
-
-lemma seq_cut_rev: "seq xs = seq (drop_rev n xs) \<cdot> seq (take_rev n xs)"
-  by (metis seq_mult take_drop_rev_id)
-
-lemma seq_push: "y\<cdot>z = z\<cdot>y \<Longrightarrow> seq xs \<cdot> y \<cdot> seq (z#zs) = seq (xs @ [z]) \<cdot> y \<cdot> seq zs"
-proof -
-  assume yz_comm: "y \<cdot> z = z \<cdot> y"
-  have "seq xs \<cdot> y \<cdot> seq (z#zs) = seq xs \<cdot> (y \<cdot> z) \<cdot> seq zs"
-    by (metis append_Cons append_Nil seq_mult seq_singleton skd.mult_assoc)
-  also have "... = seq xs \<cdot> (z \<cdot> y) \<cdot> seq zs"
-    by (metis yz_comm)
-  also have "... = seq (xs @ [z]) \<cdot> y \<cdot> seq zs"
-    by (metis seq_mult seq_singleton skd.mult_assoc)
-  finally show ?thesis .
-qed
-
-lemma seq_head_comm: "x\<cdot>y = y\<cdot>x \<Longrightarrow> seq (x#y#xs) = seq (y#x#xs)"
-  by (metis (hide_lams, no_types) append_Cons append_Nil seq_mult seq_singleton)
-
-lemma seq_empty: "x = seq [] \<cdot> x"
-  by (simp add: seq_def skd.mult_onel)
-
-lemma seq_snoc: "seq xs \<cdot> x = seq (xs @ [x])"
-  by (metis seq_mult seq_singleton)
-
-lemma seq_cons: "x \<cdot> seq xs = seq (x#xs)"
-  by (metis append_Cons append_Nil seq_mult seq_singleton)
-
-lemma plus_indiv: "\<lbrakk>x1 = x2; y1 = y2\<rbrakk> \<Longrightarrow> (x1::kzp skat) + y1 = x2 + y2"
-  by auto
-
-lemma seq_plus_head_r: "seq xs = seq ys + seq zs \<Longrightarrow> seq (x#xs) = seq (x#ys) + seq (x#zs)"
-  by (metis append_Cons eq_Nil_appendI seq_mult skd.distl)
-
-lemma seq_plus_elim:
-  assumes pc: "p \<in> carrier tests"
-  shows "seq ((!p)#xs) + seq (p#xs) = seq xs"
-proof -
-  have "seq (!p#xs) + seq (p#xs) = !p \<cdot> seq xs + p \<cdot> seq xs"
-    by (simp add: seq_cons)
-  also have "... = (!p + p) \<cdot> seq xs"
-    by (metis skd.distr)
-  also have "... = \<one> \<cdot> seq xs"
-    sorry
-  also have "... = seq xs"
-    by (metis skd.mult_onel)
-  finally show ?thesis .
-qed
-
-lemma seq_permute: "\<lbrakk>xs \<in> set (permute ys); \<And>x y. \<lbrakk>x\<in>set xs; y \<in> set ys\<rbrakk> \<Longrightarrow> x\<cdot>y = y\<cdot>x\<rbrakk> \<Longrightarrow> seq xs = seq ys"
-  sorry
-
-lemma seq_zero_var: "\<lbrakk>xs \<noteq> []; last xs \<cdot> y = \<zero>\<rbrakk> \<Longrightarrow> seq xs \<cdot> seq (y#ys) = \<zero>"
-  apply (subst seq_cut_rev[of _ 1])
-  apply (subgoal_tac "take_rev 1 xs = [last xs]")
-  apply (rotate_tac 2)
-  apply (erule ssubst)
-  apply (simp add: seq_singleton)
-  apply (subst seq_cons[symmetric])
-  apply (subst skd.mult_assoc[simplified])
-  apply (subst skd.mult_assoc[symmetric,simplified]) back
-  apply (erule ssubst)
-  apply (simp add: skd.mult_zeror[simplified] skd.mult_zerol[simplified])
-  apply (induct xs)
-  apply auto
-  by (smt length_greater_0_conv)
-
-lemma seq_zero: "\<lbrakk>y \<in> carrier tests; xs \<noteq> []; last xs = !y\<rbrakk> \<Longrightarrow> seq xs \<cdot> seq(y#ys) = \<zero>"
-  apply (rule seq_zero_var)
-  apply auto
-  by (metis complement_zero not_closed skt.test_mult_comm)
-
-lemma seq_shunt: "(\<forall>y\<in>set xs. x\<cdot>y = y\<cdot>x) \<Longrightarrow> seq (x#xs) = seq (xs@[x])"
-  by (induct xs, simp, auto, metis seq_cons seq_head_comm)
-
-lemma seq_12: "seq (x#y#xs) = seq (x\<cdot>y#xs)"
-  by (metis seq_cons seq_def skd.mult_assoc)
-*)
-
 (* Shorthand notation *)
 
 definition a :: "nat \<Rightarrow> kzp skat" where
-  "a i \<equiv> P (var i)"
+  "a i \<equiv> P (Var i)"
 
 abbreviation a1 where "a1 \<equiv> a 1"
 abbreviation a2 where "a2 \<equiv> a 2"
@@ -293,17 +133,19 @@ lemma a_assign: "n \<noteq> m \<Longrightarrow> a n \<cdot> m := x = m := x \<cd
   by skat_comm
 
 definition b :: "nat \<Rightarrow> kzp skat" where
-  "b i \<equiv> P (f (var i))"
+  "b i \<equiv> P (f (Var i))"
 
 declare b_def [skat_simp]
 
 definition c :: "nat \<Rightarrow> kzp skat" where
-  "c i \<equiv> P (f (f (var i)))"
+  "c i \<equiv> P (f (f (Var i)))"
+
+abbreviation c2 where "c2 \<equiv> c 2"
 
 declare c_def [skat_simp]
 
 definition p :: "nat \<Rightarrow> nat \<Rightarrow> kzp skat" where
-  "p i j \<equiv> i := f (var j)"
+  "p i j \<equiv> i := f (Var j)"
 
 declare p_def [skat_simp]
 
@@ -313,16 +155,17 @@ abbreviation p13 where "p13 \<equiv> p 1 3"
 abbreviation p22 where "p22 \<equiv> p 2 2"
 
 definition q :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> kzp skat" where
-  "q i j k \<equiv> i := g (var j) (var k)"
+  "q i j k \<equiv> i := g (Var j) (Var k)"
 
 abbreviation q214 where "q214 \<equiv> q 2 1 4"
 abbreviation q311 where "q311 \<equiv> q 3 1 1"
 abbreviation q211 where "q211 \<equiv> q 2 1 1"
+abbreviation q222 where "q222 \<equiv> q 2 2 2"
 
 declare q_def [skat_simp]
 
 definition r :: "nat \<Rightarrow> nat \<Rightarrow> kzp skat" where
-  "r i j \<equiv> i := f (f (var j))"
+  "r i j \<equiv> i := f (f (Var j))"
 
 abbreviation r13 where "r13 \<equiv> r 1 3"
 abbreviation r12 where "r12 \<equiv> r 1 2"
@@ -331,10 +174,7 @@ abbreviation r22 where "r22 \<equiv> r 2 2"
 declare r_def [skat_simp]
 
 lemma p_to_r: "p n n \<cdot>p n n = r n n"
-  apply skat_simp
-  apply (subst skat_assign3)
-  apply (simp add: wf_trm_subst_def)
-  by wf_simp
+  by skat_simp (simp add: skat_assign3)
 
 abbreviation x1 where "x1 \<equiv> 1 := vx"
 
@@ -343,16 +183,26 @@ definition s :: "nat \<Rightarrow> kzp skat" where
 
 abbreviation s1 where "s1 \<equiv> s 1"
 
+abbreviation s2 where "s2 \<equiv> s 2"
+
 declare s_def [skat_simp]
 
 definition t :: "nat \<Rightarrow> kzp skat" where
   "t i \<equiv> i := g (f vx) (f vx)"
 
+abbreviation t2 where "t2 \<equiv> t 2"
+
+declare t_def [skat_simp]
+
 definition u :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarrow> kzp skat" where
-  "u i j k \<equiv> i := g (f (f (var j))) (f (f (var k)))"
+  "u i j k \<equiv> i := g (f (f (Var j))) (f (f (Var k)))"
+
+abbreviation "u222" where "u222 \<equiv> u 2 2 2"
+
+declare u_def [skat_simp]
 
 definition z :: "nat \<Rightarrow> kzp skat" where
-  "z i \<equiv> 0 := var i"
+  "z i \<equiv> 0 := Var i"
 
 declare z_def [skat_simp]
 
@@ -362,6 +212,11 @@ definition y :: "nat \<Rightarrow> kzp skat" where
   "y i \<equiv> i := null"
 
 declare y_def [skat_simp]
+
+definition d :: "kzp skat" where
+  "d \<equiv> P (f vx)"
+
+declare d_def [skat_simp]
 
 no_notation
   one_class.one ("1") and
@@ -374,58 +229,58 @@ abbreviation halt where "halt \<equiv> SKAT.halt [1,2,3,4]"
 
 definition scheme1 :: "kzp skat list" where "scheme1 \<equiv>
   [ 1 := vx
-  , 4 := f (var 1)
-  , 1 := f (var 1)
-  , 2 := g (var 1) (var 4)
-  , 3 := g (var 1) (var 1)
+  , 4 := f (Var 1)
+  , 1 := f (Var 1)
+  , 2 := g (Var 1) (Var 4)
+  , 3 := g (Var 1) (Var 1)
   , loop
-    [ !(P (var 1))
-    , 1 := f (var 1)
-    , 2 := g (var 1) (var 4)
-    , 3 := g (var 1) (var 1)
+    [ !(P (Var 1))
+    , 1 := f (Var 1)
+    , 2 := g (Var 1) (Var 4)
+    , 3 := g (Var 1) (Var 1)
     ]
-  , P (var 1)
-  , 1 := f (var 3)
+  , P (Var 1)
+  , 1 := f (Var 3)
   , loop
-    [ !(P (var 4)) + seq
-      [ P (var 4)
-      , (!(P (var 2)) \<cdot> 2 := f (var 2))\<^sup>\<star>
-      , P (var 2)
-      , ! (P (var 3))
-      , 4 := f (var 1)
-      , 1 := f (var 1)
+    [ !(P (Var 4)) + seq
+      [ P (Var 4)
+      , (!(P (Var 2)) \<cdot> 2 := f (Var 2))\<^sup>\<star>
+      , P (Var 2)
+      , ! (P (Var 3))
+      , 4 := f (Var 1)
+      , 1 := f (Var 1)
       ]
-    , 2 := g (var 1) (var 4)
-    , 3 := g (var 1) (var 1)
+    , 2 := g (Var 1) (Var 4)
+    , 3 := g (Var 1) (Var 1)
     , loop
-      [ !(P (var 1))
-      , 1 := f (var 1)
-      , 2 := g (var 1) (var 4)
-      , 3 := g (var 1) (var 1)
+      [ !(P (Var 1))
+      , 1 := f (Var 1)
+      , 2 := g (Var 1) (Var 4)
+      , 3 := g (Var 1) (Var 1)
       ]
-    , P (var 1)
-    , 1 := f (var 3)
+    , P (Var 1)
+    , 1 := f (Var 3)
     ]
-  , P (var 4)
-  , (!(P (var 2)) \<cdot> 2 := f (var 2))\<^sup>\<star>
-  , P (var 2)
-  , P (var 3)
-  , 0 := var 2
+  , P (Var 4)
+  , (!(P (Var 2)) \<cdot> 2 := f (Var 2))\<^sup>\<star>
+  , P (Var 2)
+  , P (Var 3)
+  , 0 := Var 2
   , halt
   ]"
 
 definition scheme2 where "scheme2 \<equiv>
   [ 2 := f vx
-  , P (var 2)
-  , 2 := g (var 2) (var 2)
+  , P (Var 2)
+  , 2 := g (Var 2) (Var 2)
   , skat_star (seq
-    [ !(P (var 2))
-    , 2 := f (f (var 2))
-    , P (var 2)
-    , 2 := g (var 2) (var 2)
+    [ !(P (Var 2))
+    , 2 := f (f (Var 2))
+    , P (Var 2)
+    , 2 := g (Var 2) (Var 2)
     ])
-  , P (var 2)
-  , 0 := var 2
+  , P (Var 2)
+  , 0 := Var 2
   , halt
   ]"
 
@@ -436,40 +291,133 @@ declare id_def[skat_simp]
 declare halt.simps(1) [simp del]
 
 lemma seq_merge: "seq (Vx#Vy#Vxs) = seq (Vx\<cdot>Vy#Vxs)"
-  sorry
-
-lemma vhalt [intro]: "vy \<notin> output_vars TYPE(kzp) \<Longrightarrow> vy := vs \<cdot> halt = halt"
-  sorry
-
-lemma vhalt2 [intro]: "vy \<notin> output_vars TYPE(kzp) \<Longrightarrow> halt = vy := vs \<cdot> halt"
-  by (metis vhalt)
+  by (metis seq_cons skd.mult_assoc)
 
 lemma kozen1: "p41\<cdot>p11 = p41\<cdot>p11\<cdot>(a1 iff a4)"
-  sorry
+  by (subst bicon_comm) (auto simp add: pred_closed p_def a_def P_def f_def intro: eq_pred)
 
 lemma kozen1_seq: "seq [p41,p11] = seq [p41,p11,(a1 iff a4)]"
-  sorry
+  by (metis kozen1 seq_merge)
 
 lemma kozen2: "p41\<cdot>p11\<cdot>q214 = p41\<cdot>p11\<cdot>q211"
-  sorry
+proof -
+  have "p41\<cdot>p11\<cdot>q214 = 4 := f (Var 1); 1 := f (Var 1); 2 := g (Var 1) (Var 4)"
+    by (simp add: p_def q_def)
+  also have "... = 1 := f (Var 1); 4 := Var 1; 2 := g (Var 1) (Var 4)"
+    by (subst skat_assign1_var[symmetric]) (auto simp add: f_def)
+  also have "... = 1 := f (Var 1); 4 := Var 1; 2 := g (Var 1) (Var 1)"
+    by (simp add: g_def f_def skd.mult_assoc, subst skat_assign2_var, auto)
+  also have "... = 4 := f (Var 1); 1 := f (Var 1); 2 := g (Var 1) (Var 1)"
+    by (subst skat_assign1_var) (auto simp add: f_def)
+  also have "... = p41\<cdot>p11\<cdot>q211"
+    by (simp add: p_def q_def)
+  finally show ?thesis .
+qed
 
 lemma kozen3: "p41\<cdot>p11\<cdot>q211\<cdot>q311\<cdot>a1\<cdot>a4 = p41\<cdot>p11\<cdot>q211\<cdot>q311\<cdot>a1"
-  sorry
+proof -
+  have "p41\<cdot>p11\<cdot>q211\<cdot>q311\<cdot>a1 = p41\<cdot>p11\<cdot>(a1 iff a4)\<cdot>q211\<cdot>q311\<cdot>a1"
+    by (metis kozen1)
+  also have "... = p41\<cdot>p11\<cdot>q211\<cdot>q311\<cdot>(a1 iff a4)\<cdot>a1"
+    apply (subgoal_tac "(a1 iff a4)\<cdot>q211 = q211\<cdot>(a1 iff a4)" "(a1 iff a4)\<cdot>q311 = q311\<cdot>(a1 iff a4)")
+    apply (smt skd.mult_assoc)
+    by (skat_comm, auto)+
+  also have "... = p41\<cdot>p11\<cdot>q211\<cdot>q311\<cdot>a1\<cdot>a4"
+    apply (subgoal_tac "a1 iff a4 ; a1 = a1\<cdot>a4")
+    apply (smt skd.mult_assoc)
+    apply (subst bicon_comm)
+    apply auto
+    apply (subst bicon_conj1)
+    apply auto
+    by (rule a_comm)
+  finally show ?thesis ..
+qed
 
 lemma kozen3_seq: "seq [p41,p11,q211,q311,a1,a4] = seq [p41,p11,q211,q311,a1]"
   by (simp add: seq_def skd.mult_onel kozen3)
 
 lemma kozen4_seq: "seq [q211,q311,r13] = seq [q211,q311,r12]"
-  sorry
+proof -
+  have "q211\<cdot>q311\<cdot>r13 = 2 := g (Var 1) (Var 1); 3 := g (Var 1) (Var 1); 1 := f (f (Var 3))"
+    by (simp add: q_def r_def)
+  also have "... = 2 := g (Var 1) (Var 1); 3 := Var 2; 1 := f (f (Var 3))"
+    by (subst skat_assign2_var[symmetric]) (auto simp add: g_def)
+  also have "... = 2 := g (Var 1) (Var 1); 3 := Var 2; 1 := f (f (Var 2))"
+    by (simp add: f_def g_def skd.mult_assoc, subst skat_assign2_var, auto)
+  also have "... = 2 := g (Var 1) (Var 1); 3 := g (Var 1) (Var 1); 1 := f (f (Var 2))"
+    by (subst skat_assign2_var) (auto simp add: g_def)
+  finally show ?thesis
+    by (simp add: q_def r_def seq_def skd.mult_onel)
+qed
+
+lemma kozen5': "q211\<cdot>q311 = q211\<cdot>q311\<cdot>(a2 iff a3)"
+  by (auto simp add: pred_closed q_def a_def P_def g_def intro: eq_pred)
 
 lemma kozen5_seq1: "seq [q211,q311,a3] = seq [q211,q311,a2]"
-  sorry
+proof -
+  have "q211\<cdot>q311\<cdot>a3 = q211\<cdot>q311\<cdot>(a2 iff a3)\<cdot>a3"
+    by (metis kozen5')
+  also have "... = q211\<cdot>q311\<cdot>a2\<cdot>a3"
+    by (subgoal_tac "(a2 iff a3)\<cdot>a3 = a2\<cdot>a3") (auto simp add: skd.mult_assoc intro: bicon_conj1)
+  also have "... = q211\<cdot>q311\<cdot>a3\<cdot>a2"
+    by (metis skd.mult_assoc a_comm)
+  also have "... = q211\<cdot>q311\<cdot>(a3 iff a2)\<cdot>a2"
+    by (subgoal_tac "(a3 iff a2)\<cdot>a2 = a3\<cdot>a2") (auto simp add: skd.mult_assoc intro: bicon_conj1)
+  also have "... = q211\<cdot>q311\<cdot>(a2 iff a3)\<cdot>a2"
+    by (subst bicon_comm, auto)
+  also have "... = q211\<cdot>q311\<cdot>a2"
+    by (smt kozen5')
+  finally show ?thesis
+    by (simp add: seq_def skd.mult_onel)
+qed
 
 lemma kozen5_seq2: "seq [q211,q311,!a3] = seq [q211,q311,!a2]"
-  sorry
+proof -
+  have "q211\<cdot>q311\<cdot>!a3 = q211\<cdot>q311\<cdot>(!a2 iff !a3)\<cdot>!a3"
+    by (subst kozen5', subst bicon_not, auto)
+  also have "... = q211\<cdot>q311\<cdot>!a2\<cdot>!a3"
+    by (subgoal_tac "(!a2 iff !a3)\<cdot>!a3 = !a2\<cdot>!a3") (auto simp add: skd.mult_assoc intro: bicon_conj1 not_closed)
+  also have "... = q211\<cdot>q311\<cdot>!a3\<cdot>!a2"
+    by (subgoal_tac "!a3\<cdot>!a2 = !a2\<cdot>!a3", smt skd.mult_assoc, skat_comm)
+  also have "... = q211\<cdot>q311\<cdot>(!a3 iff !a2)\<cdot>!a2"
+    by (subgoal_tac "(!a3 iff !a2)\<cdot>!a2 = !a3\<cdot>!a2") (auto simp add: skd.mult_assoc intro: bicon_conj1 not_closed)
+  also have "... = q211\<cdot>q311\<cdot>(!a2 iff !a3)\<cdot>!a2"
+    by (subst bicon_comm) (auto intro: not_closed)
+  also have "... = q211\<cdot>q311\<cdot>!a2"
+    by (subst bicon_not[symmetric], auto, smt kozen5')
+  finally show ?thesis
+    by (simp add: seq_def skd.mult_onel)
+qed
 
 lemma plus_indiv: "\<lbrakk>vx1 = x2; y1 = y2\<rbrakk> \<Longrightarrow> (vx1::kzp skat) + y1 = x2 + y2"
   by auto
+
+lemma lemma41: "r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>!a2 = \<zero>"
+proof -
+  have "r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>!a2 \<sqsubseteq> r12\<cdot>a1\<cdot>p22\<cdot>(a2 + !a2)\<cdot>p22\<cdot>!a2"
+    by (smt skat_order_def skd.add_assoc skd.add_comm skd.add_idem skd.distl skd.distr)
+  also have "... = r12\<cdot>a1\<cdot>p22\<cdot>p22\<cdot>!a2"
+    by (subst complement_one) (auto simp add: mult_oner)
+  also have "... = r12\<cdot>a1\<cdot>r22\<cdot>!a2"
+    by (metis p_to_r skd.mult_assoc)
+  also have "... = r12\<cdot>r22\<cdot>a1\<cdot>!a2"
+    by (subgoal_tac "a1\<cdot>r22 = r22\<cdot>a1", metis skd.mult_assoc, skat_comm)
+  also have "... = r12\<cdot>r22\<cdot>(a1 iff a2)\<cdot>a1\<cdot>!a2"
+    by (subgoal_tac "r12\<cdot>r22 = r12\<cdot>r22\<cdot>(a1 iff a2)") (auto simp add: r_def a_def P_def f_def intro: eq_pred)
+  also have "... = \<zero>"
+    apply (subgoal_tac "a1 iff a2; a1; !a2 = \<zero>")
+    apply (metis skd.mult_assoc skd.mult_zeror)
+    apply (subst bicon_comm)
+    apply auto
+    apply (subst bicon_conj1)
+    apply auto
+    apply (subgoal_tac "a2\<cdot>!a2 = \<zero>")
+    apply (metis a_comm skd.mult_assoc skd.mult_zeror)
+    apply (subst complement_zero)
+    by auto
+  finally show ?thesis
+    by (metis skd.nat_antisym skd.zero_min)
+qed
 
 theorem kozen_scheme_equivalence: "seq scheme1 = seq scheme2"
 proof -
@@ -514,8 +462,13 @@ proof -
     apply skat_comm
     apply cong
     apply skat_comm
-    apply seq_comm
-    by (auto simp add: seq_foldr mult_oner p_def output_vars_kzp_def)
+    apply (commr1 1 2)
+    apply (comml1 1 3)
+    apply congl
+    apply (comml1 2 3)
+    apply congl
+    apply (auto simp add: seq_foldr mult_oner p_def output_vars_kzp_def)
+    by (metis (lifting) halt_first skat_null_zero skd.mult_assoc)
 
   also have "... = seq
     [x1,p41,p11,q214,q311
@@ -533,8 +486,8 @@ proof -
     apply (erule ssubst)
     apply (subgoal_tac "seq [a1,!a4,p13,q214,q311] = seq [a1,p13,q214,q311,!a4]")
     apply (erule ssubst)
-    apply (commr 3 1)
-    apply (commr 4 1)
+    apply (commr1 3 1)
+    apply (commr1 4 1)
     apply (simp add: skd.distr[simplified] skd.distl[simplified])
     apply (zero, auto simp add: skd.add_zerol)+
     prefer 3
@@ -545,8 +498,13 @@ proof -
     apply (subgoal_tac "seq [a1,!a4,p13,q214,q311] = seq [a1,p13,q214,q311,!a4]")
     apply (erule ssubst)
     apply (simp add: skd.distr[simplified])
+    apply (comml1 2 5)
+    apply (comml1 4 5)
     apply (zero, auto simp add: skd.add_zerol)+
-    by seq_comm+
+    apply seq_comm
+    apply seq_comm
+    apply (comml1 2 2, cong)
+    by seq_comm
 
   also have "... = seq
     [x1,p41,p11,q214,q311
@@ -559,8 +517,13 @@ proof -
     apply (rule ska.kozen_skat_lemma_dual[simplified])
     apply (cut 1 6, cut 2 2, seq_select 2, subst kozen1_seq, seq_deselect)
     apply (subst seq_mult[symmetric], subst seq_mult[symmetric], simp)
-    apply (commr 1 9) apply (subst seq_merge) back
-    apply (subst zippify, simp, rule zip_zero)
+    apply (subst zippify, simp)
+    apply (subst zip_right)
+    apply (subst zip_right)
+    apply (comml1 1 4)
+    apply (comml1 1 4)
+    apply (subst seq_merge)
+    apply (rule zip_zero)
     apply (metis (lifting) a_test bicon_zero)
     apply (subst skd.mult_assoc[simplified])
     apply (subst kozen1)
@@ -569,10 +532,10 @@ proof -
     apply seq_rev
     apply (subst qes_snoc[symmetric])+
     apply (subst qes_snoc)
-    apply qes_rev
-    apply (commr 1 4)
-    apply (subst seq_merge) back
-    apply (subst zippify, simp, rule zip_zero)
+    apply (subst zip_right, subst zip_right)
+    apply (comml1 1 4)
+    apply (comml1 1 4)
+    apply (subst seq_merge, rule zip_zero)
     by (metis (lifting) a_test bicon_zero)
 
   also have "... = seq
@@ -604,59 +567,29 @@ proof -
   also have "... = seq
     [x1,(seq [p11,q211,q311,a1,p13,(!a2\<cdot>p22)\<^sup>\<star>,a2,!a3])\<^sup>\<star>
     ,p11,q211,q311,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,a3,z2,halt]"
-    apply (cut 1 11)
-    apply (subgoal_tac "halt = seq[y 4, halt]", erule ssubst) back back
-    apply (simp add: seq_singleton seq_mult[symmetric])
-    apply (zip 1 11)
-    apply (subst zip_comm, skat_comm, subst zip_right)+
-    apply (unzip, seq_deselect)
-    apply (subst seq_cons) back
-    apply (zip 1 2)
-    apply (subst seq_cons, subst qes_snoc)
-    apply (subst skd.mult_assoc[symmetric,simplified])
-    apply (subst skd.mult_assoc[simplified])
-    apply (seq_deselect)
-    apply (subst ska.star_elim[symmetric,simplified])
-    apply (metis (lifting) skat_null_zero y_def)
-    apply skat_comm+
-    apply (metis (lifting) p_def skat_null_zero y_def)
-    apply (simp add: qes_singleton skd.mult_assoc[simplified])
-    apply (subst seq_cons[symmetric])+
-    apply (zip 1 3)
-    apply (subst zip_comm, skat_comm)
-    apply (subst qes_snoc, subst seq_cons)
-    apply (subst skd.mult_assoc[simplified,symmetric])
-    apply (subst skd.mult_assoc[simplified])
-    apply (subgoal_tac "p41 \<cdot> y 4 = y 4", erule ssubst)
-    apply (subst qes_snoc[symmetric])
-    apply (subst zip_comm, skat_comm, subst zip_left)+
-    apply (unzip, seq_deselect)
-    apply (seq_rev)
-    apply (subst qes_snoc, subst qes_snoc)
-    apply (subst skd.mult_assoc[simplified])
-    apply (subgoal_tac "y 4 \<cdot> halt = halt", erule ssubst)
-    apply (subst qes_snoc[symmetric])
-    apply (simp add: qes_def)
-    apply (simp add: y_def)
-    apply (insert output_vars_kzp_def[of "TYPE(kzp)"])
-    apply (smt singletonE vhalt)
-    apply (metis (lifting) p_def skat_null_zero y_def)
-    by (smt seq_cons seq_singleton singleton_iff vhalt2 y_def)
+    by (eliminate_variable 4)
 
   also have "... = seq
     [x1,p11,(seq [q211,q311,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,!a3,p13,p11])\<^sup>\<star>
     ,q211,q311,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,a3,z2,halt]"
-    by (commr 2 5, commr1 2 4 1, simp add: seq_def mult_onel, smt ska.star_slide skd.mult_assoc)
+    by (commr1 2 5, commr1 2 4 1, simp add: seq_def mult_onel, smt ska.star_slide skd.mult_assoc)
 
   also have "... = seq
     [s1,(seq [q211,q311,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,!a3,r13])\<^sup>\<star>
     ,q211,q311,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,a3,z2,halt]"
-    sorry
+  proof -
+    have "x1\<cdot>p11 = s1"
+      by (simp add: vx_def f_def p_def s_def, subst skat_assign3, auto)
+    moreover have "p13\<cdot>p11 = r13"
+      by (simp add: f_def p_def r_def, subst skat_assign3, auto)
+    ultimately show ?thesis
+      by (simp add: seq_def skd.mult_onel) (smt skd.mult_assoc)
+  qed
 
   also have "... = seq
     [s1,(seq [a1,q211,q311,r13,(!a2\<cdot>p22)\<^sup>\<star>,a2,!a3])\<^sup>\<star>
     ,q211,q311,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,a3,z2,halt]"
-    by (comml 2 4, comml 2 7)
+    by (comml1 2 4, comml1 2 7)
 
   also have "... = seq
     [s1,(seq [a1,q211,q311,!a2,r12,(!a2\<cdot>p22)\<^sup>\<star>,a2])\<^sup>\<star>
@@ -664,14 +597,13 @@ proof -
     apply (cut 2 1)
     apply (cut 3 3)
     apply (simp only: kozen4_seq seq_mult[symmetric] append.simps)
-    apply (comml 2 7, comml 1 8, cut 1 2, cut 3 3, cut 2 1, cut 3 3)
+    apply (comml1 2 7, comml1 1 8, cut 1 2, cut 3 3, cut 2 1, cut 3 3)
     apply (simp add: kozen5_seq1 kozen5_seq2)
     by (simp add: seq_def mult_onel skd.mult_assoc[simplified])
 
   also have "... = seq
     [s1,(seq [a1,q211,!a2,r12,(!a2\<cdot>p22)\<^sup>\<star>,a2])\<^sup>\<star>
     ,q211,a2,(!a2\<cdot>p22)\<^sup>\<star>,a1,a2,z2,halt]"
-    apply (simp only: halt_def)
     by (eliminate_variable 3)
 
   also have "... = seq
@@ -707,19 +639,129 @@ proof -
 
   also have "... = seq
     [s1,a1,q211,(seq [!a2,r12,p22,(!a2\<cdot>p22)\<^sup>\<star>,a2,a1,q211])\<^sup>\<star>,a2,z2,halt]"
-    by (comml 2 2)
+    by (comml1 2 2)
 
   also have "... = seq
     [s1,a1,q211,(seq [!a2,r12,a1,p22,a2,q211] + seq [!a2,r12,a1,p22,!a2,p22,a2,q211])\<^sup>\<star>
-    ,a2,z2]"
+    ,a2,z2, halt]"
   proof -
-    have "r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>!a2 \<sqsubseteq> r12\<cdot>a1\<cdot>p22\<cdot>p22\<cdot>!a2"
-      sorry
-    also have "... = r12\<cdot>a1\<cdot>r 2 2\<cdot>!a2"
-      
+    have "r12\<cdot>a1\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star> = r12\<cdot>a1\<cdot>p22\<cdot>(\<one> + !a2\<cdot>p22 + !a2\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star>)"
+      apply (subst ska.star_unfoldl_eq[simplified])
+      apply (subst ska.star_unfoldl_eq[simplified])
+      by (smt skd.add_assoc skd.distl skd.mult_assoc skd.mult_oner)
+    also have "... = r12\<cdot>a1\<cdot>p22 + r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22 + r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star>"
+      by (smt skd.mult_oner skd.distl skd.mult_assoc)
+    also have "... = r12\<cdot>a1\<cdot>p22 + r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22"
+      by (smt lemma41 skd.add_zeror skd.mult_zerol)
+    finally have "r12\<cdot>a1\<cdot>p22\<cdot>(!a2\<cdot>p22)\<^sup>\<star> = r12\<cdot>a1\<cdot>p22 + r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22" .
+
+    thus ?thesis
+      apply (cong, simp)
+      apply (comml1 1 6)
+      apply (simp add: seq_def skd.mult_onel)
+      by (smt skd.distl skd.distr skd.mult_assoc)
+  qed
+
+  also have "... = seq
+    [s1,a1,q211,(seq [!a2,r12,a1,p22,a2,q211] + seq [!a2,r12,a1,p22,!a2,p22,q211])\<^sup>\<star>
+    ,a2,z2, halt]"
+  proof -
+    have "r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22 = r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>\<one>"
+      by (metis skd.mult_oner)
+    also have "... = r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>(a2 + !a2)"
+      by (subst complement_one) auto
+    also have "... = r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>a2 + r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>!a2"
+      by (metis skd.distl)
+    also have "... = r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>a2"
+      by (smt lemma41 skd.add_zeror)
+    finally have "r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22 = r12\<cdot>a1\<cdot>p22\<cdot>!a2\<cdot>p22\<cdot>a2" .
+
+    thus ?thesis
+      apply cong
+      apply (rule arg_cong) back back back back
+      apply (simp add: seq_def skd.mult_onel)
+      by (smt skd.mult_assoc)
+  qed
+
+  also have "... = seq
+    [s1,a1,q211,(seq [!a2,r12,a1,p22,a2,q211] + seq [!a2,r12,a1,p22,!a2,q211])\<^sup>\<star>
+    ,a2,z2, halt]"
+  proof -
+    have "p22\<cdot>q211 = q211"
+      by (simp add: p_def q_def g_def f_def skat_assign3)
+    thus ?thesis
+      by (simp add: seq_def skd.mult_onel) (smt skd.mult_assoc)
+  qed
+
+  also have "... = seq [s1,a1,q211,(seq [!a2,r12,a1,p22,(a2 + !a2),q211])\<^sup>\<star>,a2,z2, halt]"
+    apply cong
+    apply (rule arg_cong) back back back
+    by (smt seq_cons skd.distl skd.distr)
+
+  also have "... = seq [s1,a1,q211,(seq [!a2,r12,a1,p22,q211])\<^sup>\<star>,a2,z2, halt]"
+    by (subst complement_one, auto simp add: seq_def skd.mult_onel skd.mult_oner)
+
+  also have "... = seq [s1,a1,q211,(seq [!a2,r12,a1,q211])\<^sup>\<star>,a2,z2, halt]"
+  proof -
+    have "p22\<cdot>q211 = q211"
+      by (simp add: p_def q_def g_def f_def skat_assign3)
+    thus ?thesis
+      by (simp add: seq_def skd.mult_onel) (smt skd.mult_assoc)
+  qed
+
+  also have "... = seq [d,s1,t2,(seq [!a2,c2,r12,u222])\<^sup>\<star>,a2,z2,halt]"
+  proof -
+    {
+      have "s1\<cdot>a1\<cdot>q211 = d\<cdot>s1\<cdot>q211"
+        by (simp add: s_def a_def f_def P_def d_def skat_assign4_var[symmetric])
+      also have "... = d\<cdot>s1\<cdot>t2"
+        apply (simp add: t_def s_def d_def f_def P_def q_def g_def vx_def skd.mult_assoc)
+        apply (rule arg_cong) back
+        apply (rule skat_assign2_var)
+        by auto
+      finally have "s1\<cdot>a1\<cdot>q211 = d\<cdot>s1\<cdot>t2" .
+    }
+    moreover
+    {
+      have "r12\<cdot>a1\<cdot>q211 = c2\<cdot>r12\<cdot>q211"
+        by (simp add: r_def a_def f_def P_def c_def skat_assign4_var[symmetric])
+      also have "... = c2\<cdot>r12\<cdot>u222"
+        apply (simp add: c_def r_def u_def f_def P_def q_def g_def vx_def skd.mult_assoc)
+        apply (rule arg_cong) back
+        apply (rule skat_assign2_var)
+        by auto
+      finally have "r12\<cdot>a1\<cdot>q211 = c2\<cdot>r12\<cdot>u222" .
+    }
+    ultimately show ?thesis
+      by (simp add: seq_def skd.mult_onel) (smt skd.mult_assoc)
+  qed
+
+  also have "... = seq [d,t2,(seq [!a2,c2,u222])\<^sup>\<star>,a2,z2,halt]"
+    by (eliminate_variable 1)
+
+  also have "... = seq [s2,a2,q222,(seq [!a2,r22,a2,q222])\<^sup>\<star>,a2,z2,halt]"
+  proof -
+    {
+      have "d\<cdot>t2 = d\<cdot>s2\<cdot>q222"
+        by (simp add: g_def d_def t_def s_def q_def skd.mult_assoc, subst skat_assign3, auto)
+      also have "... = s2\<cdot>a2\<cdot>q222"
+        by (simp add: d_def s_def a_def f_def P_def skat_assign4_var[symmetric])
+      finally have "d\<cdot>t2 = s2\<cdot>a2\<cdot>q222" .
+    }
+    moreover
+    {
+      have "c2\<cdot>u222 = c2\<cdot>r22\<cdot>q222"
+        by (simp add: g_def c_def u_def r_def q_def skd.mult_assoc, subst skat_assign3, auto)
+      also have "... = r22\<cdot>a2\<cdot>q222"
+        by (simp add: f_def P_def a_def r_def c_def skat_assign4_var[symmetric])
+      finally have "c2\<cdot>u222 = r22\<cdot>a2\<cdot>q222" .
+    }
+    ultimately show "?thesis"
+      by (simp add: seq_def skd.mult_onel) (smt skd.mult_assoc)
+  qed
 
   also have "... = seq scheme2"
-    sorry
+    by (simp add: scheme2_def) skat_simp
 
   finally show ?thesis .
 qed
